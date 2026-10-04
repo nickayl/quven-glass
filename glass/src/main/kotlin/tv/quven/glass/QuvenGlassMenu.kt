@@ -19,6 +19,9 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -43,6 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.awaitCancellation
 import kotlin.math.roundToInt
 
 /**
@@ -62,7 +66,8 @@ import kotlin.math.roundToInt
  * @property dividerSpace The room above and below a divider.
  * @property labelSize The size of a row's name.
  * @property titleSize The size of a section's title.
- * @property highlightInset The room between the menu's sides and a pressed row's highlight.
+ * @property highlightInset The room between the menu's sides and a held row's highlight, a capsule as tall as the row
+ * less a sliver above and below.
  */
 @Immutable
 public data class QuvenGlassMenuMetrics(
@@ -97,7 +102,7 @@ public data class QuvenGlassMenuMetrics(
             dividerSpace = 8.dp,
             labelSize = 15.sp,
             titleSize = 12.sp,
-            highlightInset = 8.dp,
+            highlightInset = 13.dp,
         )
 
         /** Gets the layout of a menu on a phone, as iOS lays out its system menus. */
@@ -115,7 +120,7 @@ public data class QuvenGlassMenuMetrics(
             dividerSpace = 9.5.dp,
             labelSize = 17.sp,
             titleSize = 13.sp,
-            highlightInset = 8.dp,
+            highlightInset = 14.dp,
         )
     }
 }
@@ -127,7 +132,8 @@ public data class QuvenGlassMenuMetrics(
  * @property title The colour of a section's title.
  * @property divider The colour of the line between sections.
  * @property destructive The colour of a row whose action cannot be undone.
- * @property highlight The colour of a pressed row's highlight.
+ * @property highlight The colour of a held row's highlight.
+ * @property pressWash The colour laid over the whole menu while a row is pressed.
  */
 @Immutable
 public data class QuvenGlassMenuColors(
@@ -135,7 +141,8 @@ public data class QuvenGlassMenuColors(
     val title: Color = Color(0x8CFFFFFF),
     val divider: Color = Color(0x2EFFFFFF),
     val destructive: Color = Color(0xFFFF6B6E),
-    val highlight: Color = Color(0x1FFFFFFF),
+    val highlight: Color = Color(0x29FFFFFF),
+    val pressWash: Color = Color(0x26FFFFFF),
 ) {
     public companion object {
         /** Gets the colours of Apple's system menus on dark glass. */
@@ -162,8 +169,20 @@ public fun QuvenGlassMenu(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val look = remember(metrics, colors, textStyle) { MenuLook(metrics, colors, textStyle) }
+    val pressed = look.pressedRows > 0
+    val wash by animateFloatAsState(
+        if (pressed) 1f else 0f,
+        tween(if (pressed) WashInMillis else WashOutMillis),
+        label = "wash",
+    )
     CompositionLocalProvider(LocalMenuLook provides look) {
-        Column(modifier.fillMaxWidth().padding(vertical = metrics.verticalInset), content = content)
+        Column(
+            modifier
+                .fillMaxWidth()
+                .drawBehind { if (wash > 0f) drawRect(colors.pressWash, alpha = wash) }
+                .padding(vertical = metrics.verticalInset),
+            content = content,
+        )
     }
 }
 
@@ -225,7 +244,21 @@ public fun QuvenGlassMenuItem(
     val ink = color.takeOrElse { if (destructive) look.colors.destructive else look.colors.label }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    val lit by animateFloatAsState(if (pressed) 1f else 0f, if (pressed) snap() else tween(HighlightFadeMillis), label = "highlight")
+    // A row lights only once a press has lasted, as a touch that goes on to drag the menu never lights one.
+    val lit by animateFloatAsState(
+        if (pressed) 1f else 0f,
+        if (pressed) tween(HighlightFadeMillis, delayMillis = HighlightDelayMillis) else snap(),
+        label = "highlight",
+    )
+    LaunchedEffect(pressed) {
+        if (!pressed) return@LaunchedEffect
+        look.pressedRows++
+        try {
+            awaitCancellation()
+        } finally {
+            look.pressedRows--
+        }
+    }
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -233,12 +266,13 @@ public fun QuvenGlassMenuItem(
             .drawBehind {
                 if (lit > 0f) {
                     val inset = metrics.highlightInset.toPx()
-                    val radius = (metrics.cornerRadius - metrics.highlightInset).toPx().coerceAtMost(size.height / 2f)
+                    val sliver = HighlightSliver.toPx()
+                    val height = size.height - 2f * sliver
                     drawRoundRect(
                         color = look.colors.highlight,
-                        topLeft = Offset(inset, 0f),
-                        size = Size(size.width - 2f * inset, size.height),
-                        cornerRadius = CornerRadius(radius),
+                        topLeft = Offset(inset, sliver),
+                        size = Size(size.width - 2f * inset, height),
+                        cornerRadius = CornerRadius(height / 2f),
                         alpha = lit,
                     )
                 }
@@ -296,12 +330,18 @@ public fun QuvenGlassMenuDivider(modifier: Modifier = Modifier) {
     )
 }
 
-/** The layout, colours and text style the entries of a [QuvenGlassMenu] read. */
-private class MenuLook(val metrics: QuvenGlassMenuMetrics, val colors: QuvenGlassMenuColors, val textStyle: TextStyle)
+/** The layout, colours and text style the entries of a [QuvenGlassMenu] read, and how many of its rows are pressed. */
+private class MenuLook(val metrics: QuvenGlassMenuMetrics, val colors: QuvenGlassMenuColors, val textStyle: TextStyle) {
+    var pressedRows by mutableIntStateOf(0)
+}
 
 private val LocalMenuLook = staticCompositionLocalOf {
     MenuLook(QuvenGlassMenuMetrics.Phone, QuvenGlassMenuColors.Standard, TextStyle.Default)
 }
 
 private val TrailingGap = 8.dp
-private const val HighlightFadeMillis = 200
+private const val HighlightFadeMillis = 180
+private const val HighlightDelayMillis = 150
+private const val WashInMillis = 50
+private const val WashOutMillis = 150
+private val HighlightSliver = 1.5.dp

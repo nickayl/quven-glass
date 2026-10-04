@@ -239,6 +239,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
 | Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content fading in and coming into focus from a quarter of the way |
 | Menu closing | Back into its button in about 165 ms on an almost even ease, with no bounce |
+| Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a
