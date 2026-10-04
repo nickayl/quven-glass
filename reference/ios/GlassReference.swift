@@ -18,6 +18,8 @@ struct GlassReferenceApp: App {
                 ControlsProbe()
             } else if ReferenceLaunch.menus {
                 MenusProbe()
+            } else if let exhibit = ReferenceLaunch.exhibit {
+                GalleryScreen(showing: exhibit)
             } else if ReferenceLaunch.measuring {
                 ReferenceScreen()
             } else {
@@ -74,6 +76,15 @@ enum ReferenceLaunch {
     static let probeSizes: [CGFloat] = (ProcessInfo.processInfo.environment["GLASS_PROBE_SIZES"] ?? "36,51,70,100")
         .split(separator: ",")
         .compactMap { Double($0).map { CGFloat($0) } }
+    /// The glass the probe draws: `regular`, `clear`, or a tint as `tint:RRGGBB` or `clear-tint:RRGGBB`
+    /// (`GLASS_PROBE_GLASS`); regular unless named.
+    static let probeGlass: Glass = {
+        let name = ProcessInfo.processInfo.environment["GLASS_PROBE_GLASS"] ?? "regular"
+        let parts = name.split(separator: ":")
+        let base: Glass = parts.first.map { $0.hasPrefix("clear") } == true ? .clear : .regular
+        guard parts.count == 2, let rgb = UInt32(parts[1], radix: 16) else { return base }
+        return base.tint(Color(argb: 0xFF00_0000 | rgb))
+    }()
     /// Whether each probe circle carries a glyph in the primary style beside one in explicit white.
     static let probeInk = ProcessInfo.processInfo.environment["GLASS_PROBE_INK"] != nil
     /// The seconds to keep every frame of the region for, a second after launch, whatever is pressed, or `nil` for none.
@@ -91,6 +102,11 @@ enum ReferenceLaunch {
     /// from the Home Screen it shows the gallery.
     static let measuring = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("GLASS_") }
         || ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-GLASS_") }
+    /// The gallery exhibit to open on, named as its case (`GLASS_EXHIBIT=clearAndTinted`), captured as `GLASS_CAPTURE`
+    /// and `GLASS_WINDOW` say, or `nil` for none.
+    static let exhibit = ProcessInfo.processInfo.environment["GLASS_EXHIBIT"].flatMap { name in
+        Exhibit.allCases.first { String(describing: $0) == name }
+    }
     /// The scroll offsets, in points, to capture one after the other.
     static let scrolls: [CGFloat] = (ProcessInfo.processInfo.environment["GLASS_SCROLLS"] ?? "")
         .split(separator: ",")
@@ -211,10 +227,7 @@ struct ReferenceScreen: View {
             guard await screen.start() else { return }
             if let seconds = ReferenceLaunch.window {
                 position = ScrollPosition(y: ReferenceLaunch.scroll)
-                try? await Task.sleep(for: .seconds(1))
-                screen.beginRecording(region: ReferenceLaunch.region)
-                try? await Task.sleep(for: .seconds(seconds))
-                await ScreenCapture.write(screen.endRecording(), named: "\(name)-window")
+                await screen.keepWindow(named: name, seconds: seconds)
                 screen.stop()
                 return
             }
@@ -307,6 +320,16 @@ final class ScreenCapture: @unchecked Sendable {
     /// Returns the frames kept so far and goes on keeping them.
     func recorded() -> [Frame] {
         lock.withLock { reel ?? [] }
+    }
+
+    /// Keeps every frame of `ReferenceLaunch.region` for `seconds`, from a second after it is called, written as
+    /// `<name>-window-000.png` onwards.
+    @MainActor
+    func keepWindow(named name: String, seconds: Double) async {
+        try? await Task.sleep(for: .seconds(1))
+        beginRecording(region: ReferenceLaunch.region)
+        try? await Task.sleep(for: .seconds(seconds))
+        await Self.write(endRecording(), named: "\(name)-window")
     }
 
     /// Keeps, for each of the first `ReferenceLaunch.taps` presses `presses` tells, a clip of the launch region from a
@@ -652,7 +675,7 @@ struct MaterialProbe: View {
                             ProbeInk(shown: ReferenceLaunch.probeInk)
                                 .font(.system(size: size * 0.24, weight: .semibold))
                                 .frame(width: size, height: size)
-                                .glassEffect(interactive ? .regular.interactive() : .regular, in: Circle())
+                                .glassEffect(interactive ? ReferenceLaunch.probeGlass.interactive() : ReferenceLaunch.probeGlass, in: Circle())
                         }
                     }
                 }
@@ -902,9 +925,9 @@ enum ExhibitStatus: CaseIterable {
 
 /// One of the system's Liquid Glass elements, in the order and under the names the Android sample's gallery lists them.
 enum Exhibit: CaseIterable, Identifiable {
-    case material, glassButtons, tabBar, segmentedControl, joiningGlass, menus, morphingPanel
-    case contextMenu, submenus, capsuleButtons, toolbar, toggle, slider, sheet, alert, popover, search
-    case minimizingTabBar, bottomAccessory, scrollEdge, clearAndTinted, touchLight, textMenu
+    case material, glassButtons, tabBar, segmentedControl, joiningGlass, menus, morphingPanel, clearAndTinted, capsuleButtons
+    case contextMenu, submenus, toolbar, toggle, slider, sheet, alert, popover, search
+    case minimizingTabBar, bottomAccessory, scrollEdge, touchLight, textMenu
     case adaptiveSidebar
 
     var id: Self { self }
@@ -982,7 +1005,8 @@ enum Exhibit: CaseIterable, Identifiable {
     /// How far along the Android library is with the element.
     var status: ExhibitStatus {
         switch self {
-        case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel: .ready
+        case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
+             .capsuleButtons: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
@@ -991,7 +1015,13 @@ enum Exhibit: CaseIterable, Identifiable {
 
 /// Lists the system's Liquid Glass elements beside the one chosen, each drawn by the system over hard content.
 struct GalleryScreen: View {
-    @State private var chosen = Exhibit.material
+    @State private var chosen: Exhibit
+
+    /// Creates the gallery.
+    /// - Parameter exhibit: The exhibit shown first.
+    init(showing exhibit: Exhibit = .material) {
+        _chosen = State(initialValue: exhibit)
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -1001,6 +1031,18 @@ struct GalleryScreen: View {
         }
         .background(Palette.ground)
         .preferredColorScheme(.dark)
+        .task {
+            guard let name = ReferenceLaunch.capture, ReferenceLaunch.exhibit != nil else { return }
+            let screen = ScreenCapture()
+            guard await screen.start() else { return }
+            if let seconds = ReferenceLaunch.window {
+                await screen.keepWindow(named: name, seconds: seconds)
+            } else {
+                try? await Task.sleep(for: .seconds(1.5))
+                screen.save(named: name)
+            }
+            screen.stop()
+        }
     }
 }
 
@@ -1109,6 +1151,19 @@ struct OverBackdrop<Content: View>: View {
         ZStack(alignment: alignment) {
             StageBackdrop()
             content.padding(24)
+        }
+    }
+}
+
+extension View {
+    /// Prints this view's frame in the window as `FRAME <name> x y width height`, in points, when the app was launched
+    /// with `GLASS_FRAMES`, so a measurement reads the system's own geometry.
+    /// - Parameter name: The name the line carries.
+    /// - Returns: The view, reporting its frame.
+    func reportsFrame(_ name: String) -> some View {
+        onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
+            guard ProcessInfo.processInfo.environment["GLASS_FRAMES"] != nil else { return }
+            print("FRAME \(name) \(frame.minX) \(frame.minY) \(frame.width) \(frame.height)")
         }
     }
 }
@@ -1388,19 +1443,25 @@ struct CapsuleButtonsStage: View {
     var body: some View {
         VStack(spacing: 22) {
             HStack(spacing: 16) {
-                Button("Play") {}.buttonStyle(.glass)
-                Button("Play", systemImage: "play.fill") {}.buttonStyle(.glass)
-                Button {} label: { Image(systemName: "heart.fill") }.buttonStyle(.glass)
+                Button {} label: { Text("Play").reportsFrame("play.label") }.buttonStyle(.glass).reportsFrame("play")
+                Button {} label: {
+                    Label { Text("Play").reportsFrame("playIcon.text") } icon: { Image(systemName: "play.fill").reportsFrame("playIcon.icon") }
+                }
+                .buttonStyle(.glass)
+                .reportsFrame("playIcon")
+                Button {} label: { Image(systemName: "heart.fill").reportsFrame("heart.label") }.buttonStyle(.glass).reportsFrame("heart")
+                Button {} label: { Text("Small").reportsFrame("small.label") }.buttonStyle(.glass).controlSize(.small).reportsFrame("small")
+                Button {} label: { Text("Mini").reportsFrame("mini.label") }.buttonStyle(.glass).controlSize(.mini).reportsFrame("mini")
             }
             HStack(spacing: 16) {
-                Button("Buy") {}.buttonStyle(.glassProminent)
-                Button("Download", systemImage: "arrow.down") {}.buttonStyle(.glassProminent).tint(Palette.accent)
-                Button("Delete", role: .destructive) {}.buttonStyle(.glassProminent).tint(.red)
+                Button("Buy") {}.buttonStyle(.glassProminent).reportsFrame("buy")
+                Button("Download", systemImage: "arrow.down") {}.buttonStyle(.glassProminent).tint(Palette.accent).reportsFrame("download")
+                Button("Delete", role: .destructive) {}.buttonStyle(.glassProminent).tint(.red).reportsFrame("delete")
             }
             HStack(spacing: 16) {
-                Button("Large") {}.buttonStyle(.glass).controlSize(.large)
-                Button("Extra large") {}.buttonStyle(.glass).controlSize(.extraLarge)
-                Button("Prominent", systemImage: "star.fill") {}.buttonStyle(.glassProminent).controlSize(.extraLarge)
+                Button {} label: { Text("Large").reportsFrame("large.label") }.buttonStyle(.glass).controlSize(.large).reportsFrame("large")
+                Button {} label: { Text("Extra large").reportsFrame("xl.label") }.buttonStyle(.glass).controlSize(.extraLarge).reportsFrame("xl")
+                Button("Prominent", systemImage: "star.fill") {}.buttonStyle(.glassProminent).controlSize(.extraLarge).reportsFrame("prominentXL")
             }
         }
     }

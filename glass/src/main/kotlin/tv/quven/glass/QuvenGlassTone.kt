@@ -29,5 +29,8 @@ public data class QuvenGlassTone(
 
         /** Gets the tone of thin glass turned light over a bright backdrop. */
         public val Light: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFFF5F5F5), lean = 0.82f, saturation = 3.27f)
+
+        /** Gets the tone of clear glass, which leans towards no shade and leaves the backdrop's colours as they are. */
+        public val Clear: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFF808080), lean = 0f, saturation = 1f)
     }
 }

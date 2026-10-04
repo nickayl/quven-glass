@@ -86,6 +86,16 @@ internal val Exhibits: List<Exhibit> = listOf(
         ExhibitStatus.Ready,
     ) { MorphingPanelExhibit(it) },
     Exhibit(
+        "Clear and tinted glass",
+        "The clear variant, which lets bright media through, and glass tinted with a colour.",
+        ExhibitStatus.Ready,
+    ) { ClearAndTintedExhibit(it) },
+    Exhibit(
+        "Capsule buttons",
+        "Buttons of clear glass and of prominent, tinted glass, holding a name, a glyph or both.",
+        ExhibitStatus.Ready,
+    ) { CapsuleButtonsExhibit(it) },
+    Exhibit(
         "Context menu",
         "A long press lifts the card out of the page, dims the rest and opens the card's menu beside it.",
         ExhibitStatus.InDevelopment,
@@ -93,11 +103,6 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Submenus",
         "An entry that opens a second menu at the first one's side, and entries that carry a second line.",
-        ExhibitStatus.InDevelopment,
-    ),
-    Exhibit(
-        "Capsule buttons",
-        "Buttons of clear glass and of prominent, tinted glass, holding a name, a glyph or both.",
         ExhibitStatus.InDevelopment,
     ),
     Exhibit(
@@ -148,11 +153,6 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Scroll edge",
         "Content fades and blurs as it passes under the bars at the top and bottom of a page.",
-        ExhibitStatus.InDevelopment,
-    ),
-    Exhibit(
-        "Clear and tinted glass",
-        "The clear variant, which lets bright media through, and glass tinted with a colour.",
         ExhibitStatus.InDevelopment,
     ),
     Exhibit(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -27,12 +28,14 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,6 +46,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInParent
@@ -55,6 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.QuvenGlassButton
+import tv.quven.glass.QuvenGlassButtonSize
 import tv.quven.glass.QuvenGlassContainer
 import tv.quven.glass.QuvenGlassMenuBox
 import tv.quven.glass.QuvenGlassMenuChoice
@@ -64,7 +70,9 @@ import tv.quven.glass.QuvenGlassMenuItem
 import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
+import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.quvenLiquidGlass
+import tv.quven.glass.rememberQuvenGlassAppearance
 import tv.quven.glass.rememberQuvenGlassMorphState
 
 /**
@@ -225,6 +233,109 @@ internal fun BoxScope.MorphingPanelExhibit(tuning: SampleTuning) {
 }
 
 /**
+ * Draws regular, clear and tinted glass side by side, each named under it.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
+    Row(
+        Modifier.align(Alignment.Center),
+        horizontalArrangement = Arrangement.spacedBy(ExhibitGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlassVariants.forEach { (name, style) ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(
+                    Modifier
+                        .size(VariantDiameter)
+                        .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, style, CircleShape, reduceMotion = tuning.reduceMotion),
+                )
+                GlassCaption(name, tuning)
+            }
+        }
+    }
+}
+
+/**
+ * Draws capsule buttons of plain and prominent glass in three sizes, as the reference lays out Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
+    val play = rememberVectorPainter(Icons.Filled.PlayArrow)
+    val heart = rememberVectorPainter(Icons.Filled.Favorite)
+    val down = rememberVectorPainter(Icons.Filled.KeyboardArrowDown)
+    val star = rememberVectorPainter(Icons.Filled.Star)
+    Column(
+        Modifier.align(Alignment.Center),
+        verticalArrangement = Arrangement.spacedBy(22.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        ButtonRow {
+            QuvenGlassButton(onClick = {}, label = "Play", reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Play", icon = play, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, icon = heart, contentDescription = "Favorite", reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Small", size = QuvenGlassButtonSize.Small, reduceMotion = tuning.reduceMotion)
+        }
+        ButtonRow {
+            QuvenGlassButton(onClick = {}, label = "Buy", tint = SystemBlue, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Download", icon = down, tint = SampleColors.Accent, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Delete", tint = SystemRed, reduceMotion = tuning.reduceMotion)
+        }
+        ButtonRow {
+            QuvenGlassButton(onClick = {}, label = "Large", size = QuvenGlassButtonSize.Large, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Extra large", size = QuvenGlassButtonSize.Large, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(
+                onClick = {},
+                label = "Prominent",
+                icon = star,
+                size = QuvenGlassButtonSize.Large,
+                tint = SystemBlue,
+                reduceMotion = tuning.reduceMotion,
+            )
+        }
+    }
+}
+
+/**
+ * Lays out a row of buttons, centred on one another.
+ *
+ * @param content The buttons.
+ */
+@Composable
+private fun ButtonRow(content: @Composable RowScope.() -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+}
+
+/**
+ * Draws a short name on a capsule of glass, readable over any content.
+ *
+ * @param text The name.
+ * @param tuning The live settings.
+ */
+@Composable
+private fun GlassCaption(text: String, tuning: SampleTuning) {
+    val appearance = rememberQuvenGlassAppearance()
+    Text(
+        text,
+        color = appearance.contentColor(SampleColors.TextHigh, SampleColors.TextHighOnLight),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .quvenLiquidGlass(
+                LocalQuvenGlassBackdrop.current,
+                QuvenGlassStyle.Standard,
+                CircleShape,
+                reduceMotion = tuning.reduceMotion,
+                appearance = appearance,
+            )
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+    )
+}
+
+/**
  * Draws the card of an exhibit the library does not draw yet, pointing to the reference that shows Apple's element.
  *
  * @param exhibit The exhibit.
@@ -309,3 +420,12 @@ private val PanelMaxHeight = 560.dp
 private val PanelCornerRadius = 28.dp
 private val PendingCardWidth = 440.dp
 private val PendingCardPadding = 28.dp
+private val VariantDiameter = 100.dp
+private val SystemBlue = Color(0xFF0091FF)
+private val SystemRed = Color(0xFFFF453A)
+private val GlassVariants: List<Pair<String, QuvenGlassStyle>> = listOf(
+    "Regular" to QuvenGlassStyle.Standard,
+    "Clear" to QuvenGlassStyle.Clear,
+    "Tinted" to QuvenGlassStyle.Standard.tinted(SampleColors.Accent),
+    "Clear, tinted" to QuvenGlassStyle.Clear.tinted(Color(0xFF2979FF)),
+)

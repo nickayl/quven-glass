@@ -33,7 +33,9 @@ import androidx.compose.ui.unit.dp
  * @property thickSize The shorter side at and above which a surface is thick glass.
  * @property lightTone The tone of thin glass turned light over a bright backdrop.
  * @property adaptation When thin glass turns light and back.
- * @property tint The colour laid over the toned backdrop, by its alpha.
+ * @property tint The colour laid over the toned backdrop, by its alpha; [tinted] sets it at the material's own strength.
+ * @property tintStrength How much of a tint [tinted] lays over the glass, from 0 to 1.
+ * @property brighten The share of white added to everything the glass shows, as clear glass lightens what it stands over.
  * @property blur The radius of the blur applied to the backdrop.
  * @property backdropScale The resolution the backdrop is recorded and blurred at, as a share of the screen's, from 0.25
  * to 1; the outline, the fold and the rim are always drawn at full resolution.
@@ -78,6 +80,8 @@ public data class QuvenGlassStyle(
     val lightTone: QuvenGlassTone = QuvenGlassTone.Light,
     val adaptation: QuvenGlassAdaptation = QuvenGlassAdaptation(),
     val tint: Color = Color.Transparent,
+    val tintStrength: Float = 0.95f,
+    val brighten: Float = 0f,
     val blur: Dp = 4.5.dp,
     val backdropScale: Float = 0.5f,
     val refraction: Dp = 22.dp,
@@ -105,8 +109,29 @@ public data class QuvenGlassStyle(
      */
     public fun <T> slideSpring(): SpringSpec<T> = spring(dampingRatio = slideDamping, stiffness = slideStiffness)
 
+    /**
+     * Returns this material tinted with [color], as Apple's glass takes a tint: nearly opaque on regular glass, letting
+     * a fifth of the backdrop through on clear glass.
+     *
+     * @param color The tint; its own alpha is replaced by the material's [tintStrength].
+     * @return The tinted material.
+     */
+    public fun tinted(color: Color): QuvenGlassStyle = copy(tint = color.copy(alpha = tintStrength))
+
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
         public val Standard: QuvenGlassStyle = QuvenGlassStyle()
+
+        /**
+         * Gets Apple's clear glass: the same fold and blur as [Standard], without its tone, lightening what it stands
+         * over, for glass standing over bright media.
+         */
+        public val Clear: QuvenGlassStyle = QuvenGlassStyle(
+            thinTone = QuvenGlassTone.Clear,
+            thickTone = QuvenGlassTone.Clear,
+            lightTone = QuvenGlassTone.Clear,
+            tintStrength = 0.8f,
+            brighten = 0.086f,
+        )
     }
 }

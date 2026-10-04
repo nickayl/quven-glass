@@ -41,6 +41,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     LightPlatter("lightPlatter", 4),
     PressGlow("pressGlow", 1),
     RimGlow("rimGlow", 1),
+    Brighten("brighten", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -86,6 +87,7 @@ uniform float4 platter;
 uniform float4 lightPlatter;
 uniform float pressGlow;
 uniform float rimGlow;
+uniform float brighten;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -250,7 +252,7 @@ half4 main(float2 coord) {
     float lean = clamp(mix(darkLean, lightLean.x + lightLean.y * lit, lightShare), 0.0, 1.0);
     rgb = mix(rgb, tone.rgb, lean);
     float own = luma(rgb);
-    rgb = clamp(mix(float3(own), rgb, tone.a), 0.0, 1.0);
+    rgb = clamp(mix(float3(own), rgb, tone.a) + brighten, 0.0, 1.0);
     rgb = mix(rgb, tint.rgb, tint.a);
 
     for (int i = 0; i < 4; i++) {
@@ -401,6 +403,7 @@ internal class LiquidGlassShader private constructor() {
             setColor(LiquidGlassUniform.LightPlatter, style.lightPlatter)
             setFloatUniform(LiquidGlassUniform.PressGlow.uniform, style.pressGlow)
             setFloatUniform(LiquidGlassUniform.RimGlow.uniform, style.rimGlow)
+            setFloatUniform(LiquidGlassUniform.Brighten.uniform, style.brighten)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

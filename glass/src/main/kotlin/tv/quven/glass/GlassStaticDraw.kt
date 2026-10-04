@@ -15,7 +15,8 @@ import androidx.compose.ui.unit.dp
 private val StaticRimWidth = 1.dp
 
 /**
- * Draws the static frost of [style] filling [outline]: the ground, the frost fading towards the foot and the rim.
+ * Draws the static frost of [style] filling [outline]: the ground, the frost fading towards the foot, the tint and the
+ * rim.
  *
  * @param outline The surface's outline.
  * @param style The material.
@@ -27,6 +28,7 @@ internal fun DrawScope.drawFrost(outline: Outline, style: QuvenGlassStyle, path:
     path.addOutline(outline)
     drawPath(path, style.ground)
     drawPath(path, Brush.verticalGradient(0f to style.trackTop, 1f to style.trackBottom, startY = bounds.top, endY = bounds.bottom))
+    if (style.tint.alpha > 0f) drawPath(path, style.tint)
     drawRim(path, Brush.verticalGradient(0f to style.rimTop, 1f to style.rimBottom, startY = bounds.top, endY = bounds.bottom))
 }
 
