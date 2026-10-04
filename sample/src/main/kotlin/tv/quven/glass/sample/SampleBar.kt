@@ -40,12 +40,12 @@ private class BarEntry(val label: String, val icon: ImageVector)
 
 private val Entries = listOf(
     BarEntry("Home", Icons.Filled.Home),
-    BarEntry("Film", Icons.Filled.PlayArrow),
-    BarEntry("Serie", Icons.Filled.Star),
-    BarEntry("Documentari", Icons.Filled.Info),
-    BarEntry("Altro", Icons.Filled.MoreVert),
+    BarEntry("Watch", Icons.Filled.PlayArrow),
+    BarEntry("Favorites", Icons.Filled.Star),
+    BarEntry("Explore", Icons.Filled.Info),
+    BarEntry("More", Icons.Filled.MoreVert),
 )
-private val SearchEntry = BarEntry("Cerca", Icons.Filled.Search)
+private val SearchEntry = BarEntry("Search", Icons.Filled.Search)
 private val EntrySize = DpSize(96.dp, 62.dp)
 
 /**

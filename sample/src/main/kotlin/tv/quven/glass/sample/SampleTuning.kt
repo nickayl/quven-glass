@@ -34,7 +34,7 @@ internal object SampleColors {
 internal class SampleTuning {
 
     /** Gets or sets the material every surface draws. */
-    var style: QuvenGlassStyle by mutableStateOf(QuvenBarStyle)
+    var style: QuvenGlassStyle by mutableStateOf(BarStyle)
 
     /** Gets or sets a value indicating whether the surfaces draw Liquid Glass; otherwise they draw the static material. */
     var liquid: Boolean by mutableStateOf(true)
@@ -50,7 +50,7 @@ internal class SampleTuning {
 
     companion object {
         /** Gets the material of a handheld bar: the standard glass, its static form on a dark ground with quieter rims. */
-        val QuvenBarStyle = QuvenGlassStyle.Standard.copy(
+        val BarStyle = QuvenGlassStyle.Standard.copy(
             ground = SampleColors.Ground.copy(alpha = 0.55f),
             rimTop = Color(0x26FFFFFF),
             rimBottom = Color(0x0AFFFFFF),

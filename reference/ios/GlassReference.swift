@@ -169,14 +169,14 @@ struct ReferenceScreen: View {
                 HStack(spacing: 12) {
                     Menu {
                         Section("Library") {
-                            Button("Playlists", systemImage: "play.rectangle.on.rectangle.fill") {}
-                            Button("Watchlist", systemImage: "bookmark.fill") {}
-                            Button("Reading list", systemImage: "books.vertical.fill") {}
+                            Button("Collections", systemImage: "play.rectangle.on.rectangle.fill") {}
+                            Button("Saved", systemImage: "bookmark.fill") {}
+                            Button("Bookshelf", systemImage: "books.vertical.fill") {}
                         }
                         Section("Account") {
-                            Button("My profile", systemImage: "person.fill") {}
-                            Button("Switch profile", systemImage: "arrow.triangle.2.circlepath") {}
-                            Button("Switch server", systemImage: "rectangle.2.swap") {}
+                            Button("Profile", systemImage: "person.fill") {}
+                            Button("Sync", systemImage: "arrow.triangle.2.circlepath") {}
+                            Button("Switch view", systemImage: "rectangle.2.swap") {}
                             Button("Settings", systemImage: "gearshape.fill") {}
                             Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {}
                         }
@@ -537,10 +537,10 @@ struct BarEntry: Identifiable {
 
 let entries = [
     BarEntry(label: "Home", symbol: "house.fill"),
-    BarEntry(label: "Film", symbol: "play.fill"),
-    BarEntry(label: "Serie", symbol: "star.fill"),
-    BarEntry(label: "Documentari", symbol: "info.circle.fill"),
-    BarEntry(label: "Altro", symbol: "ellipsis"),
+    BarEntry(label: "Watch", symbol: "play.fill"),
+    BarEntry(label: "Favorites", symbol: "star.fill"),
+    BarEntry(label: "Explore", symbol: "info.circle.fill"),
+    BarEntry(label: "More", symbol: "ellipsis"),
 ]
 
 /// A tablet bar: five entries in a glass capsule with a sliding platter, Search in a glass circle beside it.
@@ -564,7 +564,7 @@ struct ReferenceBar: View {
                 .padding(4)
                 .glassEffect(.regular.interactive(), in: Capsule())
 
-                face(BarEntry(label: "Cerca", symbol: "magnifyingglass"), selected: false, showsLabel: false)
+                face(BarEntry(label: "Search", symbol: "magnifyingglass"), selected: false, showsLabel: false)
                     .padding(4)
                     .glassEffect(.regular.interactive(), in: Circle())
             }

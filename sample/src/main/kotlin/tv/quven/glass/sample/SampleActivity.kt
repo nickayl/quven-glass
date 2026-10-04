@@ -73,7 +73,7 @@ class SampleActivity : ComponentActivity() {
             panelOpen = intent.getBooleanExtra(SampleLaunch.Panel, true),
             tab = intent.getIntExtra(SampleLaunch.Tab, 0),
             gap = intent.getFloatExtra(SampleLaunch.Gap, 8f),
-            style = Knobs.fold(SampleTuning.QuvenBarStyle) { style, knob ->
+            style = Knobs.fold(SampleTuning.BarStyle) { style, knob ->
                 val value = intent.getFloatExtra(knob.key, Float.NaN)
                 if (value.isNaN()) style else knob.write(style, value)
             },
@@ -231,14 +231,14 @@ private fun GearFace() {
 private fun SampleMenu(onChoose: () -> Unit) {
     QuvenGlassMenu(metrics = QuvenGlassMenuMetrics.Tablet) {
         QuvenGlassMenuTitle("Library")
-        QuvenGlassMenuItem("Playlists", onChoose, icon = rememberVectorPainter(Icons.Filled.PlayArrow))
-        QuvenGlassMenuItem("Watchlist", onChoose, icon = rememberVectorPainter(Icons.Filled.Favorite))
-        QuvenGlassMenuItem("Reading list", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
+        QuvenGlassMenuItem("Collections", onChoose, icon = rememberVectorPainter(Icons.Filled.PlayArrow))
+        QuvenGlassMenuItem("Saved", onChoose, icon = rememberVectorPainter(Icons.Filled.Favorite))
+        QuvenGlassMenuItem("Bookshelf", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
         QuvenGlassMenuDivider()
         QuvenGlassMenuTitle("Account")
-        QuvenGlassMenuItem("My profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Person))
-        QuvenGlassMenuItem("Switch profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Refresh))
-        QuvenGlassMenuItem("Switch server", onChoose, icon = rememberVectorPainter(Icons.Filled.Share))
+        QuvenGlassMenuItem("Profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Person))
+        QuvenGlassMenuItem("Sync", onChoose, icon = rememberVectorPainter(Icons.Filled.Refresh))
+        QuvenGlassMenuItem("Switch view", onChoose, icon = rememberVectorPainter(Icons.Filled.Share))
         QuvenGlassMenuItem("Settings", onChoose, icon = rememberVectorPainter(Icons.Filled.Settings))
         QuvenGlassMenuItem("Sign out", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp), destructive = true)
     }

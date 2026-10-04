@@ -181,7 +181,7 @@ QuvenGlassMorph(
 ) {
     QuvenGlassMenu(metrics = metrics) {
         QuvenGlassMenuTitle("Library")
-        QuvenGlassMenuItem("Playlists", onClick = { open = false }, icon = painterResource(R.drawable.playlists))
+        QuvenGlassMenuItem("Collections", onClick = { open = false }, icon = painterResource(R.drawable.collections))
         QuvenGlassMenuDivider()
         QuvenGlassMenuItem("Sign out", onClick = { signOut() }, destructive = true)
     }

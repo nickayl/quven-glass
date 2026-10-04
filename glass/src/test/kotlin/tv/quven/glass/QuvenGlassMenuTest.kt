@@ -53,7 +53,7 @@ class QuvenGlassMenuTest {
         assertEquals(18f, middleOf(drawn("Library")), 1f)
         assertEquals(37f, tagged("first").top.value, 0.5f)
         assertEquals(42f, heightOf(tagged("first")), 0.5f)
-        assertEquals(62f, drawn("Playlists").left.value, 0.5f)
+        assertEquals(62f, drawn("Collections").left.value, 0.5f)
     }
 
     @Test
@@ -124,8 +124,8 @@ class QuvenGlassMenuTest {
             CompositionLocalProvider(LocalDensity provides Density(1f), LocalHapticFeedback provides haptics) {
                 QuvenGlassMenu(Modifier.width(metrics.width), metrics = metrics) {
                     QuvenGlassMenuTitle("Library")
-                    QuvenGlassMenuItem("Playlists", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
-                    QuvenGlassMenuItem("Watchlist", onSecond, Modifier.testTag("second"))
+                    QuvenGlassMenuItem("Collections", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
+                    QuvenGlassMenuItem("Saved", onSecond, Modifier.testTag("second"))
                     QuvenGlassMenuDivider(Modifier.testTag("divider"))
                     QuvenGlassMenuTitle("Account")
                     QuvenGlassMenuItem("Sign out", {}, destructive = true)

@@ -91,7 +91,7 @@ internal fun TuningPanel(tuning: SampleTuning, modifier: Modifier = Modifier) {
         Knobs.forEach { knob ->
             Setting(knob.name, knob.read(tuning.style), knob.range) { tuning.style = knob.write(tuning.style, it) }
         }
-        TextButton(onClick = { tuning.style = SampleTuning.QuvenBarStyle }) { Text("Reset", color = SampleColors.Accent) }
+        TextButton(onClick = { tuning.style = SampleTuning.BarStyle }) { Text("Reset", color = SampleColors.Accent) }
     }
 }
 
