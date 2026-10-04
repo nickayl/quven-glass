@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
@@ -47,6 +49,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -163,7 +166,7 @@ public data class QuvenGlassMenuColors(
 /**
  * Lays out the entries of a glass menu, the content a [QuvenGlassMorph] opens into: [QuvenGlassMenuTitle],
  * [QuvenGlassMenuItem] and [QuvenGlassMenuDivider], one under another. A finger that slides along the menu lights the
- * row under it and chooses the row it lifts over, as on a system menu.
+ * row under it, with a tick each time it reaches another, and chooses the row it lifts over, as on a system menu.
  *
  * @param modifier Modifier applied to the menu's column, which fills the width it is given.
  * @param metrics The layout of the rows; the morph opening the menu takes its width and corner radius.
@@ -180,6 +183,7 @@ public fun QuvenGlassMenu(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val look = remember(metrics, colors, textStyle) { MenuLook(metrics, colors, textStyle) }
+    val haptics = LocalHapticFeedback.current
     val pressed = look.pressedRows > 0 || look.isScrubbing
     val wash by animateFloatAsState(
         if (pressed) 1f else 0f,
@@ -191,7 +195,7 @@ public fun QuvenGlassMenu(
             modifier
                 .fillMaxWidth()
                 .onPlaced { look.menu = it }
-                .pointerInput(look) { scrubRows(look) }
+                .pointerInput(look, haptics) { scrubRows(look, haptics) }
                 .drawBehind { if (wash > 0f) drawRect(colors.pressWash, alpha = wash) }
                 .padding(vertical = metrics.verticalInset),
             content = content,
@@ -387,12 +391,14 @@ private class MenuRow(val action: () -> Unit) {
 
 /**
  * Follows a finger on the menu: once it slides past the touch slop the menu takes the gesture from its rows, lights
- * the row under the finger and chooses the row it lifts over.
+ * the row under the finger, ticks as it reaches another and chooses the row it lifts over.
  *
  * @param look The menu the finger is on.
+ * @param haptics The feedback that ticks.
  */
-private suspend fun PointerInputScope.scrubRows(look: MenuLook) = awaitEachGesture {
+private suspend fun PointerInputScope.scrubRows(look: MenuLook, haptics: HapticFeedback) = awaitEachGesture {
     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    var reached = look.rowAt(down.position)
     try {
         while (true) {
             val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
@@ -408,7 +414,12 @@ private suspend fun PointerInputScope.scrubRows(look: MenuLook) = awaitEachGestu
             }
             if (look.isScrubbing) {
                 change.consume()
-                look.scrubbed = look.rowAt(change.position)
+                val under = look.rowAt(change.position)
+                if (under != null && under !== reached) {
+                    haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                    reached = under
+                }
+                look.scrubbed = under
             }
         }
     } finally {

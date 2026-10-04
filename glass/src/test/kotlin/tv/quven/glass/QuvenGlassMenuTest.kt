@@ -6,7 +6,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -81,6 +84,22 @@ class QuvenGlassMenuTest {
     }
 
     @Test
+    fun aFingerSlidingOntoAnotherRow_ticksOnce() {
+        val haptics = CountingHaptics()
+        render(QuvenGlassMenuMetrics.Phone, haptics = haptics)
+
+        compose.onNodeWithTag("first").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, height * 0.3f))
+            moveBy(Offset(0f, height * 0.4f))
+            moveBy(Offset(0f, height * 0.2f))
+            up()
+        }
+
+        assertEquals(1, haptics.ticks)
+    }
+
+    @Test
     fun aFingerLiftingOverNoRow_choosesNothing() {
         var chosen = 0
         render(QuvenGlassMenuMetrics.Phone, onFirst = { chosen++ }, onSecond = { chosen++ })
@@ -95,9 +114,14 @@ class QuvenGlassMenuTest {
         assertEquals(0, chosen)
     }
 
-    private fun render(metrics: QuvenGlassMenuMetrics, onFirst: () -> Unit = {}, onSecond: () -> Unit = {}) {
+    private fun render(
+        metrics: QuvenGlassMenuMetrics,
+        onFirst: () -> Unit = {},
+        onSecond: () -> Unit = {},
+        haptics: HapticFeedback = CountingHaptics(),
+    ) {
         compose.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+            CompositionLocalProvider(LocalDensity provides Density(1f), LocalHapticFeedback provides haptics) {
                 QuvenGlassMenu(Modifier.width(metrics.width), metrics = metrics) {
                     QuvenGlassMenuTitle("Library")
                     QuvenGlassMenuItem("Playlists", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
@@ -117,4 +141,12 @@ class QuvenGlassMenuTest {
     private fun middleOf(bounds: DpRect): Float = (bounds.top.value + bounds.bottom.value) / 2f
 
     private fun heightOf(bounds: DpRect): Float = bounds.bottom.value - bounds.top.value
+
+    private class CountingHaptics : HapticFeedback {
+        var ticks = 0
+
+        override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+            if (hapticFeedbackType == HapticFeedbackType.SegmentFrequentTick) ticks++
+        }
+    }
 }

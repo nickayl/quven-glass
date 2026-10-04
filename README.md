@@ -191,7 +191,8 @@ QuvenGlassMorph(
 A system menu doesn't dim what's behind it, so a dismissing layer under the morph should stay transparent. Its rim is
 brighter than a bar's, which is what `rimGlow` draws. Give the control that opens it the same `pressGlow`: it lights up
 under the finger, and the menu's glass carries that light for the first part of its growth. As on iOS, a finger can
-slide along an open menu: the row under it lights at once, and the row it lifts over is the one chosen.
+slide along an open menu: the row under it lights at once with a light tick, and the row it lifts over is the one
+chosen.
 
 ## Styling
 
