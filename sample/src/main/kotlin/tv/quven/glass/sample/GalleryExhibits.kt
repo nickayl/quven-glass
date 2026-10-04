@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -74,6 +75,7 @@ import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassStyle
+import tv.quven.glass.QuvenGlassSlider
 import tv.quven.glass.QuvenGlassSwitch
 import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassAppearance
@@ -318,6 +320,21 @@ internal fun BoxScope.SwitchExhibit(tuning: SampleTuning) {
 }
 
 /**
+ * Draws a continuous slider and one with steps, as the reference lays out Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SliderExhibit(tuning: SampleTuning) {
+    var volume by remember { mutableFloatStateOf(0.4f) }
+    var rating by remember { mutableFloatStateOf(3f) }
+    Column(Modifier.align(Alignment.Center).width(SliderColumnWidth), verticalArrangement = Arrangement.spacedBy(28.dp)) {
+        QuvenGlassSlider(value = volume, onValueChange = { volume = it }, reduceMotion = tuning.reduceMotion)
+        QuvenGlassSlider(value = rating, onValueChange = { rating = it }, valueRange = 0f..5f, steps = 4, reduceMotion = tuning.reduceMotion)
+    }
+}
+
+/**
  * Lays out a switch at the end of a row holding its name.
  *
  * @param name The switch's name.
@@ -437,6 +454,7 @@ private val MaterialSizes = listOf(36.dp, 51.dp, 70.dp, 100.dp)
 private val CapsuleWidth = 240.dp
 private val CapsuleHeight = 62.dp
 private val SwitchColumnWidth = 280.dp
+private val SliderColumnWidth = 380.dp
 private val ButtonFaces: List<Pair<Dp, ImageVector>> = listOf(
     46.dp to Icons.Filled.PlayArrow,
     56.dp to Icons.Filled.Favorite,

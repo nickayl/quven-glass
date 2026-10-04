@@ -116,15 +116,15 @@ class QuvenGlassSwitchTest {
     @Test
     fun theThumb_liftsIntoTheLensWhileHeld_andSettlesBackOnceItRests() {
         render { switchOf(checked = false, liquid = true) }
-        assertThumbSize(Thumb)
+        compose.assertLensThumbSize(Thumb)
 
         compose.onNodeWithTag(SwitchTag).performTouchInput { down(Offset(width * 0.25f, height / 2f)) }
         compose.mainClock.advanceTimeBy(HeldMillis)
-        assertThumbSize(Lens)
+        compose.assertLensThumbSize(Lens)
 
         compose.onNodeWithTag(SwitchTag).performTouchInput { cancel() }
         compose.waitForIdle()
-        assertThumbSize(Thumb)
+        compose.assertLensThumbSize(Thumb)
     }
 
     @Test
@@ -139,10 +139,10 @@ class QuvenGlassSwitchTest {
         compose.mainClock.advanceTimeBy(TravellingMillis)
 
         assertTrue(checked)
-        assertThumbSize(Lens)
+        compose.assertLensThumbSize(Lens)
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
-        assertThumbSize(Thumb)
+        compose.assertLensThumbSize(Thumb)
     }
 
     @Test
@@ -152,7 +152,7 @@ class QuvenGlassSwitchTest {
         compose.onNodeWithTag(SwitchTag).performTouchInput { down(Offset(width * 0.25f, height / 2f)) }
         compose.mainClock.advanceTimeBy(HeldMillis)
 
-        assertThumbSize(Thumb)
+        compose.assertLensThumbSize(Thumb)
     }
 
     @Test
@@ -160,8 +160,8 @@ class QuvenGlassSwitchTest {
         val thumb = GlassLensThumb(Thumb, Lens)
         val density = Density(1f)
 
-        val rest = thumb.frame(density, 40f, 14f, 0f)
-        val lifted = thumb.frame(density, 40f, 14f, 1f)
+        val rest = thumb.frame(density, Offset(40f, 14f), 0f)
+        val lifted = thumb.frame(density, Offset(40f, 14f), 1f)
 
         assertEquals(Offset(40f, 14f), rest.center)
         assertEquals(Offset(40f, 14f), lifted.center)
@@ -195,13 +195,6 @@ class QuvenGlassSwitchTest {
             up()
         }
         compose.waitForIdle()
-    }
-
-    // The frame is laid out on whole pixels, so half a pixel either way is the size asked for.
-    private fun assertThumbSize(expected: DpSize) {
-        val bounds = compose.onNodeWithTag(LensThumbTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
-        assertEquals(expected.width.value, (bounds.right - bounds.left).value, 0.5f)
-        assertEquals(expected.height.value, (bounds.bottom - bounds.top).value, 0.5f)
     }
 
     private fun render(direction: LayoutDirection = LayoutDirection.Ltr, content: @Composable () -> Unit) {

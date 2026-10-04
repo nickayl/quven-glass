@@ -926,7 +926,7 @@ enum ExhibitStatus: CaseIterable {
 /// One of the system's Liquid Glass elements, in the order and under the names the Android sample's gallery lists them.
 enum Exhibit: CaseIterable, Identifiable {
     case material, glassButtons, tabBar, segmentedControl, joiningGlass, menus, morphingPanel, clearAndTinted, capsuleButtons
-    case toggle, contextMenu, submenus, toolbar, slider, sheet, alert, popover, search
+    case toggle, slider, contextMenu, submenus, toolbar, sheet, alert, popover, search
     case minimizingTabBar, bottomAccessory, scrollEdge, touchLight, textMenu
     case adaptiveSidebar
 
@@ -1006,7 +1006,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle: .ready
+             .capsuleButtons, .toggle, .slider: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }

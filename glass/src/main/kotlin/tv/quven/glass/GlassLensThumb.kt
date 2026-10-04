@@ -6,23 +6,32 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.util.lerp
@@ -38,19 +47,18 @@ import androidx.compose.ui.util.lerp
 internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
 
     /**
-     * Returns the thumb's frame, centred on [centreX] and [centreY], [lift] of the way into the lens.
+     * Returns the thumb's frame, centred on [centre], [lift] of the way into the lens.
      *
      * @param density The density the frame is measured in.
-     * @param centreX The thumb's centre along the track, in pixels.
-     * @param centreY The thumb's centre across the track, in pixels.
+     * @param centre The thumb's centre, in pixels.
      * @param lift How far the thumb has lifted into the lens, from 0 to 1.
      * @return The frame, in pixels.
      */
-    fun frame(density: Density, centreX: Float, centreY: Float, lift: Float): Rect = with(density) {
+    fun frame(density: Density, centre: Offset, lift: Float): Rect = with(density) {
         val size = lerp(thumb, lens, lift.coerceIn(0f, 1f))
         val width = size.width.toPx()
         val height = size.height.toPx()
-        Rect(centreX - width / 2f, centreY - height / 2f, centreX + width / 2f, centreY + height / 2f)
+        Rect(centre.x - width / 2f, centre.y - height / 2f, centre.x + width / 2f, centre.y + height / 2f)
     }
 
     /**
@@ -80,6 +88,9 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
     fun thumbBlur(lift: Float): Dp = ThumbFrost * smoothstep(0f, ThumbGone, lift)
 
     companion object {
+        /** Gets the thumb of a switch and of a slider, and the lens it lifts into, as measured on Apple's. */
+        val Control: GlassLensThumb = GlassLensThumb(thumb = DpSize(36.dp, 24.dp), lens = DpSize(57.dp, 37.5.dp))
+
         /** How far the frosted lens blurs the track while the thumb turns into it. */
         val LensFrost: Dp = 6.dp
 
@@ -120,10 +131,43 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
  * @param frame Reads the lens's frame in this node's coordinates, or `null` while no lens stands over it.
  * @return The decorated modifier.
  */
-internal fun Modifier.lensHole(frame: () -> Rect?): Modifier = drawWithContent {
+private fun Modifier.lensHole(frame: () -> Rect?): Modifier = drawWithContent {
     val hole = frame() ?: return@drawWithContent drawContent()
     val path = Path().apply { addRoundRect(RoundRect(hole, CornerRadius(hole.height / 2f))) }
     clipPath(path, ClipOp.Difference) { this@drawWithContent.drawContent() }
+}
+
+/**
+ * Draws a control's track with a [GlassLensThumb] over it: the track records into a backdrop of its own, which the lens
+ * bends, and shows through a hole where the lens stands; the white thumb blurs away into the lens as it lifts.
+ *
+ * @param thumb The thumb's sizes and materials.
+ * @param lift Reads how far the thumb has lifted into the lens, from 0 to 1.
+ * @param centre Reads the thumb's centre, in pixels, in the parent's coordinates, given the parent's size.
+ * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays a white thumb.
+ * @param track Draws the track over the parent's bounds.
+ */
+@Composable
+internal fun BoxScope.LensTrack(
+    thumb: GlassLensThumb,
+    lift: () -> Float,
+    centre: Density.(size: IntSize) -> Offset,
+    liquid: Boolean,
+    track: DrawScope.() -> Unit,
+) {
+    val density = LocalDensity.current
+    val backdrop = remember { QuvenGlassBackdrop(seeThrough = true) }
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val frame: () -> Rect = { thumb.frame(density, density.centre(size), lift()) }
+    Box(
+        Modifier
+            .matchParentSize()
+            .onSizeChanged { size = it }
+            .then(if (liquid) Modifier.lensHole { frame().takeIf { lift() > 0f } } else Modifier)
+            .quvenGlassSource(backdrop)
+            .drawBehind(track),
+    )
+    LensThumb(thumb, backdrop, lift, frame, liquid)
 }
 
 /**
@@ -136,7 +180,7 @@ internal fun Modifier.lensHole(frame: () -> Rect?): Modifier = drawWithContent {
  * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays a white thumb as it grows.
  */
 @Composable
-internal fun BoxScope.LensThumb(
+private fun BoxScope.LensThumb(
     thumb: GlassLensThumb,
     backdrop: QuvenGlassBackdrop,
     lift: () -> Float,
@@ -175,5 +219,5 @@ internal fun BoxScope.LensThumb(
     }
 }
 
-/** The test tag of the thumb a [LensThumb] draws. */
+/** The test tag of the thumb a [LensTrack] draws. */
 internal const val LensThumbTag = "quven-glass-lens-thumb"

@@ -24,9 +24,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -109,12 +108,6 @@ internal fun GlassSwitch(
     val shownOn by remember { derivedStateOf { motion.isOn(currentChecked) } }
     val track by animateColorAsState(if (shownOn) onColor else offColor, tween(TrackFadeMillis), label = "switch track")
     val dragState = rememberDraggableState { delta -> motion.dragBy((if (rtl) -delta else delta) / travel) }
-    val backdrop = remember { QuvenGlassBackdrop(seeThrough = true) }
-    val frame: () -> Rect = {
-        val along = with(density) { (SwitchInset + SwitchThumb.thumb.width / 2).toPx() } + travel * motion.position
-        val centreX = if (rtl) with(density) { SwitchSize.width.toPx() } - along else along
-        SwitchThumb.frame(density, centreX, with(density) { SwitchSize.height.toPx() } / 2f, motion.lens.value)
-    }
 
     Box(
         modifier
@@ -137,14 +130,15 @@ internal fun GlassSwitch(
             )
             .alpha(if (enabled) 1f else DisabledAlpha),
     ) {
-        Box(
-            Modifier
-                .matchParentSize()
-                .then(if (liquid) Modifier.lensHole { frame().takeIf { motion.lens.value > 0f } } else Modifier)
-                .quvenGlassSource(backdrop)
-                .drawBehind { drawRoundRect(track, cornerRadius = CornerRadius(size.height / 2f)) },
-        )
-        LensThumb(SwitchThumb, backdrop, { motion.lens.value }, frame, liquid)
+        LensTrack(
+            thumb = GlassLensThumb.Control,
+            lift = { motion.lens.value },
+            centre = { size ->
+                val along = (SwitchInset + GlassLensThumb.Control.thumb.width / 2).toPx() + travel * motion.position
+                Offset(if (rtl) size.width - along else along, size.height / 2f)
+            },
+            liquid = liquid,
+        ) { drawRoundRect(track, cornerRadius = CornerRadius(size.height / 2f)) }
     }
 }
 
@@ -240,10 +234,8 @@ internal val SwitchSize = DpSize(62.dp, 28.dp)
 /** The room between the track's edge and the thumb at rest. */
 private val SwitchInset: Dp = 2.dp
 
-/** The thumb of a switch and the lens it lifts into, as measured on Apple's. */
-private val SwitchThumb = GlassLensThumb(thumb = DpSize(36.dp, 24.dp), lens = DpSize(57.dp, 37.5.dp))
 
 /** How far the thumb travels from one side to the other. */
-private val SwitchTravel: Dp = SwitchSize.width - SwitchInset * 2 - SwitchThumb.thumb.width
+private val SwitchTravel: Dp = SwitchSize.width - SwitchInset * 2 - GlassLensThumb.Control.thumb.width
 
 private const val TrackFadeMillis = 160

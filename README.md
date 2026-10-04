@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.5.0")
+    implementation("tv.quven.glass:glass:2.7.0")
 }
 ```
 
@@ -155,7 +155,13 @@ anywhere, inside a page that is itself a backdrop too.
 
 ```kotlin
 QuvenGlassSwitch(checked = downloads, onCheckedChange = { downloads = it })
+QuvenGlassSlider(value = volume, onValueChange = { volume = it })
+QuvenGlassSlider(value = rating, onValueChange = { rating = it }, valueRange = 0f..5f, steps = 4)
 ```
+
+`QuvenGlassSlider` lifts the same lens out of its thumb while a finger holds it. As on iOS, only a drag that starts on
+the thumb moves it, so tapping the track does nothing. The arrow keys and a TV remote step it along, a tenth of the
+range at a time unless it has steps.
 
 ## Menus that grow from their control
 
@@ -293,6 +299,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
 | Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
 | Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |
+| Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
 | Clear glass | No tone, lightened by about 0.086 |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |

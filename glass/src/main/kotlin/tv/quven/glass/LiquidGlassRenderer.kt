@@ -108,7 +108,7 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
         // The program's output is unbounded; clipped, it runs over the region alone rather than the whole window.
         layer.clip = true
         layer.topLeft = IntOffset(region.left, region.top)
-        drawShadows(surfaces, style)
+        drawShadows(surfaces, style, outsideOnly = seeThrough)
         drawLayer(layer)
     }
 
@@ -118,7 +118,8 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
         graphics.releaseGraphicsLayer(backdrop)
     }
 
-    private fun DrawScope.drawShadows(surfaces: List<GlassSurface>, style: QuvenGlassStyle) {
+    // Glass that lets the page show through it casts its shadow only outside itself, or the page would darken under it.
+    private fun DrawScope.drawShadows(surfaces: List<GlassSurface>, style: QuvenGlassStyle, outsideOnly: Boolean) {
         val radius = style.shadowRadius.toPx()
         if (radius <= 0f || style.shadow.alpha <= 0f) return
         shadowPaint.setShadowLayer(radius, 0f, radius * ShadowDrop, style.shadow.toArgb())
@@ -135,7 +136,13 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
                 corners[7] = form.bottomLeft
                 shadowPath.rewind()
                 shadowPath.addRoundRect(form.rect.left, form.rect.top, form.rect.right, form.rect.bottom, corners, Path.Direction.CW)
-                canvas.nativeCanvas.drawPath(shadowPath, shadowPaint)
+                val native = canvas.nativeCanvas
+                if (outsideOnly) {
+                    native.save()
+                    native.clipOutPath(shadowPath)
+                }
+                native.drawPath(shadowPath, shadowPaint)
+                if (outsideOnly) native.restore()
             }
         }
     }

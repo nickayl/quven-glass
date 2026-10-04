@@ -67,7 +67,8 @@ internal const val LiquidGlassContent = "content"
  *
  * Inside each surface the backdrop is read `zoom` times further from the surface's centre, so a `zoom` above 1 shows it
  * smaller. Where `seeThrough` is 1 the backdrop's own alpha holds: the glass covers what lies under it only where the
- * backdrop has content, and elsewhere shows the rim's light alone.
+ * backdrop has content, and elsewhere lays the rim's light and a veil of white over it, `brighten` times
+ * `SEE_THROUGH_VEIL`, as clear glass lightens a page it does not bend.
  */
 internal const val LiquidGlassShaderSource: String = """
 uniform shader content;
@@ -113,6 +114,7 @@ const float RIM_AWAY_SHARE = 0.15;
 const float RIM_GAIN = 0.4;
 const float LIFT_GLOW = 0.05;
 const float RIM_REACH_DP = 2.0;
+const float SEE_THROUGH_VEIL = 2.5;
 
 float roundBox(float2 p, float4 rect, float4 radii) {
     float2 centre = (rect.xy + rect.zw) * 0.5;
@@ -297,7 +299,7 @@ half4 main(float2 coord) {
     float alpha = clamp(0.5 - d, 0.0, 1.0);
     if (seeThrough > 0.5) {
         float body = alpha * float(content.eval(at).a);
-        float glow = (alpha - body) * clamp(shine, 0.0, 1.0);
+        float glow = (alpha - body) * clamp(shine + brighten * SEE_THROUGH_VEIL, 0.0, 1.0);
         return half4(half3(clamp(rgb, 0.0, 1.0) * body + glow), half(body + glow));
     }
     rgb = clamp(rgb, 0.0, 1.0) * alpha;
