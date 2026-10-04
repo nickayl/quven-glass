@@ -124,6 +124,25 @@ class QuvenGlassMorphTest {
     }
 
     @Test
+    fun closing_returnsIntoTheControlWithinAQuarterOfASecond_withoutSwingingPastIt() {
+        render()
+        compose.runOnIdle { expanded = true }
+        compose.waitForIdle()
+
+        compose.mainClock.autoAdvance = false
+        compose.runOnUiThread { expanded = false }
+        var elapsed = 0L
+        while (state.isShown && elapsed < SettleFrames * FrameMillis) {
+            compose.mainClock.advanceTimeBy(FrameMillis)
+            elapsed += FrameMillis
+            assertTrue("The glass swung past its control at $elapsed ms", state.progress.value >= 0f)
+        }
+
+        assertFalse(state.isShown)
+        assertTrue("The glass took $elapsed ms to close", elapsed <= 250L)
+    }
+
+    @Test
     fun thePanel_isComposedOnceAndKeptWhileClosed_soAnOpeningComposesNothing() {
         var compositions = 0
         render { remember { compositions++ } }
@@ -175,6 +194,7 @@ class QuvenGlassMorphTest {
         const val PanelTag = "panel"
         const val PanelWidth = 150f
         const val SettleFrames = 200
+        const val FrameMillis = 16L
         val Space = IntSize(800, 600)
         val Unit = Density(1f)
     }

@@ -2,6 +2,8 @@ package tv.quven.glass
 
 import android.os.Build
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationSpec
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
@@ -132,9 +134,9 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
 /**
  * Opens a control into a panel as one piece of glass: on a spring the glass grows from the control's bounds to the
  * panel's, a capsule until it comes to rest, still lit by the control's press as [QuvenGlassStyle.pressGlow] lights
- * it; the control's [face] fades first and the panel's [content] comes into focus last. It closes the same way back,
- * and the control shows again once [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and
- * the panel fade in place.
+ * it; the control's [face] fades first and the panel's [content] comes into focus last. It closes back into the
+ * control on a short, even ease that never swings past it, and the control shows again once
+ * [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and the panel fade in place.
  *
  * The morph fills its parent, in whose coordinates [anchor] and [placement] are measured, and handles no dismissal.
  * The panel stays composed while closed, outside the semantics tree.
@@ -169,7 +171,11 @@ public fun QuvenGlassMorph(
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(expanded, reduceMotion) {
-        val spec = if (reduceMotion) tween<Float>(ReducedMotionFadeMillis) else spring(MorphDamping, MorphStiffness)
+        val spec: AnimationSpec<Float> = when {
+            reduceMotion -> tween(ReducedMotionFadeMillis)
+            expanded -> spring(MorphDamping, MorphStiffness)
+            else -> tween(CloseMillis, easing = CloseEasing)
+        }
         state.progress.animateTo(if (expanded) 1f else 0f, spec)
     }
     val frame = remember { MorphFrame() }
@@ -289,6 +295,8 @@ internal fun morphRadius(glass: Size, cornerRadius: Float, progress: Float): Flo
 
 private const val MorphDamping = 0.72f
 private const val MorphStiffness = 580f
+private const val CloseMillis = 165
+private val CloseEasing = CubicBezierEasing(0.1f, 0f, 1f, 1f)
 private const val CornerSettleStart = 0.6f
 private val ContentBlur = 10.dp
 private const val MinContentBlur = 0.5f
