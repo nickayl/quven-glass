@@ -162,6 +162,36 @@ QuvenGlassMorph(
 
 `hangingFromTopRight` and `above` place the panel for a button on the other side or an entry of a bottom bar.
 
+For a menu like the ones iOS opens from a toolbar button, fill the panel with `QuvenGlassMenu` and its entries. They take
+Apple's measures for a phone or a tablet, and you open the morph at the same width and corner radius:
+
+```kotlin
+val metrics = QuvenGlassMenuMetrics.Phone
+
+QuvenGlassMorph(
+    state = morph,
+    expanded = open,
+    anchor = anchor,
+    width = metrics.width,
+    cornerRadius = metrics.cornerRadius,
+    placement = QuvenGlassMorphPlacement.hangingFromTopRight(edge = 16.dp),
+    modifier = Modifier.fillMaxSize(),
+    style = QuvenGlassStyle.Standard.copy(blur = 9.5.dp, pressGlow = 3.6f, rimGlow = 1.7f),
+    face = { AvatarFace() },
+) {
+    QuvenGlassMenu(metrics = metrics) {
+        QuvenGlassMenuTitle("Library")
+        QuvenGlassMenuItem("Playlists", onClick = { open = false }, icon = painterResource(R.drawable.playlists))
+        QuvenGlassMenuDivider()
+        QuvenGlassMenuItem("Sign out", onClick = { signOut() }, destructive = true)
+    }
+}
+```
+
+A system menu doesn't dim what's behind it, so a dismissing layer under the morph should stay transparent. Its rim is
+brighter than a bar's, which is what `rimGlow` draws. Give the control that opens it the same `pressGlow`: it lights up
+under the finger, and the menu's glass carries that light for the first part of its growth.
+
 ## Styling
 
 `QuvenGlassStyle.Standard` is the measured material, but you can copy it and change what you need:
@@ -175,6 +205,8 @@ QuvenGlassMorph(
 | `platter`, `lightPlatter` | The pill under a held option, on dark and on light glass |
 | `adaptation` | When thin glass turns light and how quickly |
 | `pressGrowth`, `slideDamping`, `slideStiffness` | How a press swells the glass and how the pill travels |
+| `pressGlow` | How brightly a pressed button lights what's behind it; bars keep it at zero |
+| `rimGlow` | How brightly the rim shows what lies just outside it; only menus use it |
 | `ground`, `trackTop`, `rimTop` and siblings | The static material drawn without Liquid Glass |
 
 You should pass `reduceMotion` from the system setting to every surface. Springs then become short fades.
@@ -202,6 +234,10 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving |
 | Drag | The lens follows the finger and settles on the nearest option |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
+| Press on a glass button | The backdrop lit about 3.6 times and untoned, within 80–100 ms |
+| Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
+| Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
+| Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content in focus from 50% to 85% |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a
@@ -213,7 +249,7 @@ space.
 `adb shell am start -n tv.quven.glass.sample/.SampleActivity --ef scroll 224 --ef shift 21 --ez panel false --ei tab 2
 --ef gap 8 --ez liquid true --ef refraction 22 ...`: every `Knob.key` of the tuning panel is also an extra. `shift`
 moves the content left, so what sits under the centred bar matches the iPad's wider screen (21 dp on the tablet it was
-tuned on).
+tuned on). With `--ez menu true` the gear opens the reference's system menu instead of the tuning panel.
 
 ## Reference launch environment
 
@@ -226,6 +262,7 @@ launch --environment-variables '{...}'`; ReplayKit asks once per install, and th
 | `GLASS_TAB`, `GLASS_GAP` | The bar's held entry and the space before its Search circle. |
 | `GLASS_CAPTURE` | The name the frames are saved under. |
 | `GLASS_RECORD`, `GLASS_TAPS`, `GLASS_REGION` | Keep a clip per press, from a second before it to this many seconds after, for this many presses, of this region (`x,y,w,h` in points). |
+| `GLASS_WINDOW` | Keep every frame of the region for this many seconds, a second after launch, whatever is pressed: the way to record the gear's menu opening. |
 | `GLASS_PROBE`, `GLASS_PROBE_SIZES` | Glass circles of these sizes over flat colours instead of the screen. |
 | `GLASS_PROBE_INK` | Each probe circle carries a glyph in the primary style, one in explicit white and one telling its colour scheme. |
 | `GLASS_CONTROLS` | The system's tab bar and segmented control instead of the screen. |

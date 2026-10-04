@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -60,6 +61,22 @@ class QuvenGlassMorphTest {
 
         assertEquals(IntOffset(300, 392), placement.place(IntSize(200, 100), IntRect(380, 500, 420, 540), Space, Unit))
         assertEquals(IntOffset(590, 392), placement.place(IntSize(200, 100), IntRect(760, 500, 800, 540), Space, Unit))
+    }
+
+    @Test
+    fun morphRadius_keepsTheGlassACapsuleWhileItGrows_andSettlesOnTheOpenRadius() {
+        val growing = Size(120f, 80f)
+
+        assertEquals(40f, morphRadius(growing, cornerRadius = 25f, progress = 0.3f), 0.001f)
+        assertEquals(40f, morphRadius(growing, cornerRadius = 25f, progress = 0.6f), 0.001f)
+        assertEquals(32.5f, morphRadius(growing, cornerRadius = 25f, progress = 0.8f), 0.001f)
+        assertEquals(25f, morphRadius(Size(250f, 400f), cornerRadius = 25f, progress = 1f), 0.001f)
+        assertEquals(25f, morphRadius(Size(250f, 400f), cornerRadius = 25f, progress = 1.04f), 0.001f)
+    }
+
+    @Test
+    fun morphRadius_neverRoundsPastACapsule() {
+        assertEquals(10f, morphRadius(Size(20f, 20f), cornerRadius = 25f, progress = 1f), 0.001f)
     }
 
     @Test

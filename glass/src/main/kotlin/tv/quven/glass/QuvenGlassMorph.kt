@@ -1,5 +1,6 @@
 package tv.quven.glass
 
+import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -13,6 +14,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -22,6 +24,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.BlurEffect
+import androidx.compose.ui.graphics.RenderEffect
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
@@ -38,7 +43,6 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import kotlin.math.roundToInt
 
 /**
@@ -127,9 +131,10 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
 
 /**
  * Opens a control into a panel as one piece of glass: on a spring the glass grows from the control's bounds to the
- * panel's, the control's [face] fading first and the panel's [content] last, and closes the same way back; the control
- * shows again once [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and the panel fade in
- * place.
+ * panel's, a capsule until it comes to rest, still lit by the control's press as [QuvenGlassStyle.pressGlow] lights
+ * it; the control's [face] fades first and the panel's [content] comes into focus last. It closes the same way back,
+ * and the control shows again once [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and
+ * the panel fade in place.
  *
  * The morph fills its parent, in whose coordinates [anchor] and [placement] are measured, and handles no dismissal.
  * The panel stays composed while closed, outside the semantics tree.
@@ -169,6 +174,9 @@ public fun QuvenGlassMorph(
     }
     val frame = remember { MorphFrame() }
     val shape = remember(frame) { MorphShape(frame) }
+    val opening by rememberUpdatedState(expanded && !reduceMotion)
+    // The glass carries the control's press as it starts to grow, and lets it go as it takes the panel's shape.
+    val carriedPress = remember(state) { GlassLiftSource { if (opening) carriedPress(state.progress.value) else 0f } }
     Layout(
         modifier = modifier,
         content = {
@@ -177,7 +185,7 @@ public fun QuvenGlassMorph(
                     .graphicsLayer { alpha = if (reduceMotion) state.progress.value else 1f }
                     // The glass opens into a panel, thick glass that never turns light.
                     .liquidGlass(
-                        backdrop, style, shape, interactionSource = null, reduceMotion = false, lift = null, pill = null,
+                        backdrop, style, shape, interactionSource = null, reduceMotion = false, lift = carriedPress, pill = null,
                         adapts = false,
                     ),
             )
@@ -188,7 +196,11 @@ public fun QuvenGlassMorph(
             Box(
                 Modifier
                     .then(if (expanded) Modifier else Modifier.clearAndSetSemantics {})
-                    .graphicsLayer { alpha = contentAlpha(state.progress.value) }
+                    .graphicsLayer {
+                        val shown = contentAlpha(state.progress.value)
+                        alpha = shown
+                        renderEffect = contentBlur((1f - shown) * ContentBlur.toPx())
+                    }
                     .drawWithContent { frame.clipToGlass(this) { drawContent() } },
             ) { content() }
         },
@@ -200,7 +212,7 @@ public fun QuvenGlassMorph(
         val open = Rect(Offset(target.x.toFloat(), target.y.toFloat()), Size(panel.width.toFloat(), panel.height.toFloat()))
         val progress = state.progress.value
         val glass = if (reduceMotion) open else lerp(anchor, open, progress)
-        frame.update(glass, open, lerp(anchor.minDimension / 2f, cornerRadius.toPx(), if (reduceMotion) 1f else progress))
+        frame.update(glass, open, if (reduceMotion) cornerRadius.toPx() else morphRadius(glass.size, cornerRadius.toPx(), progress))
         val glassPlaceable = measurables[0].measure(Constraints.fixed(glass.width.roundToInt().coerceAtLeast(0), glass.height.roundToInt().coerceAtLeast(0)))
         val facePlaceable = measurables[1].measure(Constraints.fixed(anchor.width.roundToInt(), anchor.height.roundToInt()))
         layout(space.width, space.height) {
@@ -251,9 +263,35 @@ private fun Rect.toIntRectRounded(): IntRect = IntRect(left.roundToInt(), top.ro
 
 private fun faceAlpha(progress: Float): Float = (1f - progress * FaceFadeRate).coerceIn(0f, 1f)
 
+private fun carriedPress(progress: Float): Float = (1f - progress * PressFadeRate).coerceIn(0f, 1f)
+
 private fun contentAlpha(progress: Float): Float = ((progress - ContentFadeStart) / (1f - ContentFadeStart)).coerceIn(0f, 1f)
 
-private const val MorphDamping = 0.78f
-private const val MorphStiffness = 360f
+// The panel's content comes into focus as it fades in; blurring needs Android 12.
+private fun contentBlur(radius: Float): RenderEffect? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && radius > MinContentBlur) BlurEffect(radius, radius, TileMode.Decal) else null
+
+/**
+ * Returns the corner radius of the morph's glass at [progress]: a capsule while it grows, as liquid does, settling to
+ * [cornerRadius] only as it comes to rest.
+ *
+ * @param glass The glass's size at this frame.
+ * @param cornerRadius The open panel's corner radius, in pixels.
+ * @param progress How far the morph has opened, from 0 to 1, past 1 while the spring overshoots.
+ * @return The radius, in pixels.
+ */
+internal fun morphRadius(glass: Size, cornerRadius: Float, progress: Float): Float {
+    val capsule = glass.minDimension / 2f
+    val settled = ((progress - CornerSettleStart) / (1f - CornerSettleStart)).coerceIn(0f, 1f)
+    val eased = settled * settled * (3f - 2f * settled)
+    return capsule + (cornerRadius.coerceAtMost(capsule) - capsule) * eased
+}
+
+private const val MorphDamping = 0.72f
+private const val MorphStiffness = 580f
+private const val CornerSettleStart = 0.6f
+private val ContentBlur = 10.dp
+private const val MinContentBlur = 0.5f
 private const val FaceFadeRate = 3f
+private const val PressFadeRate = 2f
 private const val ContentFadeStart = 0.45f

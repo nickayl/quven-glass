@@ -72,6 +72,8 @@ enum ReferenceLaunch {
         .compactMap { Double($0).map { CGFloat($0) } }
     /// Whether each probe circle carries a glyph in the primary style beside one in explicit white.
     static let probeInk = ProcessInfo.processInfo.environment["GLASS_PROBE_INK"] != nil
+    /// The seconds to keep every frame of the region for, a second after launch, whatever is pressed, or `nil` for none.
+    static let window = value("GLASS_WINDOW")
     /// The number of presses a recording keeps a clip of before it ends.
     static let taps = Int(value("GLASS_TAPS") ?? 4)
     /// Whether the app shows the system's own glass controls, a tab bar and a segmented control, instead of the screen.
@@ -166,9 +168,18 @@ struct ReferenceScreen: View {
             VStack {
                 HStack(spacing: 12) {
                     Menu {
-                        Button("Liquid Glass", systemImage: "drop.fill") {}
-                        Button("Reduce motion", systemImage: "figure.walk") {}
-                        Button("Reset", systemImage: "arrow.counterclockwise") {}
+                        Section("Library") {
+                            Button("Playlists", systemImage: "play.rectangle.on.rectangle.fill") {}
+                            Button("Watchlist", systemImage: "bookmark.fill") {}
+                            Button("Reading list", systemImage: "books.vertical.fill") {}
+                        }
+                        Section("Account") {
+                            Button("My profile", systemImage: "person.fill") {}
+                            Button("Switch profile", systemImage: "arrow.triangle.2.circlepath") {}
+                            Button("Switch server", systemImage: "rectangle.2.swap") {}
+                            Button("Settings", systemImage: "gearshape.fill") {}
+                            Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {}
+                        }
                     } label: {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 22, weight: .semibold))
@@ -177,6 +188,7 @@ struct ReferenceScreen: View {
                     }
                     .buttonStyle(.glass)
                     .buttonBorderShape(.circle)
+                    .accessibilityIdentifier("reference.gear")
                     DensityTrack(held: $density)
                     Spacer()
                     if recording {
@@ -197,6 +209,15 @@ struct ReferenceScreen: View {
             guard let name = ReferenceLaunch.capture else { return }
             let screen = ScreenCapture()
             guard await screen.start() else { return }
+            if let seconds = ReferenceLaunch.window {
+                position = ScrollPosition(y: ReferenceLaunch.scroll)
+                try? await Task.sleep(for: .seconds(1))
+                screen.beginRecording(region: ReferenceLaunch.region)
+                try? await Task.sleep(for: .seconds(seconds))
+                await ScreenCapture.write(screen.endRecording(), named: "\(name)-window")
+                screen.stop()
+                return
+            }
             if let seconds = ReferenceLaunch.record {
                 position = ScrollPosition(y: ReferenceLaunch.scroll)
                 try? await Task.sleep(for: .seconds(1))

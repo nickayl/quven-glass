@@ -51,6 +51,10 @@ import androidx.compose.ui.unit.dp
  * @property platter The colour of the pill marking the held option on Liquid Glass.
  * @property lightPlatter The colour of that pill on glass turned light.
  * @property pressGrowth The share of its shorter side by which a pressed surface swells.
+ * @property pressGlow How brightly a pressed surface lights its backdrop: fully pressed, the glass shows the backdrop
+ * this many times brighter and untoned, as a glass button lights under the finger; 0 keeps the toned glass.
+ * @property rimGlow How brightly the rim shows what lies just outside the glass: the backdrop there, this many times
+ * brighter and untoned, as the rim of a system menu shows it; 0 keeps the toned rim.
  * @property shadow The colour of the soft shadow under a Liquid Glass surface.
  * @property shadowRadius The blur radius of the shadow under a Liquid Glass surface.
  */
@@ -87,6 +91,8 @@ public data class QuvenGlassStyle(
     val platter: Color = Color(0x1CFFFFFF),
     val lightPlatter: Color = Color(0x12000000),
     val pressGrowth: Float = 0.12f,
+    val pressGlow: Float = 0f,
+    val rimGlow: Float = 0f,
     val shadow: Color = Color(0x14000000),
     val shadowRadius: Dp = 14.dp,
 ) {

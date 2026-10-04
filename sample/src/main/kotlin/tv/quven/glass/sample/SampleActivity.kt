@@ -19,7 +19,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -34,10 +41,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.QuvenGlassMenu
+import tv.quven.glass.QuvenGlassMenuDivider
+import tv.quven.glass.QuvenGlassMenuItem
+import tv.quven.glass.QuvenGlassMenuMetrics
+import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassStyle
@@ -63,6 +76,7 @@ class SampleActivity : ComponentActivity() {
                 if (value.isNaN()) style else knob.write(style, value)
             },
             liquid = intent.getBooleanExtra(SampleLaunch.Liquid, true),
+            menu = intent.getBooleanExtra(SampleLaunch.Menu, false),
         )
         setContent {
             MaterialTheme(colorScheme = darkColorScheme()) { SampleScreen(launch) }
@@ -81,6 +95,7 @@ class SampleActivity : ComponentActivity() {
  * @property gap The space between the bar's capsule and its Search circle, in density-independent pixels.
  * @property style The material, with any parameter an intent extra named after its [Knob.key] sets.
  * @property liquid Whether the surfaces start as Liquid Glass rather than the static material.
+ * @property menu Whether the gear opens the reference's system menu rather than the tuning panel.
  */
 private data class SampleLaunch(
     val scroll: Float,
@@ -90,6 +105,7 @@ private data class SampleLaunch(
     val gap: Float,
     val style: QuvenGlassStyle,
     val liquid: Boolean,
+    val menu: Boolean,
 ) {
     companion object {
         const val Scroll = "scroll"
@@ -98,6 +114,7 @@ private data class SampleLaunch(
         const val Tab = "tab"
         const val Gap = "gap"
         const val Liquid = "liquid"
+        const val Menu = "menu"
     }
 }
 
@@ -127,6 +144,7 @@ private fun SampleScreen(launch: SampleLaunch) {
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 TuneButton(
+                    style = if (launch.menu) tuning.style.copy(pressGlow = MenuPressGlow) else tuning.style,
                     tuning = tuning,
                     shown = !morph.isShown,
                     onClick = { panelOpen = true },
@@ -141,15 +159,19 @@ private fun SampleScreen(launch: SampleLaunch) {
                 state = morph,
                 expanded = panelOpen,
                 anchor = gear,
-                width = PanelWidth,
+                width = if (launch.menu) QuvenGlassMenuMetrics.Tablet.width else PanelWidth,
                 placement = QuvenGlassMorphPlacement.hangingFromTopLeft(edge = 16.dp),
                 modifier = Modifier.fillMaxSize(),
-                style = tuning.style,
-                cornerRadius = 28.dp,
+                style = if (launch.menu) tuning.style.copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow) else tuning.style,
+                cornerRadius = if (launch.menu) QuvenGlassMenuMetrics.Tablet.cornerRadius else 28.dp,
                 reduceMotion = tuning.reduceMotion,
                 face = { GearFace() },
             ) {
-                TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
+                if (launch.menu) {
+                    SampleMenu(onChoose = { panelOpen = false })
+                } else {
+                    TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
+                }
             }
             Column(
                 Modifier
@@ -164,7 +186,7 @@ private fun SampleScreen(launch: SampleLaunch) {
 }
 
 @Composable
-private fun TuneButton(tuning: SampleTuning, shown: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TuneButton(style: QuvenGlassStyle, tuning: SampleTuning, shown: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interactions = remember { MutableInteractionSource() }
     Box(
         modifier
@@ -172,7 +194,7 @@ private fun TuneButton(tuning: SampleTuning, shown: Boolean, onClick: () -> Unit
             .graphicsLayer { alpha = if (shown) 1f else 0f }
             .quvenLiquidGlass(
                 backdrop = LocalQuvenGlassBackdrop.current,
-                style = tuning.style,
+                style = style,
                 shape = CircleShape,
                 interactionSource = interactions,
                 reduceMotion = tuning.reduceMotion,
@@ -191,6 +213,27 @@ private fun GearFace() {
     }
 }
 
+// The menu the reference's gear opens, entry for entry, laid out as iPadOS lays it out.
+@Composable
+private fun SampleMenu(onChoose: () -> Unit) {
+    QuvenGlassMenu(metrics = QuvenGlassMenuMetrics.Tablet) {
+        QuvenGlassMenuTitle("Library")
+        QuvenGlassMenuItem("Playlists", onChoose, icon = rememberVectorPainter(Icons.Filled.PlayArrow))
+        QuvenGlassMenuItem("Watchlist", onChoose, icon = rememberVectorPainter(Icons.Filled.Favorite))
+        QuvenGlassMenuItem("Reading list", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
+        QuvenGlassMenuDivider()
+        QuvenGlassMenuTitle("Account")
+        QuvenGlassMenuItem("My profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Person))
+        QuvenGlassMenuItem("Switch profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Refresh))
+        QuvenGlassMenuItem("Switch server", onChoose, icon = rememberVectorPainter(Icons.Filled.Share))
+        QuvenGlassMenuItem("Settings", onChoose, icon = rememberVectorPainter(Icons.Filled.Settings))
+        QuvenGlassMenuItem("Sign out", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp), destructive = true)
+    }
+}
+
 private val ButtonSide = 69.dp
+private val MenuBlur = 9.5.dp
+private const val MenuPressGlow = 3.6f
+private const val MenuRimGlow = 1.7f
 private val PanelWidth = 340.dp
 private val PanelMaxHeight = 560.dp

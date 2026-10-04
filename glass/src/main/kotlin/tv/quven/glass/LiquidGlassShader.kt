@@ -39,6 +39,8 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     Tint("tint", 4),
     Platter("platter", 4),
     LightPlatter("lightPlatter", 4),
+    PressGlow("pressGlow", 1),
+    RimGlow("rimGlow", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -56,7 +58,9 @@ internal const val LiquidGlassContent = "content"
  * `toneSizes.y`; thin glass leans towards `thinTone.rgb` by `leans.z + leans.w × luminance`, thick glass towards
  * `thickTone.rgb` by `leans.x + leans.y × luminance`, and the saturation scales by the tone's alpha; thin glass turned
  * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the tint, the pill's
- * platter, which clears into a lens while the pill is lifted, and the rim, brighter where it faces the light.
+ * platter, which clears into a lens while the pill is lifted, and the rim, brighter where it faces the light. Where
+ * `pressGlow` is positive, a lifted surface turns towards the untoned backdrop lit `pressGlow` times; where `rimGlow` is,
+ * the rim shows the backdrop just outside it lit `rimGlow` times.
  */
 internal const val LiquidGlassShaderSource: String = """
 uniform shader content;
@@ -80,6 +84,8 @@ uniform float2 lightLean;
 uniform float4 tint;
 uniform float4 platter;
 uniform float4 lightPlatter;
+uniform float pressGlow;
+uniform float rimGlow;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -96,6 +102,7 @@ const float RIM_WIDTH_DP = 1.5;
 const float RIM_AWAY_SHARE = 0.15;
 const float RIM_GAIN = 0.4;
 const float LIFT_GLOW = 0.05;
+const float RIM_REACH_DP = 2.0;
 
 float roundBox(float2 p, float4 rect, float4 radii) {
     float2 centre = (rect.xy + rect.zw) * 0.5;
@@ -234,6 +241,7 @@ half4 main(float2 coord) {
     } else {
         rgb = backdropAt(at);
     }
+    float3 seen = rgb;
     float lit = luma(rgb);
     float thickness = smoothstep(toneSizes.x, toneSizes.y, size);
     float lightShare = light * (1.0 - thickness);
@@ -254,10 +262,18 @@ half4 main(float2 coord) {
         }
     }
 
+    if (pressGlow > 0.0) {
+        rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), lift);
+    }
+
     float facing = 0.5 + 0.5 * dot(n, lens.zw);
     float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
     rgb += lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN;
     rgb += LIFT_GLOW * lift;
+    if (rimGlow > 0.0) {
+        float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
+        rgb = mix(rgb, clamp(outside * rimGlow, 0.0, 1.0), rim);
+    }
 
     float alpha = clamp(0.5 - d, 0.0, 1.0);
     rgb = clamp(rgb, 0.0, 1.0) * alpha;
@@ -383,6 +399,8 @@ internal class LiquidGlassShader private constructor() {
             setColor(LiquidGlassUniform.Tint, style.tint)
             setColor(LiquidGlassUniform.Platter, style.platter)
             setColor(LiquidGlassUniform.LightPlatter, style.lightPlatter)
+            setFloatUniform(LiquidGlassUniform.PressGlow.uniform, style.pressGlow)
+            setFloatUniform(LiquidGlassUniform.RimGlow.uniform, style.rimGlow)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }
