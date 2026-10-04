@@ -1725,17 +1725,23 @@ struct ScrollEdgeStage: View {
 /// Regular, clear and tinted glass side by side.
 struct ClearAndTintedStage: View {
     var body: some View {
-        HStack(spacing: 28) {
-            sample(.regular, "Regular")
-            sample(.clear, "Clear")
-            sample(.regular.tint(Palette.accent), "Tinted")
-            sample(.clear.tint(Color(argb: 0x6629_79FF)), "Clear, tinted")
+        // Two by two, so the four stand inside the stage.
+        Grid(horizontalSpacing: 28, verticalSpacing: 28) {
+            GridRow {
+                sample(.regular, "Regular")
+                sample(.clear, "Clear")
+            }
+            GridRow {
+                sample(.regular.tint(Palette.accent), "Tinted")
+                sample(.clear.tint(Color(argb: 0x6629_79FF)), "Clear, tinted")
+            }
         }
     }
 
     private func sample(_ glass: Glass, _ name: String) -> some View {
         VStack(spacing: 12) {
             Color.clear.frame(width: 100, height: 100).glassEffect(glass.interactive(), in: Circle())
+                .accessibilityIdentifier("variant.\(name)")
             GlassCaption(text: name)
         }
     }

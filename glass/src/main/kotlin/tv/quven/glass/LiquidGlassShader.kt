@@ -57,14 +57,15 @@ internal const val LiquidGlassContent = "content"
  * smooth union, each with an optional pill inside, which a press swells out of its surface.
  *
  * Within a band inside the edge, a pixel at depth `δ` shows the backdrop `reach × (1 − δ / band)^lens.x` further in;
- * `reach` and `band` are `optics.z` and `optics.w` times the corner radius, no less than `optics.x` and `optics.y`. Red
+ * `reach` and `band` are `optics.z` and `optics.w` times the corner radius, up to `CORNER_SCALE_LIMIT_DP`, no less than `optics.x` and `optics.y`. Red
  * and blue part by `detail.x` of the fold; `detail.y` is the pixels in a density-independent pixel.
  *
  * The thickness of the nearest surface runs from thin to thick as its shorter side runs from `toneSizes.x` to
  * `toneSizes.y`; thin glass leans towards `thinTone.rgb` by `leans.z + leans.w × luminance`, thick glass towards
  * `thickTone.rgb` by `leans.x + leans.y × luminance`, and the saturation scales by the tone's alpha; thin glass turned
- * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the tint, the pill's
- * platter, which clears into a lens while the pill is lifted, and the rim, brighter where it faces the light. Where
+ * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
+ * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
+ * is lifted. Where
  * `pressGlow` is positive, a lifted surface turns towards the untoned backdrop lit `pressGlow` times; where `rimGlow` is,
  * the rim shows the backdrop just outside it lit `rimGlow` times.
  *
@@ -123,6 +124,7 @@ const float RIM_GAIN = 0.4;
 const float LIFT_GLOW = 0.05;
 const float RIM_REACH_DP = 2.0;
 const float SEE_THROUGH_VEIL = 2.5;
+const float CORNER_SCALE_LIMIT_DP = 32.0;
 
 float roundBox(float2 p, float4 rect, float4 radii) {
     float2 centre = (rect.xy + rect.zw) * 0.5;
@@ -229,8 +231,9 @@ half4 main(float2 coord) {
     }
     float pixel = detail.y;
     float depth = max(-d, 0.0);
-    float band = max(max(optics.y, optics.w * radius), 1.0);
-    float reach = max(optics.x, optics.z * radius);
+    float scaled = min(radius, CORNER_SCALE_LIMIT_DP * pixel);
+    float band = max(max(optics.y, optics.w * scaled), 1.0);
+    float reach = max(optics.x, optics.z * scaled);
     float2 n = float2(0.0, -1.0);
     float bend = 0.0;
     if (depth < band + BAND_SLACK_DP * pixel) {
@@ -281,6 +284,11 @@ half4 main(float2 coord) {
     rgb = mix(rgb, tone.rgb, lean);
     float own = luma(rgb);
     rgb = clamp(mix(float3(own), rgb, tone.a) + brighten, 0.0, 1.0);
+    // The rim catches its light under the tint, so a strong tint all but hides it.
+    float facing = 0.5 + 0.5 * dot(n, lens.zw);
+    float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
+    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + LIFT_GLOW * lift;
+    rgb += shine;
     rgb = mix(rgb, tint.rgb, tint.a);
     if (pressTintGlow > 1.0) {
         rgb = mix(rgb, clamp(rgb * pressTintGlow, 0.0, 1.0), lift * tint.a);
@@ -299,10 +307,6 @@ half4 main(float2 coord) {
         rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), lift);
     }
 
-    float facing = 0.5 + 0.5 * dot(n, lens.zw);
-    float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
-    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + LIFT_GLOW * lift;
-    rgb += shine;
     if (rimGlow > 0.0) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
         rgb = mix(rgb, clamp(outside * rimGlow, 0.0, 1.0), rim);

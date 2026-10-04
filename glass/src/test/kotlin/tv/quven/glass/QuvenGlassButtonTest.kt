@@ -21,6 +21,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -68,14 +69,15 @@ class QuvenGlassButtonTest {
     }
 
     @Test
-    fun clearGlass_leansTowardsNoShade_andLightensWhatItStandsOver() {
+    fun clearGlass_leansTowardsNoShade_lightensWhatItStandsOver_andShowsItLargerAndSharper() {
         val clear = QuvenGlassStyle.Clear
 
         assertEquals(0f, clear.thinTone.lean, 0f)
         assertEquals(0f, clear.thickTone.lean, 0f)
         assertEquals(0f, clear.lightTone.lean, 0f)
         assertEquals(0.086f, clear.brighten, 0.001f)
-        assertEquals(QuvenGlassStyle.Standard.blur, clear.blur)
+        assertTrue(clear.blur < QuvenGlassStyle.Standard.blur)
+        assertEquals(0.8f, clear.zoom, 0f)
     }
 
     @Test

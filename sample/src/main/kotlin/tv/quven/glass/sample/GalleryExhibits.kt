@@ -240,25 +240,26 @@ internal fun BoxScope.MorphingPanelExhibit(tuning: SampleTuning) {
 }
 
 /**
- * Draws regular, clear and tinted glass side by side, each named under it.
+ * Draws regular, clear and tinted glass two by two, each named under it.
  *
  * @param tuning The live settings.
  */
 @Composable
 internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
-    Row(
-        Modifier.align(Alignment.Center),
-        horizontalArrangement = Arrangement.spacedBy(ExhibitGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        GlassVariants.forEach { (name, style) ->
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    Modifier
-                        .size(VariantDiameter)
-                        .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, style, CircleShape, reduceMotion = tuning.reduceMotion),
-                )
-                GlassCaption(name, tuning)
+    // Two by two, so the four stand inside the stage.
+    Column(Modifier.align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(ExhibitGap)) {
+        GlassVariants.chunked(2).forEach { pair ->
+            Row(horizontalArrangement = Arrangement.spacedBy(ExhibitGap), verticalAlignment = Alignment.CenterVertically) {
+                pair.forEach { (name, style) ->
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Box(
+                            Modifier
+                                .size(VariantDiameter)
+                                .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, style, CircleShape, reduceMotion = tuning.reduceMotion),
+                        )
+                        GlassCaption(name, tuning)
+                    }
+                }
             }
         }
     }
@@ -513,5 +514,5 @@ private val GlassVariants: List<Pair<String, QuvenGlassStyle>> = listOf(
     "Regular" to QuvenGlassStyle.Standard,
     "Clear" to QuvenGlassStyle.Clear,
     "Tinted" to QuvenGlassStyle.Standard.tinted(SampleColors.Accent),
-    "Clear, tinted" to QuvenGlassStyle.Clear.tinted(Color(0xFF2979FF)),
+    "Clear, tinted" to QuvenGlassStyle.Clear.copy(tint = Color(0x662979FF)),
 )

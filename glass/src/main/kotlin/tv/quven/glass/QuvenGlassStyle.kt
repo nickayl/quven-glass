@@ -169,8 +169,8 @@ public data class QuvenGlassStyle(
         public val Standard: QuvenGlassStyle = QuvenGlassStyle()
 
         /**
-         * Gets Apple's clear glass: the same fold and blur as [Standard], without its tone, lightening what it stands
-         * over, for glass standing over bright media.
+         * Gets Apple's clear glass: the fold of [Standard] without its tone, lightening what it stands over, which it
+         * blurs less and shows a fifth larger, as a lens does, its rim lit white, for glass standing over bright media.
          */
         public val Clear: QuvenGlassStyle = QuvenGlassStyle(
             thinTone = QuvenGlassTone.Clear,
@@ -178,6 +178,9 @@ public data class QuvenGlassStyle(
             lightTone = QuvenGlassTone.Clear,
             tintStrength = 0.8f,
             brighten = 0.086f,
+            blur = 2.dp,
+            zoom = 0.8f,
+            specular = 0.75f,
         )
 
         private const val ButtonPressGlow = 3.6f

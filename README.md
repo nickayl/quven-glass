@@ -145,8 +145,9 @@ QuvenGlassButton(onClick = ::buy, label = "Buy", tint = Color(0xFF0091FF))
 QuvenGlassButton(onClick = ::close, modifier = Modifier.size(44.dp)) { ink -> Icon(Icons.Filled.Close, null, tint = ink) }
 ```
 
-`QuvenGlassStyle.Clear` is the clear variant for glass over bright media: no tone, a little lighter than what it covers.
-`forButtons()` and `forMenus()` turn any material into the one a button or a menu draws.
+`QuvenGlassStyle.Clear` is the clear variant for glass over bright media. It has no tone. It's a little lighter than what
+it covers and shows it sharper and a quarter larger, as a lens would, while `forButtons()` and `forMenus()` turn any
+material, this one included, into the one a button or a menu draws.
 
 `QuvenGlassSwitch` is the system's switch. Its white thumb lifts into a lens of clear glass while it's held, dragged or
 carried across, shows the track a fifth smaller through it, and settles back into a thumb once it rests. A tap turns it
@@ -303,9 +304,9 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB |
 | Thin tone | Lean 0.42 + 0.23 × luminance towards `0x2C`, saturation 1.22 |
 | Platter | White at 11%; black at 7% on light glass |
-| Fold | 1.43 × corner radius over a band of 0.46 × radius, at least 22 over 12 pt, power 2.5 |
+| Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 3.5 pt |
-| Rim | Lit from above, falling off with the square of the facing, 0.15 underneath |
+| Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light |
 | Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving |
 | Drag | The lens follows the finger and settles on the nearest option |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
@@ -321,7 +322,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
-| Clear glass | No tone, lightened by about 0.086 |
+| Clear glass | No tone, lightened by about 0.086; blurred about 2 pt and shown 1.25 times larger, its rim lit nearly white |
 | Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110%, and the menu's glass flows out of the card's edge to stand 22 pt beyond it, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
