@@ -1,0 +1,196 @@
+package tv.quven.glass.sample
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.unit.dp
+import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.QuvenGlassMorph
+import tv.quven.glass.QuvenGlassMorphPlacement
+import tv.quven.glass.QuvenGlassStyle
+import tv.quven.glass.quvenGlassSource
+import tv.quven.glass.quvenLiquidGlass
+import tv.quven.glass.rememberQuvenGlassBackdrop
+import tv.quven.glass.rememberQuvenGlassMorphState
+
+/** Shows Liquid Glass surfaces over content that is hard for glass to stand over, with a panel tuning the material. */
+class SampleActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
+        super.onCreate(savedInstanceState)
+        val launch = SampleLaunch(
+            scroll = intent.getFloatExtra(SampleLaunch.Scroll, 0f),
+            shift = intent.getFloatExtra(SampleLaunch.Shift, 0f),
+            panelOpen = intent.getBooleanExtra(SampleLaunch.Panel, true),
+            tab = intent.getIntExtra(SampleLaunch.Tab, 0),
+            gap = intent.getFloatExtra(SampleLaunch.Gap, 8f),
+            style = Knobs.fold(SampleTuning.QuvenBarStyle) { style, knob ->
+                val value = intent.getFloatExtra(knob.key, Float.NaN)
+                if (value.isNaN()) style else knob.write(style, value)
+            },
+            liquid = intent.getBooleanExtra(SampleLaunch.Liquid, true),
+        )
+        setContent {
+            MaterialTheme(colorScheme = darkColorScheme()) { SampleScreen(launch) }
+        }
+    }
+}
+
+/**
+ * The settings the sample starts with, read from the launching intent so a capture can match the iOS reference's.
+ *
+ * @property scroll The distance the content starts scrolled by, in density-independent pixels.
+ * @property shift The distance the content stands moved to the left by, in density-independent pixels, so the content
+ * under the centred bar matches the reference's on a wider screen.
+ * @property panelOpen Whether the tuning panel starts open.
+ * @property tab The index of the bar's held entry.
+ * @property gap The space between the bar's capsule and its Search circle, in density-independent pixels.
+ * @property style The material, with any parameter an intent extra named after its [Knob.key] sets.
+ * @property liquid Whether the surfaces start as Liquid Glass rather than the static material.
+ */
+private data class SampleLaunch(
+    val scroll: Float,
+    val shift: Float,
+    val panelOpen: Boolean,
+    val tab: Int,
+    val gap: Float,
+    val style: QuvenGlassStyle,
+    val liquid: Boolean,
+) {
+    companion object {
+        const val Scroll = "scroll"
+        const val Shift = "shift"
+        const val Panel = "panel"
+        const val Tab = "tab"
+        const val Gap = "gap"
+        const val Liquid = "liquid"
+    }
+}
+
+@Composable
+private fun SampleScreen(launch: SampleLaunch) {
+    val tuning = remember { SampleTuning().apply { barGap = launch.gap; style = launch.style; liquid = launch.liquid } }
+    val backdrop = rememberQuvenGlassBackdrop()
+    var tab by remember { mutableIntStateOf(launch.tab) }
+    var density by remember { mutableIntStateOf(1) }
+    var panelOpen by remember { mutableStateOf(launch.panelOpen) }
+    Box(Modifier.fillMaxSize().background(SampleColors.Ground)) {
+        SampleBackdropContent(
+            Modifier
+                .fillMaxSize()
+                .quvenGlassSource(backdrop)
+                .graphicsLayer { translationX = -launch.shift.dp.toPx() },
+            scroll = launch.scroll,
+        )
+        CompositionLocalProvider(LocalQuvenGlassBackdrop provides backdrop.takeIf { tuning.liquid }) {
+            val morph = rememberQuvenGlassMorphState()
+            var gear by remember { mutableStateOf(Rect.Zero) }
+            Row(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .statusBarsPadding()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                TuneButton(
+                    tuning = tuning,
+                    shown = !morph.isShown,
+                    onClick = { panelOpen = true },
+                    modifier = Modifier.onGloballyPositioned { gear = it.boundsInRoot() },
+                )
+                SampleDensityTrack(held = density, onHold = { density = it }, tuning = tuning)
+            }
+            if (panelOpen) {
+                Box(Modifier.fillMaxSize().clickable(interactionSource = null, indication = null) { panelOpen = false })
+            }
+            QuvenGlassMorph(
+                state = morph,
+                expanded = panelOpen,
+                anchor = gear,
+                width = PanelWidth,
+                placement = QuvenGlassMorphPlacement.hangingFromTopLeft(edge = 16.dp),
+                modifier = Modifier.fillMaxSize(),
+                style = tuning.style,
+                cornerRadius = 28.dp,
+                reduceMotion = tuning.reduceMotion,
+                face = { GearFace() },
+            ) {
+                TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
+            }
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 8.dp),
+            ) {
+                SampleBar(held = tab, onHold = { tab = it }, tuning = tuning)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TuneButton(tuning: SampleTuning, shown: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val interactions = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .size(ButtonSide)
+            .graphicsLayer { alpha = if (shown) 1f else 0f }
+            .quvenLiquidGlass(
+                backdrop = LocalQuvenGlassBackdrop.current,
+                style = tuning.style,
+                shape = CircleShape,
+                interactionSource = interactions,
+                reduceMotion = tuning.reduceMotion,
+            )
+            .clickable(interactionSource = interactions, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        GearFace()
+    }
+}
+
+@Composable
+private fun GearFace() {
+    Box(Modifier.size(ButtonSide), contentAlignment = Alignment.Center) {
+        Icon(Icons.Filled.Settings, contentDescription = "Tune", tint = SampleColors.TextHigh)
+    }
+}
+
+private val ButtonSide = 69.dp
+private val PanelWidth = 340.dp
+private val PanelMaxHeight = 560.dp
