@@ -259,6 +259,8 @@ internal class LiquidGlassNode(
     }
 
     private fun surface(size: Size, offset: Offset): GlassSurface? {
+        // An empty surface would still join its neighbours at the point it stands on.
+        if (size.minDimension <= 0f) return null
         val form = GlassForm.of(shape, size, requireLayoutDirection(), requireDensity()) ?: return null
         val lift = max(press.value, liftSource?.lift() ?: 0f)
         val swell = lift * style.pressGrowth * min(size.width, size.height) / 2f

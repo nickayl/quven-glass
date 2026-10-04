@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.4.1")
+    implementation("tv.quven.glass:glass:2.5.0")
 }
 ```
 
@@ -199,7 +199,10 @@ QuvenGlassMenuBox(
 }
 ```
 
-The menu closes itself once a row is chosen, on Back and on a press anywhere else. It opens over its button and hangs
+The menu drops out of its button the way the system's does: the button's glass stays as a lit cap while a drop of
+clear glass falls from it, lengthens before it spreads and frosts over as it settles, and the button stretches for a
+moment when the glass lands back in it. The menu closes itself once a row is chosen, on Back and on a press anywhere
+else. It opens over its button and hangs
 down from it when the room below is enough; otherwise it rises, and an untitled menu then lists its rows from the foot
 up, so the first one stays nearest the finger. A menu holding a choice makes room for the check before every row, as
 iOS does. `QuvenGlassMenuChoice` with `role = Role.Checkbox` is a toggle, `enabled = false` greys a row out, and
@@ -259,8 +262,8 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu choices | Check centred at 21 or 24 pt, name from 32 or 36 pt; a menu holding one widens by 12 or 14 pt and moves its glyphs as far |
 | Menu placement | Over its button, hanging when the room below suffices, otherwise rising with untitled rows reversed |
 | Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
-| Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content fading in and coming into focus from a quarter of the way |
-| Menu closing | Back into its button in about 165 ms on an almost even ease, with no bounce |
+| Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
+| Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 

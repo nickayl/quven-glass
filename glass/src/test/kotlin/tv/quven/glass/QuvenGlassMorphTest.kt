@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -29,6 +31,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlinx.coroutines.flow.first
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [34])
@@ -103,6 +106,55 @@ class QuvenGlassMorphTest {
     }
 
     @Test
+    fun morphGeometry_atTheRelease_keepsTheCapAtTheControlsTop_andTheDropInsideTheControl() {
+        val geometry = morphGeometry(Control, Hanging, spread = 0f, reach = 0f, cornerRadius = 25f)
+
+        assertEquals(Control.top, geometry.source.top, 0.001f)
+        assertTrue(geometry.source.width < Control.width)
+        assertTrue(geometry.body.left > Control.left && geometry.body.right < Control.right)
+        assertEquals(Control.bottom, geometry.body.bottom, 0.001f)
+    }
+
+    @Test
+    fun morphGeometry_dropsAlongItsWayAsItSpreads_andLeavesTheControlOnlyAtTheEnd() {
+        val falling = morphGeometry(Control, Hanging, spread = 0.6f, reach = 0.75f, cornerRadius = 25f)
+
+        assertEquals(Control.bottom + (Hanging.bottom - Control.bottom) * 0.75f, falling.body.bottom, 0.001f)
+        assertEquals(Control.center.y, falling.body.top, 0.001f)
+
+        val open = morphGeometry(Control, Hanging, spread = 1f, reach = 1f, cornerRadius = 25f)
+        assertEquals(Hanging, open.body)
+        assertEquals(25f, open.bodyRadius, 0.001f)
+        assertEquals(0f, open.source.width, 0.001f)
+    }
+
+    @Test
+    fun morphGeometry_aRisingGlass_dropsUpwards_andKeepsItsCapAtTheControlsFoot() {
+        val rising = Rect(Control.left, Control.bottom - 300f, Control.left + 220f, Control.bottom)
+        val geometry = morphGeometry(Control, rising, spread = 0.3f, reach = 0.5f, cornerRadius = 25f)
+
+        assertEquals(Control.top + (rising.top - Control.top) * 0.5f, geometry.body.top, 0.001f)
+        assertEquals(Control.center.y, geometry.body.bottom, 0.001f)
+        assertEquals(Control.bottom, geometry.source.bottom, 0.001f)
+    }
+
+    @Test
+    fun opening_dropsTheGlassAlongItsWayAheadOfSpreadingIt() {
+        var lead = 0f
+        render {
+            LaunchedEffect(Unit) {
+                snapshotFlow { state.progress.value to state.reach.value }.first { (spread, _) -> spread >= HalfSpread }
+                    .let { (spread, reach) -> lead = reach - spread }
+            }
+        }
+
+        compose.runOnIdle { expanded = true }
+        compose.waitForIdle()
+
+        assertTrue("The glass's drop led its spread by $lead at half its spread", lead > DropLead)
+    }
+
+    @Test
     fun opening_laysThePanelWhereThePlacementStandsIt_andTheStateReadsShown() {
         render()
 
@@ -166,6 +218,23 @@ class QuvenGlassMorphTest {
     }
 
     @Test
+    fun closing_stretchesTheControlAsTheGlassLands_andSettlesItBack() {
+        var longest = 0f
+        render {
+            LaunchedEffect(Unit) { snapshotFlow { state.landing.value }.collect { longest = maxOf(longest, it) } }
+        }
+        compose.runOnIdle { expanded = true }
+        compose.waitForIdle()
+        assertEquals(0f, longest, 0.001f)
+
+        compose.runOnIdle { expanded = false }
+        compose.waitForIdle()
+
+        assertEquals(1f, longest, 0.1f)
+        assertEquals(0f, state.landing.value, 0.01f)
+    }
+
+    @Test
     fun thePanel_isComposedOnceAndKeptWhileClosed_soAnOpeningComposesNothing() {
         var compositions = 0
         render { remember { compositions++ } }
@@ -218,6 +287,10 @@ class QuvenGlassMorphTest {
         const val PanelWidth = 150f
         const val SettleFrames = 200
         const val FrameMillis = 16L
+        const val HalfSpread = 0.5f
+        const val DropLead = 0.05f
+        val Control = Rect(20f, 20f, 89f, 89f)
+        val Hanging = Rect(20f, 20f, 243f, 420f)
         val Space = IntSize(800, 600)
         val Unit = Density(1f)
     }

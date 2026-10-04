@@ -7,6 +7,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -26,19 +27,21 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
@@ -52,6 +55,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 
 /**
  * Where an opened [QuvenGlassMorph] comes to rest, given the size its content asks for, the anchor it grows from and
@@ -140,8 +145,14 @@ public fun interface QuvenGlassMorphPlacement {
 @Stable
 public class QuvenGlassMorphState {
 
-    /** Gets how far the glass is open, from 0 to 1. */
+    /** Gets how far the glass has spread across, from 0 to 1, past 1 while its spring overshoots. */
     internal val progress: Animatable<Float, *> = Animatable(0f)
+
+    /** Gets how far the glass has dropped along the way it opens, ahead of [progress], from 0 to 1. */
+    internal val reach: Animatable<Float, *> = Animatable(0f)
+
+    /** Gets how far the control stretches as the glass lands back in it, from 0, at rest, to 1 at its longest. */
+    internal val landing: Animatable<Float, *> = Animatable(0f)
 
     /** Gets the bounds of the control the glass grows from, in the window, or `null` while none is marked. */
     internal var anchorInWindow: Rect? by mutableStateOf(null)
@@ -156,18 +167,27 @@ public class QuvenGlassMorphState {
      * Gets a value indicating whether the glass is on screen: opening, open or closing. The control it grows from hides
      * meanwhile, as the glass takes its place; the spring's swing past the closed state still counts as closing.
      */
-    public val isShown: Boolean by derivedStateOf { progress.isRunning || progress.value != 0f }
+    public val isShown: Boolean by derivedStateOf {
+        progress.isRunning || reach.isRunning || progress.value != 0f || reach.value != 0f
+    }
 }
 
 /**
  * Marks the control a morph grows from, so a glass that opens elsewhere in the window, as a menu in a
- * [QuvenGlassMenuHost] does, grows out of it, and the focus a menu opened from the keys took returns to it.
+ * [QuvenGlassMenuHost] does, grows out of it, the focus a menu opened from the keys took returns to it, and the control
+ * stretches briefly the way the glass came back as it lands in it.
  *
  * @param state The opening the control belongs to.
  * @return The decorated modifier.
  */
 public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState): Modifier =
-    onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }.focusRequester(state.anchorFocus)
+    onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }
+        .focusRequester(state.anchorFocus)
+        .graphicsLayer {
+            scaleY = 1f + LandingStretch * state.landing.value
+            // A glass that hung below its control comes back up, and stretches it upwards; one that rose, downwards.
+            transformOrigin = if (state.rises) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
+        }
 
 /**
  * Creates and remembers a [QuvenGlassMorphState].
@@ -178,11 +198,12 @@ public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState): Modifier =
 public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { QuvenGlassMorphState() }
 
 /**
- * Opens a control into a panel as one piece of glass: on a spring the glass grows from the control's bounds to the
- * panel's, a capsule until it comes to rest, still lit by the control's press as [QuvenGlassStyle.pressGlow] lights
- * it; the control's [face] fades first and the panel's [content] comes into focus last. It closes back into the
- * control on a short, even ease that never swings past it, and the control shows again once
- * [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and the panel fade in place.
+ * Opens a control into a panel as one piece of glass, as a system menu drops out of its button: the control's glass
+ * stays where it stood, still lit by its press as [QuvenGlassStyle.pressGlow] lights it, while the panel's glass falls
+ * from it as a drop, lengthening on one spring and spreading on a slower one, and joins it; the control's
+ * [face] fades at once, the panel's [content] comes into focus as the glass spreads, and the glass takes the panel's
+ * corners last. It closes back into the control on a short, even ease that never swings past it, and the control shows
+ * again once [QuvenGlassMorphState.isShown] is `false`. Where motion is reduced, the glass and the panel fade in place.
  *
  * The morph fills its parent, in whose coordinates [anchor] and [placement] are measured, and handles no dismissal.
  * The panel stays composed while closed, outside the semantics tree.
@@ -217,30 +238,56 @@ public fun QuvenGlassMorph(
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(expanded, reduceMotion) {
-        val spec: AnimationSpec<Float> = when {
-            reduceMotion -> tween(ReducedMotionFadeMillis)
-            expanded -> spring(MorphDamping, MorphStiffness)
-            else -> tween(CloseMillis, easing = CloseEasing)
+        val target = if (expanded) 1f else 0f
+        val landing = !expanded && !reduceMotion && state.isShown
+        coroutineScope {
+            launch { state.progress.animateTo(target, morphSpec(expanded, reduceMotion, SpreadDamping, SpreadStiffness)) }
+            launch { state.reach.animateTo(target, morphSpec(expanded, reduceMotion, DropDamping, DropStiffness)) }
         }
-        state.progress.animateTo(if (expanded) 1f else 0f, spec)
+        // The control takes the glass's momentum as it lands, and settles without swinging past its own shape.
+        if (landing) {
+            state.landing.animateTo(0f, spring(dampingRatio = 1f, stiffness = LandingStiffness), initialVelocity = LandingKick)
+        }
     }
     val frame = remember { MorphFrame() }
-    val shape = remember(frame) { MorphShape(frame) }
     val opening by rememberUpdatedState(expanded && !reduceMotion)
-    // The glass carries the control's press as it starts to grow, and lets it go as it takes the panel's shape.
+    // The control's glass carries its press as the drop falls, and lets it go as the glass spreads.
     val carriedPress = remember(state) { GlassLiftSource { if (opening) carriedPress(state.progress.value) else 0f } }
+    val joined = backdrop != null && QuvenGlass.isLiquidSupported
+    // The glass is as clear as its control's while it drops and spreads, and frosts over as the panel settles.
+    val frost by remember(state, reduceMotion) {
+        derivedStateOf { if (reduceMotion) 1f else smoothstep(FrostStart, 1f, state.progress.value) }
+    }
+    val glassStyle = remember(style, frost) { style.frosted(frost) }
     Layout(
         modifier = modifier,
         content = {
-            Box(
-                Modifier
-                    .graphicsLayer { alpha = if (reduceMotion) state.progress.value else 1f }
-                    // The glass opens into a panel, thick glass that never turns light.
-                    .liquidGlass(
-                        backdrop, style, shape, interactionSource = null, reduceMotion = false, lift = carriedPress, pill = null,
-                        adapts = false,
-                    ),
-            )
+            QuvenGlassContainer(
+                Modifier.graphicsLayer { alpha = if (reduceMotion) state.progress.value else 1f },
+                style = glassStyle,
+                spacing = MorphJoin,
+                backdrop = backdrop,
+            ) {
+                // The static material draws each surface apart, so only joined glass keeps the control's.
+                if (joined) {
+                    Box(
+                        Modifier
+                            .standingAt { frame.source }
+                            .liquidGlass(
+                                backdrop, glassStyle, CircleShape, null, reduceMotion = false, lift = carriedPress, pill = null,
+                                adapts = false,
+                            ),
+                    )
+                }
+                // The panel's glass never turns light.
+                Box(
+                    Modifier
+                        .standingAt { frame.body }
+                        .liquidGlass(
+                            backdrop, glassStyle, BodyShape(frame), null, reduceMotion = false, lift = null, pill = null, adapts = false,
+                        ),
+                )
+            }
             // The face doubles the control, which keeps the semantics; it exists only while the glass stands in for it.
             Box(Modifier.clearAndSetSemantics {}.graphicsLayer { alpha = faceAlpha(state.progress.value) }) {
                 if (expanded || state.isShown) face()
@@ -253,7 +300,7 @@ public fun QuvenGlassMorph(
                         alpha = shown
                         renderEffect = contentBlur((1f - shown) * ContentBlur.toPx())
                     }
-                    .drawWithContent { frame.clipToGlass(this) { drawContent() } },
+                    .drawWithContent { frame.clipToBody(this) { drawContent() } },
             ) { content() }
         },
     ) { measurables, constraints ->
@@ -269,13 +316,15 @@ public fun QuvenGlassMorph(
         val open = Rect(Offset(target.x.toFloat(), target.y.toFloat()), Size(panel.width.toFloat(), panel.height.toFloat()))
         // A glass rises when it ends at its control's foot; one held inside the space past its control does not.
         state.rises = open.top < anchor.top && abs(open.bottom - anchor.bottom) < 1f
-        val progress = state.progress.value
-        val glass = if (reduceMotion) open else lerp(anchor, open, progress)
-        frame.update(glass, open, if (reduceMotion) cornerRadius.toPx() else morphRadius(glass.size, cornerRadius.toPx(), progress))
-        val glassPlaceable = measurables[0].measure(Constraints.fixed(glass.width.roundToInt().coerceAtLeast(0), glass.height.roundToInt().coerceAtLeast(0)))
+        frame.update(
+            if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx())
+            else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx()),
+            open,
+        )
+        val glassPlaceable = measurables[0].measure(Constraints.fixed(space.width, space.height))
         val facePlaceable = measurables[1].measure(Constraints.fixed(anchor.width.roundToInt(), anchor.height.roundToInt()))
         layout(space.width, space.height) {
-            glassPlaceable.place(glass.left.roundToInt(), glass.top.roundToInt())
+            glassPlaceable.place(0, 0)
             facePlaceable.place(anchor.left.roundToInt(), anchor.top.roundToInt())
             panel.place(target)
         }
@@ -286,37 +335,152 @@ public fun QuvenGlassMorph(
 public val DefaultMorphCornerRadius: Dp = 24.dp
 
 /**
- * Where the morph's glass stands at this frame, written by the layout and read, observed, by the glass's shape and the
- * panel's clip, so both redraw as the glass grows.
+ * Where the morph's two glass surfaces stand at this frame, written by the layout and read, observed, by the surfaces'
+ * placement and shape and by the panel's clip, so all of them follow the glass as it grows.
  */
 private class MorphFrame {
-    var glass: Rect by mutableStateOf(Rect.Zero)
+    var source: Rect by mutableStateOf(Rect.Zero)
         private set
-    var open: Rect by mutableStateOf(Rect.Zero)
+    var body: Rect by mutableStateOf(Rect.Zero)
         private set
-    var radius: Float by mutableFloatStateOf(0f)
+    var bodyRadius: Float by mutableFloatStateOf(0f)
         private set
+    private var open: Rect = Rect.Zero
     private val clip = Path()
 
-    fun update(glass: Rect, open: Rect, radius: Float) {
-        this.glass = glass
+    fun update(geometry: MorphGeometry, open: Rect) {
+        source = geometry.source
+        body = geometry.body
+        bodyRadius = geometry.bodyRadius
         this.open = open
-        this.radius = radius
     }
 
-    // The panel is laid out where it stands open; it shows only inside the glass as it grows.
-    fun clipToGlass(scope: ContentDrawScope, block: () -> Unit) {
+    // The panel is laid out where it stands open; it shows only inside the panel's glass as it grows.
+    fun clipToBody(scope: ContentDrawScope, block: () -> Unit) {
         clip.rewind()
-        clip.addOutline(Outline.Rounded(RoundRect(glass.translate(-open.topLeft), CornerRadius(radius))))
+        clip.addOutline(Outline.Rounded(RoundRect(body.translate(-open.topLeft), CornerRadius(bodyRadius))))
         with(scope) { clipPath(clip) { block() } }
     }
 }
 
-/** The rounded shape the morph's glass takes at this frame. */
-private class MorphShape(private val frame: MorphFrame) : Shape {
+/** The rounded shape the panel's glass takes at this frame. */
+private class BodyShape(private val frame: MorphFrame) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
-        Outline.Rounded(RoundRect(Rect(Offset.Zero, size), CornerRadius(frame.radius.coerceAtMost(size.minDimension / 2f))))
+        Outline.Rounded(
+            RoundRect(Rect(Offset.Zero, size), CornerRadius(frame.bodyRadius.coerceAtMost(size.minDimension / 2f))),
+        )
 }
+
+/**
+ * Sizes a surface to the rectangle [rect] reads and stands it there, in its parent's coordinates.
+ *
+ * @param rect Reads the rectangle, observed, at layout.
+ * @return The decorated modifier.
+ */
+private fun Modifier.standingAt(rect: () -> Rect): Modifier = layout { measurable, _ ->
+    val bounds = rect()
+    val placeable = measurable.measure(
+        Constraints.fixed(bounds.width.roundToInt().coerceAtLeast(0), bounds.height.roundToInt().coerceAtLeast(0)),
+    )
+    layout(placeable.width, placeable.height) { placeable.place(bounds.left.roundToInt(), bounds.top.roundToInt()) }
+}
+
+/**
+ * The two surfaces of a morph's glass at one frame: the control's own glass and the panel's, which the glass draws
+ * joined.
+ *
+ * @property source The control's glass, a circle that shrinks into the panel's glass as it comes to rest.
+ * @property body The panel's glass.
+ * @property bodyRadius The radius of the panel's glass's corners, in pixels.
+ */
+internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: Float) {
+    companion object {
+        /**
+         * Returns the geometry of a glass that stands open as [open], with no control's glass left.
+         *
+         * @param open The open panel's bounds.
+         * @param cornerRadius The open panel's corner radius, in pixels.
+         * @return The geometry.
+         */
+        fun settled(open: Rect, cornerRadius: Float): MorphGeometry =
+            MorphGeometry(Rect(open.center, Size.Zero), open, cornerRadius.coerceAtMost(open.minDimension / 2f))
+    }
+}
+
+/**
+ * Returns where a morph's glass stands as it opens from [anchor] into [open], as a system menu drops out of its button:
+ * the control's glass stays as a cap at its near end, and the panel's glass falls out of the control's middle, its
+ * far edge travelling with [reach], its sides with [spread], and its near edge leaving the control only as the glass
+ * finishes spreading, when the cap shrinks into it.
+ *
+ * @param anchor The control's bounds.
+ * @param open The open panel's bounds.
+ * @param spread How far the glass has spread across, from 0 to 1, past 1 while its spring overshoots.
+ * @param reach How far the glass has dropped along the way it opens, from 0 to 1, past 1 while its spring overshoots.
+ * @param cornerRadius The open panel's corner radius, in pixels.
+ * @return The geometry.
+ */
+internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float, cornerRadius: Float): MorphGeometry {
+    val settle = smoothstep(NearEdgeStart, 1f, spread)
+    val hangs = abs(open.top - anchor.top) <= abs(open.bottom - anchor.bottom)
+    val top: Float
+    val bottom: Float
+    if (hangs) {
+        bottom = lerp(anchor.bottom, open.bottom, reach)
+        top = lerp(anchor.center.y, open.top, settle).coerceAtMost(bottom)
+    } else {
+        top = lerp(anchor.top, open.top, reach)
+        bottom = lerp(anchor.center.y, open.bottom, settle).coerceAtLeast(top)
+    }
+    // The drop is born narrower than the control, in its middle, so the cap and the drop join inside its outline,
+    // and swells to the control's width as soon as it falls.
+    val seed = anchor.width * lerp(BodySeedShare, 1f, smoothstep(0f, BodySwellEnd, spread)) / 2f
+    val body = Rect(
+        lerp(anchor.center.x - seed, open.left, spread),
+        top,
+        lerp(anchor.center.x + seed, open.right, spread),
+        bottom,
+    )
+    // The cap keeps the control's near edge, then sinks into the panel's glass, away from its edge, as it fades.
+    val fade = smoothstep(SourceFadeStart, SourceFadeEnd, spread)
+    val kept = lerp(SourceRelease, SourceCap, smoothstep(0f, SourceSqueezeEnd, spread)) * (1f - fade)
+    val capSize = Size(anchor.width * kept, anchor.height * kept)
+    val pinnedTop = if (hangs) anchor.top else anchor.bottom - capSize.height
+    val capTop = lerp(pinnedTop, anchor.center.y - capSize.height / 2f, fade)
+    val source = Rect(Offset(anchor.center.x - capSize.width / 2f, capTop), capSize)
+    return MorphGeometry(source, body, morphRadius(body.size, cornerRadius, spread))
+}
+
+private fun lerp(start: Float, stop: Float, fraction: Float): Float = start + (stop - start) * fraction
+
+/**
+ * Returns this material as the morph's glass draws it: as clear as a control's while [frost] is 0, the thick tone and
+ * the blur of the material once it reaches 1.
+ *
+ * @param frost How far the glass has frosted over, from 0 to 1.
+ * @return The material.
+ */
+private fun QuvenGlassStyle.frosted(frost: Float): QuvenGlassStyle = if (frost >= 1f) this else copy(
+    thickTone = QuvenGlassTone(
+        shade = lerpColor(thinTone.shade, thickTone.shade, frost),
+        lean = lerp(thinTone.lean, thickTone.lean, frost),
+        leanSlope = lerp(thinTone.leanSlope, thickTone.leanSlope, frost),
+        saturation = lerp(thinTone.saturation, thickTone.saturation, frost),
+    ),
+    blur = lerp(ClearBlur.value, blur.value, frost).dp,
+)
+
+private fun smoothstep(from: Float, to: Float, value: Float): Float {
+    val t = ((value - from) / (to - from)).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
+}
+
+private fun morphSpec(expanded: Boolean, reduceMotion: Boolean, damping: Float, stiffness: Float): AnimationSpec<Float> =
+    when {
+        reduceMotion -> tween(ReducedMotionFadeMillis)
+        expanded -> spring(damping, stiffness)
+        else -> tween(CloseMillis, easing = CloseEasing)
+    }
 
 // Moves a start along one axis so the extent it begins stands inside the space, or at the inset where it cannot.
 private fun Int.keptInside(extent: Int, space: Int, inset: Int): Int = coerceIn(inset, maxOf(inset, space - inset - extent))
@@ -349,13 +513,29 @@ internal fun morphRadius(glass: Size, cornerRadius: Float, progress: Float): Flo
     return capsule + (cornerRadius.coerceAtMost(capsule) - capsule) * eased
 }
 
-private const val MorphDamping = 0.72f
-private const val MorphStiffness = 580f
+private const val SpreadDamping = 0.72f
+private const val SpreadStiffness = 300f
+private const val DropDamping = 0.68f
+private const val DropStiffness = 380f
+private val MorphJoin = 48.dp
+private const val NearEdgeStart = 0.7f
+private const val BodySeedShare = 0.6f
+private const val BodySwellEnd = 0.15f
+private const val SourceRelease = 0.85f
+private const val SourceCap = 0.8f
+private const val SourceSqueezeEnd = 0.5f
+private const val SourceFadeStart = 0.6f
+private const val SourceFadeEnd = 0.85f
+private const val FrostStart = 0.75f
+private const val LandingStretch = 0.07f
+private const val LandingStiffness = 156f
+private const val LandingKick = 34f
+private val ClearBlur = QuvenGlassStyle.Standard.blur
 private const val CloseMillis = 165
 private val CloseEasing = CubicBezierEasing(0.1f, 0f, 1f, 1f)
 private const val CornerSettleStart = 0.6f
 private val ContentBlur = 10.dp
 private const val MinContentBlur = 0.5f
-private const val FaceFadeRate = 3f
+private const val FaceFadeRate = 5f
 private const val PressFadeRate = 2f
-private const val ContentFadeStart = 0.25f
+private const val ContentFadeStart = 0.4f
