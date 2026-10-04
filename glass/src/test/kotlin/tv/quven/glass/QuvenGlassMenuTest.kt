@@ -13,6 +13,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpRect
 import org.junit.Assert.assertEquals
@@ -54,20 +56,52 @@ class QuvenGlassMenuTest {
     @Test
     fun pressingARow_runsItsAction() {
         var pressed = 0
-        render(QuvenGlassMenuMetrics.Phone) { pressed++ }
+        render(QuvenGlassMenuMetrics.Phone, onFirst = { pressed++ })
 
         compose.onNodeWithTag("first").performClick()
 
         assertEquals(1, pressed)
     }
 
-    private fun render(metrics: QuvenGlassMenuMetrics, onFirst: () -> Unit = {}) {
+    @Test
+    fun aFingerSlidingAlongTheMenu_choosesTheRowItLiftsOver_andNotTheOneItPressed() {
+        var first = 0
+        var second = 0
+        render(QuvenGlassMenuMetrics.Phone, onFirst = { first++ }, onSecond = { second++ })
+
+        compose.onNodeWithTag("first").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, height * 0.5f))
+            moveBy(Offset(0f, height * 0.6f))
+            up()
+        }
+
+        assertEquals(0, first)
+        assertEquals(1, second)
+    }
+
+    @Test
+    fun aFingerLiftingOverNoRow_choosesNothing() {
+        var chosen = 0
+        render(QuvenGlassMenuMetrics.Phone, onFirst = { chosen++ }, onSecond = { chosen++ })
+
+        compose.onNodeWithTag("first").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -height * 0.6f))
+            moveBy(Offset(0f, -height * 0.6f))
+            up()
+        }
+
+        assertEquals(0, chosen)
+    }
+
+    private fun render(metrics: QuvenGlassMenuMetrics, onFirst: () -> Unit = {}, onSecond: () -> Unit = {}) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
                 QuvenGlassMenu(Modifier.width(metrics.width), metrics = metrics) {
                     QuvenGlassMenuTitle("Library")
                     QuvenGlassMenuItem("Playlists", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
-                    QuvenGlassMenuItem("Watchlist", {}, Modifier.testTag("second"))
+                    QuvenGlassMenuItem("Watchlist", onSecond, Modifier.testTag("second"))
                     QuvenGlassMenuDivider(Modifier.testTag("divider"))
                     QuvenGlassMenuTitle("Account")
                     QuvenGlassMenuItem("Sign out", {}, destructive = true)

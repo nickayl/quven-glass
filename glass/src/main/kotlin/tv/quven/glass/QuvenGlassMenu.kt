@@ -19,11 +19,14 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,7 +38,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -152,7 +162,8 @@ public data class QuvenGlassMenuColors(
 
 /**
  * Lays out the entries of a glass menu, the content a [QuvenGlassMorph] opens into: [QuvenGlassMenuTitle],
- * [QuvenGlassMenuItem] and [QuvenGlassMenuDivider], one under another.
+ * [QuvenGlassMenuItem] and [QuvenGlassMenuDivider], one under another. A finger that slides along the menu lights the
+ * row under it and chooses the row it lifts over, as on a system menu.
  *
  * @param modifier Modifier applied to the menu's column, which fills the width it is given.
  * @param metrics The layout of the rows; the morph opening the menu takes its width and corner radius.
@@ -169,7 +180,7 @@ public fun QuvenGlassMenu(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val look = remember(metrics, colors, textStyle) { MenuLook(metrics, colors, textStyle) }
-    val pressed = look.pressedRows > 0
+    val pressed = look.pressedRows > 0 || look.isScrubbing
     val wash by animateFloatAsState(
         if (pressed) 1f else 0f,
         tween(if (pressed) WashInMillis else WashOutMillis),
@@ -179,6 +190,8 @@ public fun QuvenGlassMenu(
         Column(
             modifier
                 .fillMaxWidth()
+                .onPlaced { look.menu = it }
+                .pointerInput(look) { scrubRows(look) }
                 .drawBehind { if (wash > 0f) drawRect(colors.pressWash, alpha = wash) }
                 .padding(vertical = metrics.verticalInset),
             content = content,
@@ -244,12 +257,19 @@ public fun QuvenGlassMenuItem(
     val ink = color.takeOrElse { if (destructive) look.colors.destructive else look.colors.label }
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
-    // A row lights only once a press has lasted, as a touch that goes on to drag the menu never lights one.
+    val currentClick by rememberUpdatedState(onClick)
+    val row = remember(look) { MenuRow { currentClick() } }
+    val scrubbed = look.scrubbed === row
+    // A press lights its row only once it has lasted, as a touch that goes on to slide never lights the first row.
     val lit by animateFloatAsState(
-        if (pressed) 1f else 0f,
-        if (pressed) tween(HighlightFadeMillis, delayMillis = HighlightDelayMillis) else snap(),
+        if (pressed || scrubbed) 1f else 0f,
+        if (pressed && !scrubbed) tween(HighlightFadeMillis, delayMillis = HighlightDelayMillis) else snap(),
         label = "highlight",
     )
+    DisposableEffect(look, row) {
+        look.rows += row
+        onDispose { look.rows -= row }
+    }
     LaunchedEffect(pressed) {
         if (!pressed) return@LaunchedEffect
         look.pressedRows++
@@ -263,6 +283,7 @@ public fun QuvenGlassMenuItem(
         modifier = modifier
             .fillMaxWidth()
             .height(metrics.rowHeight)
+            .onPlaced { row.coordinates = it }
             .drawBehind {
                 if (lit > 0f) {
                     val inset = metrics.highlightInset.toPx()
@@ -330,9 +351,70 @@ public fun QuvenGlassMenuDivider(modifier: Modifier = Modifier) {
     )
 }
 
-/** The layout, colours and text style the entries of a [QuvenGlassMenu] read, and how many of its rows are pressed. */
+/**
+ * The layout, colours and text style the entries of a [QuvenGlassMenu] read, with its rows, how many of them are
+ * pressed and the row a sliding finger lights.
+ */
 private class MenuLook(val metrics: QuvenGlassMenuMetrics, val colors: QuvenGlassMenuColors, val textStyle: TextStyle) {
     var pressedRows by mutableIntStateOf(0)
+    var scrubbed: MenuRow? by mutableStateOf(null)
+    var isScrubbing by mutableStateOf(false)
+    var menu: LayoutCoordinates? = null
+    val rows = mutableListOf<MenuRow>()
+
+    /**
+     * Returns the row under [position].
+     *
+     * @param position A point in the menu's coordinates.
+     * @return The row, or `null` where none stands.
+     */
+    fun rowAt(position: Offset): MenuRow? {
+        val menu = menu?.takeIf { it.isAttached } ?: return null
+        return rows.firstOrNull { row ->
+            row.coordinates?.takeIf { it.isAttached }?.let { menu.localBoundingBoxOf(it, clipBounds = false).contains(position) } == true
+        }
+    }
+}
+
+/**
+ * A row of a [QuvenGlassMenu]: where it stands and what choosing it does.
+ *
+ * @property action Chooses the row.
+ */
+private class MenuRow(val action: () -> Unit) {
+    var coordinates: LayoutCoordinates? = null
+}
+
+/**
+ * Follows a finger on the menu: once it slides past the touch slop the menu takes the gesture from its rows, lights
+ * the row under the finger and chooses the row it lifts over.
+ *
+ * @param look The menu the finger is on.
+ */
+private suspend fun PointerInputScope.scrubRows(look: MenuLook) = awaitEachGesture {
+    val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    try {
+        while (true) {
+            val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+            if (!look.isScrubbing && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {
+                look.isScrubbing = true
+            }
+            if (!change.pressed) {
+                if (look.isScrubbing) {
+                    change.consume()
+                    look.rowAt(change.position)?.action?.invoke()
+                }
+                break
+            }
+            if (look.isScrubbing) {
+                change.consume()
+                look.scrubbed = look.rowAt(change.position)
+            }
+        }
+    } finally {
+        look.isScrubbing = false
+        look.scrubbed = null
+    }
 }
 
 private val LocalMenuLook = staticCompositionLocalOf {
