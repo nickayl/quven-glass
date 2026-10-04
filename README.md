@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.7.0")
+    implementation("tv.quven.glass:glass:2.8.0")
 }
 ```
 
@@ -192,7 +192,8 @@ QuvenGlassMorph(
 }
 ```
 
-`hangingFromTopRight` and `above` place the panel for a button on the other side or an entry of a bottom bar.
+`hangingFromTopRight` and `above` place the panel for a button on the other side or an entry of a bottom bar, and
+`aboveOrBelow` beside a larger control, on the side with more room.
 
 ## Menus
 
@@ -245,6 +246,25 @@ A system menu doesn't dim what's behind it, and neither does the host. Its rim i
 `rimGlow` draws. A `QuvenGlassButton` opening it lights up under the finger, and the menu's glass carries that light for
 the first part of its growth. A finger can also slide along an open menu: the row under it
 lights at once with a light tick, and the row it lifts over is the one chosen.
+
+## Context menus
+
+`QuvenGlassContextMenuBox` turns a card into one with a context menu, as a long press on iOS does. The card grows a
+little while it's held, then lifts out of the screen as everything behind it darkens, and the menu's glass flows out
+of its edge to stand beside it on the side with more room. A press still runs the card's own action. It opens in the
+same `QuvenGlassMenuHost` as every other menu.
+
+```kotlin
+QuvenGlassContextMenuBox(
+    menu = {
+        QuvenGlassMenuItem("Play", onClick = ::play, icon = painterResource(R.drawable.play))
+        QuvenGlassMenuItem("Remove", onClick = ::remove, destructive = true)
+    },
+    onClick = ::open,
+) {
+    Poster(film)
+}
+```
 
 ## Styling
 
@@ -302,6 +322,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
 | Clear glass | No tone, lightened by about 0.086 |
+| Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110%, and the menu's glass flows out of the card's edge to stand 22 pt beyond it, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a

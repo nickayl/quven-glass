@@ -114,12 +114,34 @@ public fun interface QuvenGlassMorphPlacement {
          */
         public fun overAnchor(edge: Dp = 0.dp): QuvenGlassMorphPlacement = QuvenGlassMorphPlacement { size, anchor, space, density ->
             val inset = with(density) { edge.roundToPx() }
-            val left = if (anchor.center.x > space.width / 2) anchor.right - size.width else anchor.left
+            val left = alignedStart(size, anchor, space)
             val hangs = space.height - anchor.top >= anchor.bottom && anchor.top + size.height <= space.height - inset
             val rises = anchor.bottom - size.height >= inset
             val top = if (hangs || !rises) anchor.top else anchor.bottom - size.height
             IntOffset(left.keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
         }
+
+        /**
+         * Returns the placement that stands the opened glass above or below the anchor, [gap] away from it on the side
+         * with more room, aligned with the anchor's side nearer the space's edge and kept at least [edge] inside the
+         * space, as a context menu opens beside the card it lifts.
+         *
+         * @param gap The room between the glass and the anchor.
+         * @param edge The least room between the glass and the space's sides.
+         * @return The placement.
+         */
+        public fun aboveOrBelow(gap: Dp, edge: Dp): QuvenGlassMorphPlacement =
+            QuvenGlassMorphPlacement { size, anchor, space, density ->
+                val inset = with(density) { edge.roundToPx() }
+                val apart = with(density) { gap.roundToPx() }
+                val left = alignedStart(size, anchor, space)
+                val top = if (opensAbove(anchor.top.toFloat(), anchor.bottom.toFloat(), space.height.toFloat())) {
+                    anchor.top - apart - size.height
+                } else {
+                    anchor.bottom + apart
+                }
+                IntOffset(left.keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
+            }
 
         /**
          * Returns the placement that stands the opened glass above the anchor, centred on it, [gap] above it and at least
@@ -174,20 +196,28 @@ public class QuvenGlassMorphState {
 
 /**
  * Marks the control a morph grows from, so a glass that opens elsewhere in the window, as a menu in a
- * [QuvenGlassMenuHost] does, grows out of it, the focus a menu opened from the keys took returns to it, and the control
- * stretches briefly the way the glass came back as it lands in it.
+ * [QuvenGlassMenuHost] does, grows out of it, the focus a menu opened from the keys took returns to it, and, where
+ * [stretches], the control stretches briefly the way the glass came back as it lands in it.
  *
  * @param state The opening the control belongs to.
+ * @param stretches Whether the control stretches as the glass lands back in it, as a button does; a card a context
+ * menu lifts does not.
  * @return The decorated modifier.
  */
-public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState): Modifier =
+public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState, stretches: Boolean = true): Modifier =
     onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }
         .focusRequester(state.anchorFocus)
-        .graphicsLayer {
-            scaleY = 1f + LandingStretch * state.landing.value
-            // A glass that hung below its control comes back up, and stretches it upwards; one that rose, downwards.
-            transformOrigin = if (state.rises) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
-        }
+        .then(
+            if (!stretches) {
+                Modifier
+            } else {
+                Modifier.graphicsLayer {
+                    scaleY = 1f + LandingStretch * state.landing.value
+                    // A glass that hung below its control comes back up, and stretches it upwards; one that rose, downwards.
+                    transformOrigin = if (state.rises) TransformOrigin(0.5f, 0f) else TransformOrigin(0.5f, 1f)
+                }
+            },
+        )
 
 /**
  * Creates and remembers a [QuvenGlassMorphState].
@@ -220,6 +250,8 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
  * @param reduceMotion Whether motion is reduced.
  * @param face Draws the control's own face inside the glass while it starts to grow.
+ * @param fromControl Whether the control's own glass stays as a lit cap the panel drops from, as a menu drops out of its
+ * button; `false` grows the panel's glass alone, as a context menu flows out of the card it lifts.
  * @param content Draws the open panel.
  */
 @Composable
@@ -235,6 +267,7 @@ public fun QuvenGlassMorph(
     backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
     reduceMotion: Boolean = false,
     face: @Composable () -> Unit = {},
+    fromControl: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(expanded, reduceMotion) {
@@ -269,7 +302,7 @@ public fun QuvenGlassMorph(
                 backdrop = backdrop,
             ) {
                 // The static material draws each surface apart, so only joined glass keeps the control's.
-                if (joined) {
+                if (joined && fromControl) {
                     Box(
                         Modifier
                             .standingAt { frame.source }
@@ -456,8 +489,8 @@ internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float
 }
 
 /**
- * Returns this material as the morph's glass draws it: as clear as a control's while [frost] is 0, the thick tone and
- * the blur of the material once it reaches 1.
+ * Returns this material as the morph's glass draws it: as clear as a control's while [frost] is 0, the thick tone, the
+ * blur and the tint of the material once it reaches 1.
  *
  * @param frost How far the glass has frosted over, from 0 to 1.
  * @return The material.
@@ -470,6 +503,7 @@ private fun QuvenGlassStyle.frosted(frost: Float): QuvenGlassStyle = if (frost >
         saturation = lerp(thinTone.saturation, thickTone.saturation, frost),
     ),
     blur = lerp(ClearBlur.value, blur.value, frost).dp,
+    tint = tint.copy(alpha = tint.alpha * frost),
 )
 
 private fun morphSpec(expanded: Boolean, reduceMotion: Boolean, damping: Float, stiffness: Float): AnimationSpec<Float> =
@@ -478,6 +512,20 @@ private fun morphSpec(expanded: Boolean, reduceMotion: Boolean, damping: Float, 
         expanded -> spring(damping, stiffness)
         else -> tween(CloseMillis, easing = CloseEasing)
     }
+
+/**
+ * Returns whether glass placed beside an anchor stands above it: where there is more room above the anchor than below.
+ *
+ * @param top The anchor's top.
+ * @param bottom The anchor's bottom.
+ * @param height The height of the space the glass stands in.
+ * @return `true` if the glass stands above the anchor; otherwise, `false`.
+ */
+internal fun opensAbove(top: Float, bottom: Float, height: Float): Boolean = top > height - bottom
+
+// Aligns the glass with the anchor's side nearer the space's edge: its start on the left half, its end on the right.
+private fun alignedStart(size: IntSize, anchor: IntRect, space: IntSize): Int =
+    if (anchor.center.x > space.width / 2) anchor.right - size.width else anchor.left
 
 // Moves a start along one axis so the extent it begins stands inside the space, or at the inset where it cannot.
 private fun Int.keptInside(extent: Int, space: Int, inset: Int): Int = coerceIn(inset, maxOf(inset, space - inset - extent))

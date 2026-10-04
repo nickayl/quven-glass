@@ -1006,7 +1006,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider: .ready
+             .capsuleButtons, .toggle, .slider, .contextMenu: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
@@ -1162,9 +1162,37 @@ extension View {
     /// - Returns: The view, reporting its frame.
     func reportsFrame(_ name: String) -> some View {
         onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frame in
-            guard ProcessInfo.processInfo.environment["GLASS_FRAMES"] != nil else { return }
-            print("FRAME \(name) \(frame.minX) \(frame.minY) \(frame.width) \(frame.height)")
+            if ProcessInfo.processInfo.environment["GLASS_FRAMES"] != nil {
+                print("FRAME \(name) \(frame.minX) \(frame.minY) \(frame.width) \(frame.height)")
+            }
+            FrameLog.shared.record(name, frame)
         }
+    }
+}
+
+/// Keeps the latest frame of every view that reports one in `<GLASS_CAPTURE>-frames.txt` of the app's Documents, one
+/// `<name> x y width height` line each, in points, so a capture on a device finds the region to record.
+final class FrameLog: @unchecked Sendable {
+    /// The log of this launch.
+    static let shared = FrameLog()
+
+    private let lock = NSLock()
+    private var frames: [String: CGRect] = [:]
+    private let file = ProcessInfo.processInfo.environment["GLASS_CAPTURE"].map {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("\($0)-frames.txt")
+    }
+
+    /// Records `frame` as the latest frame of `name` and writes the log again.
+    func record(_ name: String, _ frame: CGRect) {
+        guard let file else { return }
+        let text = lock.withLock {
+            frames[name] = frame
+            return frames.keys.sorted().map { key in
+                let f = frames[key]!
+                return "\(key) \(f.minX) \(f.minY) \(f.width) \(f.height)"
+            }.joined(separator: "\n")
+        }
+        try? text.write(to: file, atomically: true, encoding: .utf8)
     }
 }
 
@@ -1395,6 +1423,8 @@ struct ContextMenuStage: View {
     var body: some View {
         HStack(spacing: 32) {
             PosterCard(poster: posters[2])
+                .reportsFrame("context.first")
+                .accessibilityIdentifier("context.first")
                 .contextMenu {
                     Button("Play", systemImage: "play.fill") {}
                     Button("Details", systemImage: "info.circle") {}
@@ -1402,6 +1432,8 @@ struct ContextMenuStage: View {
                     Button("Remove", systemImage: "trash", role: .destructive) {}
                 }
             PosterCard(poster: posters[6])
+                .reportsFrame("context.second")
+                .accessibilityIdentifier("context.second")
                 .contextMenu {
                     Button("Play", systemImage: "play.fill") {}
                     Button("Share", systemImage: "square.and.arrow.up") {}

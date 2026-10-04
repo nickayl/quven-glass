@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
@@ -66,6 +67,7 @@ import tv.quven.glass.QuvenGlassButton
 import tv.quven.glass.QuvenGlassButtonSize
 import tv.quven.glass.QuvenGlassIconButton
 import tv.quven.glass.QuvenGlassContainer
+import tv.quven.glass.QuvenGlassContextMenuBox
 import tv.quven.glass.QuvenGlassMenuBox
 import tv.quven.glass.QuvenGlassMenuChoice
 import tv.quven.glass.QuvenGlassMenuChoices
@@ -331,6 +333,37 @@ internal fun BoxScope.SliderExhibit(tuning: SampleTuning) {
     Column(Modifier.align(Alignment.Center).width(SliderColumnWidth), verticalArrangement = Arrangement.spacedBy(28.dp)) {
         QuvenGlassSlider(value = volume, onValueChange = { volume = it }, reduceMotion = tuning.reduceMotion)
         QuvenGlassSlider(value = rating, onValueChange = { rating = it }, valueRange = 0f..5f, steps = 4, reduceMotion = tuning.reduceMotion)
+    }
+}
+
+/**
+ * Draws two cards that lift out of the stage on a long press and open their menus beside them, as the reference lays
+ * out Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.ContextMenuExhibit(tuning: SampleTuning) {
+    val play = rememberVectorPainter(Icons.Filled.PlayArrow)
+    Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
+        QuvenGlassContextMenuBox(
+            menu = {
+                QuvenGlassMenuItem("Play", {}, icon = play)
+                QuvenGlassMenuItem("Details", {}, icon = rememberVectorPainter(Icons.Filled.Info))
+                QuvenGlassMenuItem("Save", {}, icon = rememberVectorPainter(Icons.Filled.Favorite))
+                QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Icons.Filled.Delete), destructive = true)
+            },
+            onClick = {},
+            reduceMotion = tuning.reduceMotion,
+        ) { SamplePosterCard(2) }
+        QuvenGlassContextMenuBox(
+            menu = {
+                QuvenGlassMenuItem("Play", {}, icon = play)
+                QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(Icons.Filled.Share))
+            },
+            onClick = {},
+            reduceMotion = tuning.reduceMotion,
+        ) { SamplePosterCard(6) }
     }
 }
 

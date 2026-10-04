@@ -108,8 +108,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Context menu",
         "A long press lifts the card out of the page, dims the rest and opens the card's menu beside it.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { ContextMenuExhibit(it) },
     Exhibit(
         "Submenus",
         "An entry that opens a second menu at the first one's side, and entries that carry a second line.",

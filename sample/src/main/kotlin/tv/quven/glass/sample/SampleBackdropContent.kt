@@ -129,10 +129,27 @@ private fun PosterRow(offset: Int) {
     }
 }
 
+/**
+ * Draws one of the backdrop's posters, as a card a context menu lifts.
+ *
+ * @param index The poster's place among the backdrop's posters.
+ * @param modifier Modifier applied to the card.
+ */
 @Composable
-private fun PosterCard(poster: Poster) {
+internal fun SamplePosterCard(index: Int, modifier: Modifier = Modifier) {
+    PosterCard(Posters[index % Posters.size], modifier)
+}
+
+/**
+ * Draws a poster: its colours, two marks and its title.
+ *
+ * @param poster The poster.
+ * @param modifier Modifier applied to the card.
+ */
+@Composable
+private fun PosterCard(poster: Poster, modifier: Modifier = Modifier) {
     Box(
-        Modifier
+        modifier
             .width(170.dp)
             .aspectRatio(2f / 3f)
             .clip(RoundedCornerShape(14.dp))

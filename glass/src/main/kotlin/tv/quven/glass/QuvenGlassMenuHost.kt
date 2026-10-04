@@ -23,20 +23,28 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 
 /**
@@ -108,7 +116,7 @@ public fun QuvenGlassMenuHost(
     reduceMotion: Boolean = false,
 ) {
     val request = state.shown ?: return
-    var origin by remember { mutableStateOf(Offset.Zero) }
+    var origin by remember { mutableStateOf<Offset?>(null) }
     val inputMode = LocalInputModeManager.current
     val menuFocus = remember(request) { FocusRequester() }
     var holdsFocus by remember(request) { mutableStateOf(false) }
@@ -126,6 +134,15 @@ public fun QuvenGlassMenuHost(
         }
     }
     BoxWithConstraints(modifier.fillMaxSize().onPlaced { origin = it.positionInWindow() }) {
+        // Until the host is placed, the control's place in it is unknown and nothing is drawn.
+        val placed = origin ?: return@BoxWithConstraints
+        val anchor = (request.morph.anchorInWindow ?: Rect.Zero).translate(-placed)
+        val preview = request.preview
+        // A lifted control places its menu beside the whole of it, and the glass grows from a capsule on its edge.
+        val lifted = anchor.lifted(PreviewLift)
+        val seed = preview?.seed(lifted, constraints.maxHeight.toFloat(), with(LocalDensity.current) { SeedHeight.toPx() })
+        val placement = if (preview == null) request.placement else request.placement.around(lifted)
+        if (preview != null) LiftedPreview(preview, anchor) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
@@ -138,14 +155,16 @@ public fun QuvenGlassMenuHost(
         QuvenGlassMorph(
             state = request.morph,
             expanded = request.expanded,
-            anchor = (request.morph.anchorInWindow ?: Rect.Zero).translate(-origin),
-            placement = request.placement,
+            anchor = seed ?: anchor,
+            placement = placement,
             modifier = Modifier.fillMaxSize(),
-            style = style,
+            // A menu over a dimmed screen reads the screen dimmed, as the system's does.
+            style = if (preview == null) style else remember(style) { style.copy(tint = Color.Black.copy(alpha = PreviewDim)) },
             cornerRadius = metrics.cornerRadius,
             backdrop = backdrop,
             reduceMotion = reduceMotion,
             face = request.face,
+            fromControl = preview == null,
         ) {
             QuvenGlassMenu(
                 request.menuModifier
@@ -192,7 +211,38 @@ public fun QuvenGlassDropdown(
     face: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val host = checkNotNull(LocalQuvenGlassMenuHost.current) { "A QuvenGlassDropdown opens in a QuvenGlassMenuHost above it." }
+    GlassDropdown(state, expanded, onDismissRequest, modifier, outsideModifier, placement, face, preview = null, content)
+}
+
+/**
+ * Asks the [QuvenGlassMenuHost] above to draw a menu growing out of the control [state] marks, lifting [preview] over a
+ * dimmed screen where one is given.
+ *
+ * @param state The opening, whose control the menu grows from.
+ * @param expanded Whether the menu is open.
+ * @param onDismissRequest Invoked when the viewer closes the menu or chooses a row.
+ * @param modifier Modifier applied to the open menu.
+ * @param outsideModifier Modifier applied to the layer outside the menu that closes it.
+ * @param placement Where the open menu stands.
+ * @param face Draws the control's face inside the glass while it starts to grow.
+ * @param preview The control lifted over the dimmed screen while the menu is shown, or `null` for a menu that dims
+ * nothing.
+ * @param content The menu's entries.
+ * @throws IllegalStateException No [QuvenGlassMenuHost] is provided above.
+ */
+@Composable
+internal fun GlassDropdown(
+    state: QuvenGlassMorphState,
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier,
+    outsideModifier: Modifier,
+    placement: QuvenGlassMorphPlacement,
+    face: @Composable () -> Unit,
+    preview: GlassMenuPreview?,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val host = checkNotNull(LocalQuvenGlassMenuHost.current) { "A glass menu opens in a QuvenGlassMenuHost above it." }
     val request = remember(state) { DropdownRequest(state) }
     SideEffect {
         request.expanded = expanded
@@ -201,6 +251,7 @@ public fun QuvenGlassDropdown(
         request.outsideModifier = outsideModifier
         request.placement = placement
         request.face = face
+        request.preview = preview
         request.content = content
     }
     LaunchedEffect(host, request, expanded) {
@@ -317,6 +368,55 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
 
     /** Gets or sets the menu's entries. */
     var content: @Composable ColumnScope.() -> Unit by mutableStateOf({})
+
+    /** Gets or sets the control lifted over the dimmed screen while the menu is shown, or `null` for none. */
+    var preview: GlassMenuPreview? by mutableStateOf(null)
+}
+
+/**
+ * Draws a control's [preview] lifted out of the screen, which dims behind it, as far as [progress] has opened its menu:
+ * the control grows to [PreviewLift] about its centre, over a veil of black at [PreviewDim], as a system context menu
+ * lifts its preview.
+ *
+ * @param preview The control.
+ * @param anchor The control's bounds, in the host's coordinates.
+ * @param progress Reads how far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
+ */
+@Composable
+private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, progress: () -> Float) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .drawBehind {
+                val shown = progress().coerceIn(0f, 1f)
+                drawRect(Color.Black, alpha = PreviewDim * shown)
+                translate(anchor.left, anchor.top) {
+                    scale(preview.liftAt(progress()), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
+                }
+            },
+    )
+}
+
+/**
+ * Returns this placement measured against [anchor] whatever anchor the morph grows from.
+ *
+ * @param anchor The bounds to place the glass beside.
+ * @return The placement.
+ */
+private fun QuvenGlassMorphPlacement.around(anchor: Rect): QuvenGlassMorphPlacement {
+    val bounds = IntRect(anchor.left.roundToInt(), anchor.top.roundToInt(), anchor.right.roundToInt(), anchor.bottom.roundToInt())
+    return QuvenGlassMorphPlacement { size, _, space, density -> place(size, bounds, space, density) }
+}
+
+/**
+ * Returns this rectangle grown by [scale] about its centre.
+ *
+ * @param scale The factor to grow by.
+ * @return The grown rectangle.
+ */
+private fun Rect.lifted(scale: Float): Rect {
+    val grow = Offset(width * (scale - 1f) / 2f, height * (scale - 1f) / 2f)
+    return Rect(topLeft - grow, bottomRight + grow)
 }
 
 /**
@@ -334,7 +434,13 @@ private suspend fun PointerInputScope.dismissOnPress(onDismiss: () -> Unit) = aw
     } while (event.changes.any { it.pressed })
 }
 
-// The least room between a menu and the host's edges, which also caps a long menu's height.
-private val MenuEdge = 16.dp
+/** The least room between a menu and the host's edges, which also caps a long menu's height. */
+internal val MenuEdge = 16.dp
+
+/** How much a context menu's control grows as it lifts out of the screen, as measured on the system's. */
+internal const val PreviewLift = 1.1f
+
+/** How dark the screen turns behind a context menu's lifted control, as measured on the system's. */
+private const val PreviewDim = 0.48f
 
 private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)
