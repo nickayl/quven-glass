@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,6 +38,8 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.materialIcon
+import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -274,8 +275,9 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
 internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
     val play = rememberVectorPainter(Icons.Filled.PlayArrow)
     val heart = rememberVectorPainter(Icons.Filled.Favorite)
-    val down = rememberVectorPainter(Icons.Filled.KeyboardArrowDown)
+    val down = rememberVectorPainter(ArrowDownward)
     val star = rememberVectorPainter(Icons.Filled.Star)
+    // Rows short enough for the stage, as the reference lays them out.
     Column(
         Modifier.align(Alignment.Center),
         verticalArrangement = Arrangement.spacedBy(22.dp),
@@ -285,6 +287,8 @@ internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
             QuvenGlassButton(onClick = {}, label = "Play", reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Play", icon = play, reduceMotion = tuning.reduceMotion)
             QuvenGlassIconButton(onClick = {}, icon = heart, contentDescription = "Favorite", reduceMotion = tuning.reduceMotion)
+        }
+        ButtonRow {
             QuvenGlassButton(onClick = {}, label = "Small", size = QuvenGlassButtonSize.Small, reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Mini", size = QuvenGlassButtonSize.Mini, reduceMotion = tuning.reduceMotion)
         }
@@ -296,15 +300,15 @@ internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
         ButtonRow {
             QuvenGlassButton(onClick = {}, label = "Large", size = QuvenGlassButtonSize.Large, reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Extra large", size = QuvenGlassButtonSize.Large, reduceMotion = tuning.reduceMotion)
-            QuvenGlassButton(
-                onClick = {},
-                label = "Prominent",
-                icon = star,
-                size = QuvenGlassButtonSize.Large,
-                tint = SystemBlue,
-                reduceMotion = tuning.reduceMotion,
-            )
         }
+        QuvenGlassButton(
+            onClick = {},
+            label = "Prominent",
+            icon = star,
+            size = QuvenGlassButtonSize.Large,
+            tint = SystemBlue,
+            reduceMotion = tuning.reduceMotion,
+        )
     }
 }
 
@@ -510,6 +514,23 @@ private val PendingCardPadding = 28.dp
 private val VariantDiameter = 100.dp
 private val SystemBlue = Color(0xFF0091FF)
 private val SystemRed = Color(0xFFFF453A)
+/** A downward arrow, as the system's `arrow.down` symbol draws it. */
+private val ArrowDownward: ImageVector = materialIcon(name = "Filled.ArrowDownward") {
+    materialPath {
+        moveTo(20f, 12f)
+        lineToRelative(-1.41f, -1.41f)
+        lineTo(13f, 16.17f)
+        verticalLineTo(4f)
+        horizontalLineToRelative(-2f)
+        verticalLineToRelative(12.17f)
+        lineToRelative(-5.58f, -5.59f)
+        lineTo(4f, 12f)
+        lineToRelative(8f, 8f)
+        lineToRelative(8f, -8f)
+        close()
+    }
+}
+
 private val GlassVariants: List<Pair<String, QuvenGlassStyle>> = listOf(
     "Regular" to QuvenGlassStyle.Standard,
     "Clear" to QuvenGlassStyle.Clear,

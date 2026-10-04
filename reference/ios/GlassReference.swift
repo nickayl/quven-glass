@@ -1498,6 +1498,7 @@ struct SubmenusStage: View {
 /// Buttons of clear and of prominent glass, in three sizes.
 struct CapsuleButtonsStage: View {
     var body: some View {
+        // Rows short enough for the stage, so no label wraps.
         VStack(spacing: 22) {
             HStack(spacing: 16) {
                 Button {} label: { Text("Play").reportsFrame("play.label") }.buttonStyle(.glass).reportsFrame("play")
@@ -1507,6 +1508,8 @@ struct CapsuleButtonsStage: View {
                 .buttonStyle(.glass)
                 .reportsFrame("playIcon")
                 Button {} label: { Image(systemName: "heart.fill").reportsFrame("heart.label") }.buttonStyle(.glass).reportsFrame("heart")
+            }
+            HStack(spacing: 16) {
                 Button {} label: { Text("Small").reportsFrame("small.label") }.buttonStyle(.glass).controlSize(.small).reportsFrame("small")
                 Button {} label: { Text("Mini").reportsFrame("mini.label") }.buttonStyle(.glass).controlSize(.mini).reportsFrame("mini")
             }
@@ -1518,8 +1521,8 @@ struct CapsuleButtonsStage: View {
             HStack(spacing: 16) {
                 Button {} label: { Text("Large").reportsFrame("large.label") }.buttonStyle(.glass).controlSize(.large).reportsFrame("large")
                 Button {} label: { Text("Extra large").reportsFrame("xl.label") }.buttonStyle(.glass).controlSize(.extraLarge).reportsFrame("xl")
-                Button("Prominent", systemImage: "star.fill") {}.buttonStyle(.glassProminent).controlSize(.extraLarge).reportsFrame("prominentXL")
             }
+            Button("Prominent", systemImage: "star.fill") {}.buttonStyle(.glassProminent).controlSize(.extraLarge).reportsFrame("prominentXL")
         }
     }
 }
