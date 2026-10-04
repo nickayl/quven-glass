@@ -294,4 +294,4 @@ private val ContentBlur = 10.dp
 private const val MinContentBlur = 0.5f
 private const val FaceFadeRate = 3f
 private const val PressFadeRate = 2f
-private const val ContentFadeStart = 0.45f
+private const val ContentFadeStart = 0.25f

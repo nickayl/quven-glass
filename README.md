@@ -237,7 +237,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Press on a glass button | The backdrop lit about 3.6 times and untoned, within 80–100 ms |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
 | Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
-| Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content in focus from 50% to 85% |
+| Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content fading in and coming into focus from a quarter of the way |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a
@@ -249,7 +249,9 @@ space.
 `adb shell am start -n tv.quven.glass.sample/.SampleActivity --ef scroll 224 --ef shift 21 --ez panel false --ei tab 2
 --ef gap 8 --ez liquid true --ef refraction 22 ...`: every `Knob.key` of the tuning panel is also an extra. `shift`
 moves the content left, so what sits under the centred bar matches the iPad's wider screen (21 dp on the tablet it was
-tuned on). With `--ez menu true` the gear opens the reference's system menu instead of the tuning panel.
+tuned on). With `--ez menu true` the gear opens the reference's system menu instead of the tuning panel, and
+`--ef window 3.5` copies the top-left corner on every frame for that many seconds, from a second after launch, into
+`files/window/` of the app's external storage as raw RGBA frames with their times.
 
 ## Reference launch environment
 
