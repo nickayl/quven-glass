@@ -44,6 +44,9 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     Brighten("brighten", 1),
     Zoom("zoom", 1),
     SeeThrough("seeThrough", 1),
+    BackdropDim("backdropDim", 1),
+    PressTintGlow("pressTintGlow", 1),
+    RimLight("rimLight", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -68,7 +71,9 @@ internal const val LiquidGlassContent = "content"
  * Inside each surface the backdrop is read `zoom` times further from the surface's centre, so a `zoom` above 1 shows it
  * smaller. Where `seeThrough` is 1 the backdrop's own alpha holds: the glass covers what lies under it only where the
  * backdrop has content, and elsewhere lays the rim's light and a veil of white over it, `brighten` times
- * `SEE_THROUGH_VEIL`, as clear glass lightens a page it does not bend.
+ * `SEE_THROUGH_VEIL`, as clear glass lightens a page it does not bend. Every read of the backdrop sees it darkened by
+ * `backdropDim`, as glass over a dimmed screen reads it. A lifted tinted surface brightens its tint `pressTintGlow`
+ * times, and the rim turns `rimLight` of the way to white all the way round.
  */
 internal const val LiquidGlassShaderSource: String = """
 uniform shader content;
@@ -97,6 +102,9 @@ uniform float rimGlow;
 uniform float brighten;
 uniform float zoom;
 uniform float seeThrough;
+uniform float backdropDim;
+uniform float pressTintGlow;
+uniform float rimLight;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -194,7 +202,8 @@ float luma(float3 c) {
 
 float3 backdropAt(float2 at) {
     half4 seen = content.eval(at);
-    return seeThrough > 0.5 ? float3(seen.rgb) / max(float(seen.a), EPSILON) : float3(seen.rgb);
+    float3 rgb = seeThrough > 0.5 ? float3(seen.rgb) / max(float(seen.a), EPSILON) : float3(seen.rgb);
+    return rgb * (1.0 - backdropDim);
 }
 
 float2 boxNormal(float2 p, float4 rect, float4 radii) {
@@ -273,6 +282,9 @@ half4 main(float2 coord) {
     float own = luma(rgb);
     rgb = clamp(mix(float3(own), rgb, tone.a) + brighten, 0.0, 1.0);
     rgb = mix(rgb, tint.rgb, tint.a);
+    if (pressTintGlow > 1.0) {
+        rgb = mix(rgb, clamp(rgb * pressTintGlow, 0.0, 1.0), lift * tint.a);
+    }
 
     for (int i = 0; i < 4; i++) {
         float4 look = pillLook[i];
@@ -295,6 +307,7 @@ half4 main(float2 coord) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
         rgb = mix(rgb, clamp(outside * rimGlow, 0.0, 1.0), rim);
     }
+    rgb = mix(rgb, float3(1.0), rim * rimLight);
 
     float alpha = clamp(0.5 - d, 0.0, 1.0);
     if (seeThrough > 0.5) {
@@ -432,6 +445,9 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.Brighten.uniform, style.brighten)
             setFloatUniform(LiquidGlassUniform.Zoom.uniform, style.zoom)
             setFloatUniform(LiquidGlassUniform.SeeThrough.uniform, if (seeThrough) 1f else 0f)
+            setFloatUniform(LiquidGlassUniform.BackdropDim.uniform, style.backdropDim)
+            setFloatUniform(LiquidGlassUniform.PressTintGlow.uniform, style.pressTintGlow)
+            setFloatUniform(LiquidGlassUniform.RimLight.uniform, style.rimLight)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

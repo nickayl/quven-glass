@@ -4,6 +4,7 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -61,6 +62,14 @@ import androidx.compose.ui.unit.dp
  * @property shadowRadius The blur radius of the shadow under a Liquid Glass surface.
  * @property zoom How much smaller Liquid Glass shows what lies under its body: 1 shows it at its own size, and 1.25 a
  * fifth smaller, as the lens a control's thumb lifts into shows its track.
+ * @property backdropDim The share of black Liquid Glass sees laid over its backdrop before it tones it, from 0 to 1, as
+ * glass standing over a dimmed screen reads the screen dimmed; its rim reads it dimmed too.
+ * @property pressExpansion How far a pressed surface's longer side grows, the shorter growing in proportion, as Apple's
+ * glass buttons grow under the finger; 0 leaves [pressGrowth] alone to swell it.
+ * @property pressTintGlow How much brighter a tinted surface turns while pressed, as a prominent button lightens under the
+ * finger; 1 keeps its tint.
+ * @property rimLight The share of white the rim turns all the way round, from 0 to 1, as a glass button's rim catches the
+ * light; 0 leaves the rim to [specular].
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -102,6 +111,10 @@ public data class QuvenGlassStyle(
     val shadow: Color = Color(0x14000000),
     val shadowRadius: Dp = 14.dp,
     val zoom: Float = 1f,
+    val backdropDim: Float = 0f,
+    val pressExpansion: Dp = 0.dp,
+    val pressTintGlow: Float = 1f,
+    val rimLight: Float = 0f,
 ) {
 
     /**
@@ -122,12 +135,26 @@ public data class QuvenGlassStyle(
     public fun tinted(color: Color): QuvenGlassStyle = copy(tint = color.copy(alpha = tintStrength))
 
     /**
-     * Returns this material as a glass button draws it, lighting what lies under it while pressed, as Apple's glass
-     * buttons light under the finger.
+     * Returns this material as a glass button draws it, as Apple's glass buttons answer the finger: the button grows,
+     * and plain glass lights what lies under it while a prominent button, given a [tint], lightens its tint.
      *
+     * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
      * @return The button's material.
      */
-    public fun forButtons(): QuvenGlassStyle = copy(pressGlow = ButtonPressGlow)
+    public fun forButtons(tint: Color = Color.Unspecified): QuvenGlassStyle =
+        if (tint.isSpecified) {
+            // A prominent button covers its glass whole with the tint, which its rim lightens.
+            copy(
+                tint = tint.copy(alpha = 1f),
+                pressGrowth = 0f,
+                pressExpansion = ButtonPressExpansion,
+                pressTintGlow = ButtonTintGlow,
+                rimLight = ButtonRimLight,
+            )
+        } else {
+            // Plain glass shows at its rim what lies just outside it, as it is.
+            copy(pressGlow = ButtonPressGlow, pressGrowth = 0f, pressExpansion = ButtonPressExpansion, rimGlow = ButtonRimGlow)
+        }
 
     /**
      * Returns this material as a menu draws it: frosted more deeply, its rim lit by what lies just outside it, and still
@@ -154,6 +181,10 @@ public data class QuvenGlassStyle(
         )
 
         private const val ButtonPressGlow = 3.6f
+        private const val ButtonTintGlow = 1.65f
+        private const val ButtonRimGlow = 1f
+        private const val ButtonRimLight = 0.3f
+        private val ButtonPressExpansion = 16.dp
         private const val MenuRimGlow = 1.7f
         private val MenuBlur = 9.5.dp
     }

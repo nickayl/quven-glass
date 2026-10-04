@@ -285,6 +285,7 @@ internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
             QuvenGlassButton(onClick = {}, label = "Play", icon = play, reduceMotion = tuning.reduceMotion)
             QuvenGlassIconButton(onClick = {}, icon = heart, contentDescription = "Favorite", reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Small", size = QuvenGlassButtonSize.Small, reduceMotion = tuning.reduceMotion)
+            QuvenGlassButton(onClick = {}, label = "Mini", size = QuvenGlassButtonSize.Mini, reduceMotion = tuning.reduceMotion)
         }
         ButtonRow {
             QuvenGlassButton(onClick = {}, label = "Buy", tint = SystemBlue, reduceMotion = tuning.reduceMotion)
@@ -487,7 +488,7 @@ private val MaterialSizes = listOf(36.dp, 51.dp, 70.dp, 100.dp)
 private val CapsuleWidth = 240.dp
 private val CapsuleHeight = 62.dp
 private val SwitchColumnWidth = 280.dp
-private val SliderColumnWidth = 380.dp
+private val SliderColumnWidth = 352.dp
 private val ButtonFaces: List<Pair<Dp, ImageVector>> = listOf(
     46.dp to Icons.Filled.PlayArrow,
     56.dp to Icons.Filled.Favorite,

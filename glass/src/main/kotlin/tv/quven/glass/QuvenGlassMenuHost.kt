@@ -139,10 +139,12 @@ public fun QuvenGlassMenuHost(
         val anchor = (request.morph.anchorInWindow ?: Rect.Zero).translate(-placed)
         val preview = request.preview
         // A lifted control places its menu beside the whole of it, and the glass grows from a capsule on its edge.
+        val density = LocalDensity.current
         val lifted = anchor.lifted(PreviewLift)
-        val seed = preview?.seed(lifted, constraints.maxHeight.toFloat(), with(LocalDensity.current) { SeedHeight.toPx() })
+        val shift = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
+        val seed = preview?.seed(lifted.translate(0f, shift), constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         val placement = if (preview == null) request.placement else request.placement.around(lifted)
-        if (preview != null) LiftedPreview(preview, anchor) { request.morph.progress.value }
+        if (preview != null) LiftedPreview(preview, anchor, shift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
@@ -158,8 +160,7 @@ public fun QuvenGlassMenuHost(
             anchor = seed ?: anchor,
             placement = placement,
             modifier = Modifier.fillMaxSize(),
-            // A menu over a dimmed screen reads the screen dimmed, as the system's does.
-            style = if (preview == null) style else remember(style) { style.copy(tint = Color.Black.copy(alpha = PreviewDim)) },
+            style = if (preview == null) style else remember(style) { style.dimmed(PreviewDim) },
             cornerRadius = metrics.cornerRadius,
             backdrop = backdrop,
             reduceMotion = reduceMotion,
@@ -375,22 +376,23 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
 
 /**
  * Draws a control's [preview] lifted out of the screen, which dims behind it, as far as [progress] has opened its menu:
- * the control grows to [PreviewLift] about its centre, over a veil of black at [PreviewDim], as a system context menu
- * lifts its preview.
+ * the control grows to [PreviewLift] about its centre and moves by [shift], over a veil of black at [PreviewDim], as a
+ * system context menu lifts its preview.
  *
  * @param preview The control.
  * @param anchor The control's bounds, in the host's coordinates.
+ * @param shift How far the control moves down once lifted, negative to move up, to keep its menu beside it.
  * @param progress Reads how far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
  */
 @Composable
-private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, progress: () -> Float) {
+private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float, progress: () -> Float) {
     Box(
         Modifier
             .fillMaxSize()
             .drawBehind {
                 val shown = progress().coerceIn(0f, 1f)
                 drawRect(Color.Black, alpha = PreviewDim * shown)
-                translate(anchor.left, anchor.top) {
+                translate(anchor.left, anchor.top + shift * shown) {
                     scale(preview.liftAt(progress()), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
                 }
             },
@@ -407,6 +409,15 @@ private fun QuvenGlassMorphPlacement.around(anchor: Rect): QuvenGlassMorphPlacem
     val bounds = IntRect(anchor.left.roundToInt(), anchor.top.roundToInt(), anchor.right.roundToInt(), anchor.bottom.roundToInt())
     return QuvenGlassMorphPlacement { size, _, space, density -> place(size, bounds, space, density) }
 }
+
+/**
+ * Returns this material as glass over a screen dimmed by [dim] draws it: it reads the screen dimmed, and its rim shows
+ * the dimmed screen beyond it [DimmedRimGlow] times brighter, as the system's menu does over the screen it dims.
+ *
+ * @param dim The share of black laid over the screen, from 0 to 1.
+ * @return The material.
+ */
+private fun QuvenGlassStyle.dimmed(dim: Float): QuvenGlassStyle = copy(backdropDim = dim, rimGlow = DimmedRimGlow)
 
 /**
  * Returns this rectangle grown by [scale] about its centre.
@@ -442,5 +453,8 @@ internal const val PreviewLift = 1.1f
 
 /** How dark the screen turns behind a context menu's lifted control, as measured on the system's. */
 private const val PreviewDim = 0.48f
+
+/** How much brighter the rim of a menu over a dimmed screen shows the screen beyond it, as measured on the system's. */
+private const val DimmedRimGlow = 1.2f
 
 private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)

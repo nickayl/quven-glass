@@ -3,6 +3,7 @@ package tv.quven.glass.sample
 import android.app.Activity
 import android.graphics.Bitmap
 import android.graphics.Rect
+import android.graphics.RectF
 import android.os.Handler
 import android.os.HandlerThread
 import android.view.Choreographer
@@ -72,3 +73,21 @@ internal class WindowRecorder(
         const val NanosPerMilli = 1_000_000L
     }
 }
+
+/**
+ * Records [region] of this activity's window, given in density-independent pixels, at [pixelsPerDp], for [seconds],
+ * from a second after launch, into `files/window/` of the app's external storage, so a capture starts once the screen
+ * has settled.
+ *
+ * @param region The region to copy, in density-independent pixels from the window's top-left corner.
+ * @param pixelsPerDp The pixels each frame keeps per density-independent pixel.
+ * @param seconds How long to record for.
+ */
+internal fun Activity.recordWindowAfterLaunch(region: RectF, pixelsPerDp: Float, seconds: Float) {
+    val density = resources.displayMetrics.density
+    val pixels = Rect((region.left * density).toInt(), (region.top * density).toInt(), (region.right * density).toInt(), (region.bottom * density).toInt())
+    val folder = File(getExternalFilesDir(null), "window")
+    Handler(mainLooper).postDelayed({ WindowRecorder(this, pixels, pixelsPerDp / density, seconds, folder).start() }, LaunchSettleMillis)
+}
+
+private const val LaunchSettleMillis = 1000L

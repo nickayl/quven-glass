@@ -49,6 +49,25 @@ internal data class GlassForm(
     }
 
     /**
+     * Returns this form grown by [factor] about its centre, its radii with it.
+     *
+     * @param factor The factor to grow by; 1 leaves the form as it is.
+     * @return The grown form.
+     */
+    fun scaled(factor: Float): GlassForm {
+        if (factor == 1f) return this
+        val centre = rect.center
+        val half = Size(rect.width * factor / 2f, rect.height * factor / 2f)
+        return GlassForm(
+            Rect(centre.x - half.width, centre.y - half.height, centre.x + half.width, centre.y + half.height),
+            topLeft * factor,
+            topRight * factor,
+            bottomRight * factor,
+            bottomLeft * factor,
+        )
+    }
+
+    /**
      * Returns this form moved by [offset].
      *
      * @param offset The distance to move by.
@@ -156,3 +175,15 @@ internal fun smoothstep(from: Float, to: Float, value: Float): Float {
     val t = ((value - from) / (to - from)).coerceIn(0f, 1f)
     return t * t * (3f - 2f * t)
 }
+
+/**
+ * Returns how much a pressed control grows, as Apple's glass controls grow under the finger: by the factor that lengthens
+ * its longer side by [expansion] once fully pressed, its shorter side growing in proportion.
+ *
+ * @param lift How far the control is pressed, from 0 to 1, past 1 while its spring overshoots.
+ * @param expansion How far the longer side grows once fully pressed, in pixels.
+ * @param longerSide The control's longer side at rest, in pixels.
+ * @return The factor, 1 at rest.
+ */
+internal fun pressScale(lift: Float, expansion: Float, longerSide: Float): Float =
+    if (longerSide <= 0f) 1f else 1f + lift * expansion / longerSide

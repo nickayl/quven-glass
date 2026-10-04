@@ -342,6 +342,11 @@ tuned on). With `--ez menu true` the gear opens the reference's system menu inst
 `--ef window 3.5` copies the top-left corner on every frame for that many seconds, from a second after launch, into
 `files/window/` of the app's external storage as raw RGBA frames with their times.
 
+The gallery records too. `--es exhibit Switch --ef window 3 --es region 270,400,110,140` opens straight on an
+exhibit and records that region, given in dp, at two pixels per dp, so a capture can be laid frame by frame beside the
+reference's. Judge motion on the release build, never on a debuggable one, which runs Compose interpreted and drops
+frames the release build doesn't. `./gradlew :sample:installRelease` builds it.
+
 ## Reference launch environment
 
 `reference/ios/build-device.sh <profile> <identity>`, then `xcrun devicectl device install app` and `device process

@@ -109,6 +109,13 @@ class QuvenGlassButtonTest {
     }
 
     @Test
+    fun aPress_growsTheButtonsLongerSideBySixteen_andItsShorterInProportion() {
+        assertEquals(1f + 16f / 56f, pressScale(lift = 1f, expansion = 16f, longerSide = 56f), 0.0001f)
+        assertEquals(1f, pressScale(lift = 0f, expansion = 16f, longerSide = 56f), 0f)
+        assertEquals(1f, pressScale(lift = 1f, expansion = 16f, longerSide = 0f), 0f)
+    }
+
+    @Test
     fun aProminentButton_keepsItsInk_whateverTheGlassTurnsTo() {
         var given = Color.Unspecified
         render { QuvenGlassButton(onClick = {}, tint = Color.Blue, ink = Color.Green, lightInk = Color.Red) { ink -> given = ink } }
@@ -117,12 +124,19 @@ class QuvenGlassButtonTest {
     }
 
     @Test
-    fun theButtonAndMenuMaterials_lightUnderTheFinger_andAMenuFrostsDeeperWithALitRim() {
+    fun theButtonAndMenuMaterials_answerTheFingerAsApplesDo_andAMenuFrostsDeeperWithALitRim() {
         val buttons = QuvenGlassStyle.Standard.forButtons()
+        val prominent = QuvenGlassStyle.Standard.forButtons(Color.Blue)
         val menus = QuvenGlassStyle.Standard.forMenus()
 
         assertEquals(3.6f, buttons.pressGlow, 0f)
-        assertEquals(0f, buttons.rimGlow, 0f)
+        assertEquals(16.dp, buttons.pressExpansion)
+        assertEquals(1f, buttons.rimGlow, 0f)
+        assertEquals(0f, buttons.rimLight, 0f)
+        assertEquals(Color.Blue, prominent.tint)
+        assertEquals(1.65f, prominent.pressTintGlow, 0f)
+        assertEquals(0f, prominent.pressGlow, 0f)
+        assertEquals(0.3f, prominent.rimLight, 0f)
         assertEquals(3.6f, menus.pressGlow, 0f)
         assertEquals(1.7f, menus.rimGlow, 0f)
         assertEquals(9.5.dp, menus.blur)

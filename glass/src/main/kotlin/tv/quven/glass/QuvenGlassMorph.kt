@@ -182,6 +182,9 @@ public class QuvenGlassMorphState {
     /** Gets a value indicating whether the open glass covers its control and rises above it. */
     internal var rises: Boolean by mutableStateOf(false)
 
+    /** Gets where the open panel stands, in the morph's coordinates, or `null` before the morph has laid it out. */
+    internal var openBounds: Rect? by mutableStateOf(null)
+
     /** Gets the requester of the control's focus, which a menu opened from the keys hands back as it closes. */
     internal val anchorFocus: FocusRequester = FocusRequester()
 
@@ -349,6 +352,7 @@ public fun QuvenGlassMorph(
         val open = Rect(Offset(target.x.toFloat(), target.y.toFloat()), Size(panel.width.toFloat(), panel.height.toFloat()))
         // A glass rises when it ends at its control's foot; one held inside the space past its control does not.
         state.rises = open.top < anchor.top && abs(open.bottom - anchor.bottom) < 1f
+        state.openBounds = open
         frame.update(
             if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx())
             else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx()),
@@ -490,7 +494,7 @@ internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float
 
 /**
  * Returns this material as the morph's glass draws it: as clear as a control's while [frost] is 0, the thick tone, the
- * blur and the tint of the material once it reaches 1.
+ * blur, the tint and the dimmed backdrop of the material once it reaches 1.
  *
  * @param frost How far the glass has frosted over, from 0 to 1.
  * @return The material.
@@ -504,6 +508,7 @@ private fun QuvenGlassStyle.frosted(frost: Float): QuvenGlassStyle = if (frost >
     ),
     blur = lerp(ClearBlur.value, blur.value, frost).dp,
     tint = tint.copy(alpha = tint.alpha * frost),
+    backdropDim = backdropDim * frost,
 )
 
 private fun morphSpec(expanded: Boolean, reduceMotion: Boolean, damping: Float, stiffness: Float): AnimationSpec<Float> =

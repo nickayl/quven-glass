@@ -256,8 +256,9 @@ internal class LiquidGlassNode(
         val form = GlassForm.of(shape, size, requireLayoutDirection(), requireDensity()) ?: return null
         val lift = max(press.value, liftSource?.lift() ?: 0f)
         val swell = lift * style.pressGrowth * min(size.width, size.height) / 2f
+        val grown = pressScale(lift, with(requireDensity()) { style.pressExpansion.toPx() }, max(size.width, size.height))
         val pill = pillSource?.pill(size)?.translate(offset)
-        return GlassSurface(form.inflate(swell).translate(offset), lift, pill, shownAppearance().lightness)
+        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness)
     }
 
     private fun shownAppearance(): QuvenGlassAppearance = appearance ?: ownAppearance

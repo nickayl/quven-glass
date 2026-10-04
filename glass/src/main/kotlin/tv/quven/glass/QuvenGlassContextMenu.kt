@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
 
@@ -116,7 +117,7 @@ public fun QuvenGlassContextMenuBox(
         outsideModifier = Modifier,
         placement = ContextMenuPlacement,
         face = {},
-        preview = remember(preview) { GlassMenuPreview(preview) { liftedFrom } },
+        preview = remember(preview) { GlassMenuPreview(preview, { liftedFrom }, ContextMenuGap) },
         content = menu,
     )
 }
@@ -126,8 +127,9 @@ public fun QuvenGlassContextMenuBox(
  *
  * @property layer The layer the control records itself into.
  * @property liftedFrom Reads the size the control grows from as it lifts, a share of its own; 1 once the menu closes.
+ * @property gap The room between the lifted control and its menu.
  */
-internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> Float) {
+internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> Float, val gap: Dp) {
 
     /**
      * Returns how large the control draws, as a share of its own size, [progress] of the way to its menu standing open.
@@ -136,6 +138,19 @@ internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> 
      * @return The share.
      */
     fun liftAt(progress: Float): Float = lerp(liftedFrom(), PreviewLift, progress)
+
+    /**
+     * Returns how far the lifted control moves so its menu, held inside the screen, stands [gap] beyond it: down from a
+     * menu above it, up from one below, as the system moves a card whose menu has no room beside it.
+     *
+     * @param lifted The lifted control's bounds.
+     * @param menu The open menu's bounds.
+     * @param gap The room between the two, in pixels.
+     * @return The distance to move the control down, negative to move it up.
+     */
+    fun shift(lifted: Rect, menu: Rect, gap: Float): Float =
+        if (menu.center.y < lifted.center.y) (menu.bottom + gap - lifted.top).coerceAtLeast(0f)
+        else (menu.top - gap - lifted.bottom).coerceAtMost(0f)
 
     /**
      * Returns where the menu's glass grows out of the lifted control: a capsule half the control's width on the edge the
@@ -154,6 +169,9 @@ internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> 
     }
 }
 
+/** The room between a lifted card and its menu, as measured on the system's. */
+private val ContextMenuGap = 22.dp
+
 /** The share of the lifted card's width the menu's glass grows out of. */
 private const val SeedShare = 0.5f
 
@@ -164,4 +182,4 @@ internal val SeedHeight = 44.dp
 private const val HeldGrowth = 1.06f
 
 /** Where a context menu stands: beside its lifted card, on the side with more room, as the system's does. */
-private val ContextMenuPlacement = QuvenGlassMorphPlacement.aboveOrBelow(gap = 22.dp, edge = MenuEdge)
+private val ContextMenuPlacement = QuvenGlassMorphPlacement.aboveOrBelow(gap = ContextMenuGap, edge = MenuEdge)

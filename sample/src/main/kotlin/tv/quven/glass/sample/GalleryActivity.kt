@@ -1,6 +1,7 @@
 package tv.quven.glass.sample
 
 import android.graphics.Color
+import android.graphics.RectF
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -53,6 +54,7 @@ import tv.quven.glass.QuvenGlassMenuMetrics
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMenuHostState
+import androidx.compose.ui.unit.DpSize
 
 /** Shows every Liquid Glass element Apple draws, the library's own where it draws one, each over hard content. */
 class GalleryActivity : ComponentActivity() {
@@ -61,18 +63,39 @@ class GalleryActivity : ComponentActivity() {
         // The gallery is dark whatever the system's theme, so its bars carry light glyphs.
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
+        // A capture opens the gallery on the exhibit named and copies the region named on every frame.
+        val exhibit = intent.getStringExtra(ExtraExhibit)?.let { title -> Exhibits.indexOfFirst { it.title == title }.takeIf { it >= 0 } }
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen() }
+            MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(exhibit) }
         }
+        val seconds = intent.getFloatExtra(ExtraWindow, 0f)
+        val region = intent.getStringExtra(ExtraRegion)?.split(',')?.mapNotNull(String::toFloatOrNull)
+        if (seconds > 0f && region?.size == 4) {
+            recordWindowAfterLaunch(RectF(region[0], region[1], region[0] + region[2], region[1] + region[3]), CapturePixelsPerDp, seconds)
+        }
+    }
+
+    private companion object {
+        // Intent extras: the exhibit's title, the seconds to record for, and the region as x,y,width,height in dp.
+        const val ExtraExhibit = "exhibit"
+        const val ExtraWindow = "window"
+        const val ExtraRegion = "region"
+
+        // Two pixels per dp, as the iOS simulator's frames keep two per point.
+        const val CapturePixelsPerDp = 2f
     }
 }
 
-/** Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it. */
+/**
+ * Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it.
+ *
+ * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
+ */
 @Composable
-private fun GalleryScreen() {
+private fun GalleryScreen(initial: Int?) {
     val tuning = remember { SampleTuning() }
-    var chosen by rememberSaveable { mutableIntStateOf(0) }
-    var opened by rememberSaveable { mutableStateOf(false) }
+    var chosen by rememberSaveable { mutableIntStateOf(initial ?: 0) }
+    var opened by rememberSaveable { mutableStateOf(initial != null) }
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
@@ -177,7 +200,8 @@ private fun ExhibitPage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifi
             )
         }
         Text(exhibit.summary, color = SampleColors.TextMedium, fontSize = 15.sp)
-        key(exhibit) { ExhibitStage(exhibit, tuning, Modifier.weight(1f).fillMaxWidth().padding(top = 6.dp)) }
+        // The stage is the iOS reference's size, so an exhibit stands over the same content on both.
+        key(exhibit) { ExhibitStage(exhibit, tuning, Modifier.padding(top = 6.dp).size(StageSize)) }
     }
 }
 
@@ -222,5 +246,6 @@ private val ChosenRow = SampleColors.TextHigh.copy(alpha = 0.12f)
 private val Ground = SampleColors.Ground
 private val PagePadding = 16.dp
 private val StageShape = RoundedCornerShape(24.dp)
+private val StageSize = DpSize(400.dp, 600.dp)
 private val StageInset = 24.dp
 private const val TabletWidthDp = 600

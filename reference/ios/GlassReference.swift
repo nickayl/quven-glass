@@ -170,23 +170,7 @@ struct ReferenceScreen: View {
     var body: some View {
         ZStack {
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    Header()
-                    ForEach(0..<12, id: \.self) { block in
-                        switch block % 4 {
-                        case 0: PosterRow(offset: block)
-                        case 1: TextBlock()
-                        case 2: Bands()
-                        default: PosterRow(offset: block + 3)
-                        }
-                    }
-                    CalibrationGrid()
-                    CalibrationRamp(horizontal: true, period: 48).frame(height: 160)
-                    CalibrationRamp(horizontal: false, period: 96).frame(height: 240)
-                    CalibrationProbe(horizontal: true).frame(height: 160)
-                    CalibrationProbe(horizontal: false).frame(height: 200)
-                }
-                .padding(.bottom, 140)
+                BackdropContent()
             }
             .scrollPosition($position)
             .background(Palette.ground)
@@ -379,8 +363,28 @@ final class ScreenCapture: @unchecked Sendable {
 struct Header: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
+            // Stops every sixteenth of the way, blended in sRGB, so the gradient matches the Android sample's whatever
+            // space the system blends in.
             LinearGradient(
-                colors: [Color(argb: 0xFF3A_0CA3), Color(argb: 0xFFF7_2585), Color(argb: 0xFFFF_D60A)],
+                colors: [
+                    Color(argb: 0xFF3A_0CA3),
+                    Color(argb: 0xFF52_0F9F),
+                    Color(argb: 0xFF69_129C),
+                    Color(argb: 0xFF81_1598),
+                    Color(argb: 0xFF98_1894),
+                    Color(argb: 0xFFB0_1C90),
+                    Color(argb: 0xFFC8_1F8C),
+                    Color(argb: 0xFFDF_2289),
+                    Color(argb: 0xFFF7_2585),
+                    Color(argb: 0xFFF8_3B76),
+                    Color(argb: 0xFFF9_5166),
+                    Color(argb: 0xFFFA_6757),
+                    Color(argb: 0xFFFB_7E48),
+                    Color(argb: 0xFFFC_9438),
+                    Color(argb: 0xFFFD_AA29),
+                    Color(argb: 0xFFFE_C019),
+                    Color(argb: 0xFFFF_D60A)
+                ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
@@ -1115,8 +1119,10 @@ struct ExhibitPage: View {
                     .background(Capsule().fill(exhibit.status.color.opacity(0.16)))
             }
             Text(exhibit.summary).font(.system(size: 15)).foregroundStyle(Palette.textMedium)
+            // The stage is the Android gallery's size, so an exhibit stands over the same content on both.
             ExhibitStage(exhibit: exhibit)
                 .id(exhibit)
+                .frame(width: StageSize.width, height: StageSize.height)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .padding(.top, 6)
         }
@@ -1124,19 +1130,38 @@ struct ExhibitPage: View {
     }
 }
 
+/// The content glass stands over, block for block the Android sample's: a header, rows of posters, text and bands,
+/// then the calibration patterns.
+struct BackdropContent: View {
+    var body: some View {
+        LazyVStack(spacing: 0) {
+            Header()
+            ForEach(0..<12, id: \.self) { block in
+                switch block % 4 {
+                case 0: PosterRow(offset: block)
+                case 1: TextBlock()
+                case 2: Bands()
+                default: PosterRow(offset: block + 3)
+                }
+            }
+            CalibrationGrid()
+            CalibrationRamp(horizontal: true, period: 48).frame(height: 160)
+            CalibrationRamp(horizontal: false, period: 96).frame(height: 240)
+            CalibrationProbe(horizontal: true).frame(height: 160)
+            CalibrationProbe(horizontal: false).frame(height: 200)
+        }
+        .padding(.bottom, 140)
+    }
+}
+
+/// The size of an exhibit's stage, in points, the Android gallery's in density-independent pixels.
+let StageSize = CGSize(width: 400, height: 600)
+
 /// Content that is hard for glass to stand over, scrolling under the exhibit.
 struct StageBackdrop: View {
     var body: some View {
         ScrollView {
-            VStack(spacing: 0) {
-                Header()
-                PosterRow(offset: 0)
-                TextBlock()
-                Bands()
-                PosterRow(offset: 3)
-                TextBlock()
-                PosterRow(offset: 6)
-            }
+            BackdropContent()
         }
         .background(Palette.ground)
     }
@@ -1552,7 +1577,7 @@ struct SliderStage: View {
             Slider(value: $volume).reportsFrame("slider").accessibilityIdentifier("slider.volume")
             Slider(value: $rating, in: 0...5, step: 1).reportsFrame("slider.steps").accessibilityIdentifier("slider.steps")
         }
-        .frame(width: 380)
+        .frame(width: 352)
     }
 }
 
@@ -1584,6 +1609,8 @@ struct AlertStage: View {
         Button("Show alert") { shown = true }
             .buttonStyle(.glass)
             .controlSize(.large)
+            .reportsFrame("alert.show")
+            .accessibilityIdentifier("alert.show")
             .alert("Remove this collection?", isPresented: $shown) {
                 Button("Remove", role: .destructive) {}
                 Button("Cancel", role: .cancel) {}

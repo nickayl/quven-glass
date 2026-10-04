@@ -1,7 +1,7 @@
 package tv.quven.glass.sample
 
+import android.graphics.RectF
 import android.os.Bundle
-import android.os.Handler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -43,7 +43,6 @@ import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMorphState
-import java.io.File
 
 /** Shows Liquid Glass surfaces over content that is hard for glass to stand over, with a panel tuning the material. */
 class SampleActivity : ComponentActivity() {
@@ -71,12 +70,9 @@ class SampleActivity : ComponentActivity() {
         if (window > 0f) recordWindow(window)
     }
 
-    // The top-left corner, where the gear's menu opens, a second after launch and half a pixel per dp.
+    // The top-left corner, where the gear's menu opens, half a pixel per dp.
     private fun recordWindow(seconds: Float) {
-        val density = resources.displayMetrics.density
-        val region = android.graphics.Rect(0, 0, (RecordedWidth.value * density).toInt(), (RecordedHeight.value * density).toInt())
-        val folder = File(getExternalFilesDir(null), "window")
-        Handler(mainLooper).postDelayed({ WindowRecorder(this, region, RecordedPixelsPerDp / density, seconds, folder).start() }, 1000)
+        recordWindowAfterLaunch(RectF(0f, 0f, RecordedWidth.value, RecordedHeight.value), RecordedPixelsPerDp, seconds)
     }
 }
 

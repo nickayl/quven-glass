@@ -2,6 +2,7 @@ package tv.quven.glass
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
 
@@ -25,13 +26,13 @@ internal class LensLift {
      * @param lifted Whether the thumb is held, dragged or travelling.
      */
     suspend fun follow(lifted: Boolean) {
-        val spec = if (lifted) tween<Float>(LiftMillis, easing = FastOutSlowInEasing) else tween(SettleMillis, SettleHoldMillis, FastOutSlowInEasing)
+        val spec = if (lifted) tween<Float>(LiftMillis, easing = FastOutSlowInEasing) else tween(SettleMillis, SettleHoldMillis, LinearOutSlowInEasing)
         lift.animateTo(if (lifted) 1f else 0f, spec)
     }
 
     private companion object {
         const val LiftMillis = 150
-        const val SettleHoldMillis = 60
+        const val SettleHoldMillis = 16
         const val SettleMillis = 200
     }
 }

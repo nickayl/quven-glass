@@ -47,7 +47,8 @@ import androidx.compose.ui.util.lerp
 internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
 
     /**
-     * Returns the thumb's frame, centred on [centre], [lift] of the way into the lens.
+     * Returns the thumb's frame, centred on [centre], [lift] of the way into the lens: the thumb grows only once it has
+     * begun to blur away, and shrinks back before it shows white again, as Apple's does.
      *
      * @param density The density the frame is measured in.
      * @param centre The thumb's centre, in pixels.
@@ -55,7 +56,7 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
      * @return The frame, in pixels.
      */
     fun frame(density: Density, centre: Offset, lift: Float): Rect = with(density) {
-        val size = lerp(thumb, lens, lift.coerceIn(0f, 1f))
+        val size = lerp(thumb, lens, smoothstep(GrowthStart, 1f, lift))
         val width = size.width.toPx()
         val height = size.height.toPx()
         Rect(centre.x - width / 2f, centre.y - height / 2f, centre.x + width / 2f, centre.y + height / 2f)
@@ -63,13 +64,20 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
 
     /**
      * Returns the material of the lens [lift] of the way into it: frosted while the thumb blurs into it, clear once it
-     * has lifted.
+     * has lifted; its shadow and the light on its rim come and go with it, so nothing of the lens is left to vanish at
+     * once when the thumb settles.
      *
      * @param lift How far the thumb has lifted into the lens, from 0 to 1.
      * @return The material.
      */
-    fun material(lift: Float): QuvenGlassStyle =
-        LensMaterial.copy(blur = lerp(LensFrost, 0.dp, smoothstep(FrostClearStart, 1f, lift)))
+    fun material(lift: Float): QuvenGlassStyle {
+        val shown = smoothstep(0f, ThumbGone, lift)
+        return LensMaterial.copy(
+            blur = lerp(LensFrost, 0.dp, smoothstep(FrostClearStart, 1f, lift)),
+            shadow = LensMaterial.shadow.copy(alpha = LensMaterial.shadow.alpha * shown),
+            specular = LensMaterial.specular * shown,
+        )
+    }
 
     /**
      * Returns how much of the white thumb shows [lift] of the way into the lens: all of it at rest, none past halfway.
@@ -99,6 +107,9 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
 
         /** The share of the lift by which the white thumb has gone. */
         const val ThumbGone: Float = 0.55f
+
+        /** The share of the lift from which the thumb grows into the lens. */
+        const val GrowthStart: Float = 0.35f
 
         /** The share of the lift from which the lens begins to clear. */
         const val FrostClearStart: Float = 0.3f

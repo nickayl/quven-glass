@@ -1,5 +1,7 @@
 package tv.quven.glass
 
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -12,24 +14,32 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.max
 
 /**
  * The sizes of a [QuvenGlassButton] holding a label or a glyph, as Apple sizes its glass buttons: the capsule is as tall
@@ -50,6 +60,9 @@ public enum class QuvenGlassButtonSize(
     public val iconSize: Dp,
     public val iconGap: Dp,
 ) {
+    /** The size of a mini control, 28 dp tall, its label smaller than a small control's. */
+    Mini(10.dp, 5.dp, 13.sp, 18.sp, 14.dp, 5.dp),
+
     /** The size of a small control, 28 dp tall. */
     Small(10.dp, 5.dp, 15.sp, 18.sp, 16.dp, 6.dp),
 
@@ -98,21 +111,36 @@ public fun QuvenGlassButton(
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val appearance = rememberQuvenGlassAppearance()
     val prominent = tint.isSpecified
-    // A prominent button keeps its tint under the finger; plain glass lights what it stands over.
-    val glass = remember(style, tint) { if (prominent) style.tinted(tint) else style.forButtons() }
+    // Under the finger the whole button grows, glass and content alike; where motion is reduced it only lights.
+    val glass = remember(style, tint, reduceMotion) {
+        style.forButtons(tint).let { if (reduceMotion) it.copy(pressExpansion = 0.dp) else it }
+    }
+    val press = remember { GlassPress() }
+    LaunchedEffect(interactions, reduceMotion) {
+        press.follow(this, interactions) { if (reduceMotion) tween(ReducedMotionFadeMillis) else ButtonPressSpring }
+    }
+    var size by remember { mutableStateOf(IntSize.Zero) }
     val shownInk = if (prominent) ink else appearance.contentColor(onDark = ink, onLight = lightInk)
     Row(
         modifier = modifier
-            .quvenLiquidGlass(
+            .onSizeChanged { size = it }
+            .liquidGlass(
                 backdrop = backdrop,
                 style = glass,
                 shape = shape,
-                interactionSource = interactions,
+                interactionSource = null,
                 reduceMotion = reduceMotion,
+                lift = remember(press) { GlassLiftSource { press.value } },
+                pill = null,
                 appearance = appearance.takeUnless { prominent },
             )
             .clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(contentPadding)
+            .graphicsLayer {
+                val grown = pressScale(press.value, glass.pressExpansion.toPx(), max(size.width, size.height).toFloat())
+                scaleX = grown
+                scaleY = grown
+            }
             .alpha(if (enabled) 1f else DisabledAlpha),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -236,6 +264,9 @@ private val QuvenGlassButtonSize.padding: PaddingValues
     get() = PaddingValues(horizontal = horizontalPadding, vertical = verticalPadding)
 
 private val NoPadding = PaddingValues(0.dp)
+
+/** The spring a glass button grows and shrinks on under the finger, passing its size a little, as measured on Apple's. */
+private val ButtonPressSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 685f)
 
 /** The opacity of a control that cannot be used, as Apple dims one. */
 internal const val DisabledAlpha = 0.4f

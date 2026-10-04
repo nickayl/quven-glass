@@ -1,8 +1,8 @@
 package tv.quven.glass
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -15,18 +15,19 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
@@ -34,6 +35,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.flow.collectLatest
 
 /**
  * Draws a switch as Apple's: a capsule track, green while on, whose white thumb lifts into a lens of glass while it is
@@ -103,10 +107,9 @@ internal fun GlassSwitch(
     val active = enabled && onCheckedChange != null
 
     LaunchedEffect(checked, motion.isDragging, reduceMotion) { motion.settle(checked, reduceMotion) }
+    LaunchedEffect(motion) { motion.followTone() }
     val lifted = liquid && !reduceMotion && (pressed || motion.isDragging || motion.isTravelling)
     LaunchedEffect(lifted) { motion.lens.follow(lifted) }
-    val shownOn by remember { derivedStateOf { motion.isOn(currentChecked) } }
-    val track by animateColorAsState(if (shownOn) onColor else offColor, tween(TrackFadeMillis), label = "switch track")
     val dragState = rememberDraggableState { delta -> motion.dragBy((if (rtl) -delta else delta) / travel) }
 
     Box(
@@ -138,7 +141,7 @@ internal fun GlassSwitch(
                 Offset(if (rtl) size.width - along else along, size.height / 2f)
             },
             liquid = liquid,
-        ) { drawRoundRect(track, cornerRadius = CornerRadius(size.height / 2f)) }
+        ) { drawRoundRect(lerp(offColor, onColor, motion.onShare), cornerRadius = CornerRadius(size.height / 2f)) }
     }
 }
 
@@ -152,6 +155,7 @@ internal fun GlassSwitch(
 internal class SwitchThumbMotion(checked: Boolean) {
 
     private val settled = Animatable(if (checked) 1f else 0f)
+    private val tone = Animatable(if (checked) 1f else 0f)
     private var dragged by mutableFloatStateOf(0f)
 
     /** Gets how far the thumb lifts into its lens. */
@@ -165,17 +169,30 @@ internal class SwitchThumbMotion(checked: Boolean) {
     val position: Float
         get() = if (isDragging) dragged else settled.value
 
-    /** Gets a value indicating whether the thumb is sliding to its side. */
+    /** Gets a value indicating whether the thumb is sliding to its side and has not yet come within sight of it. */
     val isTravelling: Boolean
-        get() = settled.isRunning
+        get() = settled.isRunning && abs(settled.targetValue - settled.value) > ArrivedShare
+
+    /** Gets how far the track has turned to the colour it takes while on, from 0 to 1. */
+    val onShare: Float
+        get() = tone.value
+
+    private val headsForOn: Boolean
+        get() = when {
+            isDragging -> position >= Halfway
+            settled.targetValue >= Halfway -> position >= ToneLead
+            else -> position > 1f - ToneLead
+        }
 
     /**
-     * Returns whether the switch shows as on: the side a dragged thumb stands nearer, otherwise [checked].
-     *
-     * @param checked Whether the switch is on.
-     * @return `true` if the track shows as on; otherwise, `false`.
+     * Fades the track to the colour of the side the thumb heads for, over a fade of its own, as the system's track does
+     * however fast the thumb crosses: as soon as a slide sets off, or as a drag crosses the middle; runs until cancelled.
      */
-    fun isOn(checked: Boolean): Boolean = if (isDragging) dragged >= Halfway else checked
+    suspend fun followTone() {
+        snapshotFlow { headsForOn }.collectLatest { on ->
+            tone.animateTo(if (on) 1f else 0f, tween(ToneMillis, easing = LinearEasing))
+        }
+    }
 
     /** Starts a drag from where the thumb stands. */
     fun startDrag() {
@@ -212,13 +229,24 @@ internal class SwitchThumbMotion(checked: Boolean) {
      */
     suspend fun settle(checked: Boolean, reduceMotion: Boolean) {
         if (isDragging) return
-        settled.animateTo(if (checked) 1f else 0f, if (reduceMotion) tween(ReducedMotionFadeMillis) else spring(SlideDamping, SlideStiffness))
+        // The thumb lifts into its lens before it crosses, as the system's does after a tap; one already lifted crosses at once.
+        val wait = ((1f - lens.value) * SlideDelayMillis).roundToInt()
+        settled.animateTo(
+            if (checked) 1f else 0f,
+            if (reduceMotion) tween(ReducedMotionFadeMillis) else tween(SlideMillis, wait, FastOutSlowInEasing),
+        )
     }
 
     private companion object {
         const val Halfway = 0.5f
-        const val SlideDamping = 0.8f
-        const val SlideStiffness = 700f
+        // The last of the slide moves too little to see: the lens settles from there, as the system's does on arrival.
+        const val ArrivedShare = 0.04f
+        // The system's thumb crosses in about 140 ms and comes to rest, with no tail for its lens to wait on.
+        const val SlideMillis = 140
+        const val SlideDelayMillis = 100
+        // The system's track turns its colour in about 130 ms, from the moment its thumb sets off.
+        const val ToneMillis = 130
+        const val ToneLead = 0.1f
     }
 }
 
@@ -238,4 +266,3 @@ private val SwitchInset: Dp = 2.dp
 /** How far the thumb travels from one side to the other. */
 private val SwitchTravel: Dp = SwitchSize.width - SwitchInset * 2 - GlassLensThumb.Control.thumb.width
 
-private const val TrackFadeMillis = 160

@@ -3,9 +3,11 @@ package tv.quven.glass
 import android.app.Application
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
@@ -146,6 +148,25 @@ class QuvenGlassSwitchTest {
     }
 
     @Test
+    fun theTrack_fadesToItsNewColour_evenWhenTheThumbCrossesAtOnce() {
+        val motion = SwitchThumbMotion(checked = false)
+        render { LaunchedEffect(motion) { motion.followTone() } }
+        compose.mainClock.autoAdvance = false
+
+        compose.runOnIdle {
+            motion.startDrag()
+            motion.dragBy(1f)
+            // A frame of the window would announce the drag; nothing else in this composition reads it.
+            Snapshot.sendApplyNotifications()
+        }
+        compose.mainClock.advanceTimeBy(FadingMillis)
+
+        assertTrue(motion.onShare > 0f && motion.onShare < 1f)
+        compose.mainClock.advanceTimeBy(FadedMillis)
+        assertEquals(1f, motion.onShare, 0f)
+    }
+
+    @Test
     fun withoutLiquidGlass_theThumbStaysAThumb() {
         render { switchOf(checked = false, liquid = false) }
 
@@ -156,7 +177,7 @@ class QuvenGlassSwitchTest {
     }
 
     @Test
-    fun theLensThumb_growsAboutItsCentre_andTheWhiteThumbIsGoneBeforeTheLensClears() {
+    fun theLensThumb_growsAboutItsCentre_onlyOnceItBlurs_andTheWhiteThumbIsGoneBeforeTheLensClears() {
         val thumb = GlassLensThumb(Thumb, Lens)
         val density = Density(1f)
 
@@ -167,6 +188,7 @@ class QuvenGlassSwitchTest {
         assertEquals(Offset(40f, 14f), lifted.center)
         assertEquals(57f, lifted.width, 0.001f)
         assertEquals(37.5f, lifted.height, 0.001f)
+        assertEquals(36f, thumb.frame(density, Offset(40f, 14f), GlassLensThumb.GrowthStart).width, 0.001f)
         assertEquals(1f, thumb.thumbOpacity(0f), 0f)
         assertEquals(0f, thumb.thumbOpacity(GlassLensThumb.ThumbGone), 0f)
         assertEquals(GlassLensThumb.LensFrost, thumb.material(GlassLensThumb.FrostClearStart).blur)
@@ -207,7 +229,9 @@ class QuvenGlassSwitchTest {
     private companion object {
         const val SwitchTag = "switch"
         const val HeldMillis = 400L
-        const val TravellingMillis = 160L
+        const val TravellingMillis = 80L
+        const val FadingMillis = 64L
+        const val FadedMillis = 200L
         val Thumb = DpSize(36.dp, 24.dp)
         val Lens = DpSize(57.dp, 37.5.dp)
     }

@@ -16,6 +16,14 @@ android {
         versionCode = 1
         versionName = providers.gradleProperty("quvenGlass.version").get()
     }
+    buildTypes {
+        // Motion is judged on the release build: a debuggable one runs Compose interpreted, several times slower.
+        release {
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
     buildFeatures {
         compose = true
     }
