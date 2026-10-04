@@ -1,0 +1,311 @@
+package tv.quven.glass.sample
+
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
+import androidx.compose.ui.unit.sp
+import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.QuvenGlassContainer
+import tv.quven.glass.QuvenGlassMenuBox
+import tv.quven.glass.QuvenGlassMenuChoice
+import tv.quven.glass.QuvenGlassMenuChoices
+import tv.quven.glass.QuvenGlassMenuDivider
+import tv.quven.glass.QuvenGlassMenuItem
+import tv.quven.glass.QuvenGlassMenuTitle
+import tv.quven.glass.QuvenGlassMorph
+import tv.quven.glass.QuvenGlassMorphPlacement
+import tv.quven.glass.quvenLiquidGlass
+import tv.quven.glass.rememberQuvenGlassMorphState
+
+/**
+ * Draws still glass of several sizes, thin and thick, round and a capsule.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.MaterialExhibit(tuning: SampleTuning) {
+    Row(
+        Modifier.align(Alignment.Center),
+        horizontalArrangement = Arrangement.spacedBy(ExhibitGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        MaterialSizes.forEach { side -> Glass(tuning, Modifier.size(side)) }
+        Glass(tuning, Modifier.size(width = CapsuleWidth, height = CapsuleHeight))
+    }
+}
+
+/**
+ * Draws round glass buttons of three sizes.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.GlassButtonsExhibit(tuning: SampleTuning) {
+    Row(
+        Modifier.align(Alignment.Center),
+        horizontalArrangement = Arrangement.spacedBy(ExhibitGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ButtonFaces.forEach { (diameter, icon) ->
+            SampleGlassButton(onClick = {}, style = tuning.buttonStyle, reduceMotion = tuning.reduceMotion, diameter = diameter) { ink ->
+                GlyphFace(icon, contentDescription = null, tint = ink, size = diameter * ButtonGlyphShare)
+            }
+        }
+    }
+}
+
+/**
+ * Draws a tablet's tab bar at the foot of the stage.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.TabBarExhibit(tuning: SampleTuning) {
+    var held by remember { mutableIntStateOf(0) }
+    Box(Modifier.align(Alignment.BottomCenter)) { SampleBar(held = held, onHold = { held = it }, tuning = tuning) }
+}
+
+/**
+ * Draws a segmented control of three options.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SegmentedExhibit(tuning: SampleTuning) {
+    var held by remember { mutableIntStateOf(1) }
+    Box(Modifier.align(Alignment.Center)) { SampleDensityTrack(held = held, onHold = { held = it }, tuning = tuning) }
+}
+
+/**
+ * Draws two circles of glass that move together until they join and apart again, over and over.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.JoiningExhibit(tuning: SampleTuning) {
+    val closeness by rememberInfiniteTransition(label = "joining").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(JoiningMillis, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "closeness",
+    )
+    val reach = lerp(JoiningApart, JoiningTogether, closeness)
+    QuvenGlassContainer(Modifier.align(Alignment.Center), style = tuning.style, spacing = JoiningSpacing) {
+        Box(Modifier.size(width = JoiningApart * 2 + JoiningDiameter, height = JoiningDiameter)) {
+            listOf(-1, 1).forEach { side ->
+                Glass(
+                    tuning,
+                    Modifier
+                        .align(Alignment.Center)
+                        .offset { IntOffset((side * reach.toPx()).toInt(), 0) }
+                        .size(JoiningDiameter),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Draws the four kinds of menu: titled sections of glyphed rows, choices among other rows, a plain menu and one that
+ * rises from the foot of the stage.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
+    var order by remember { mutableIntStateOf(1) }
+    var ascending by remember { mutableStateOf(true) }
+    MenuButton(Icons.Filled.Settings, "Library", tuning, Modifier.align(Alignment.TopStart)) { LibraryMenuEntries() }
+    MenuButton(Icons.Filled.MoreVert, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
+        QuvenGlassMenuTitle("Sort by")
+        QuvenGlassMenuChoices(SortOrders, SortOrders[order], label = { it }, onSelect = { order = SortOrders.indexOf(it) })
+        QuvenGlassMenuChoice("Ascending", selected = ascending, onClick = { ascending = !ascending }, role = Role.Checkbox)
+        QuvenGlassMenuDivider()
+        QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(Icons.Filled.Share))
+        QuvenGlassMenuItem("Unavailable", {}, icon = rememberVectorPainter(Icons.Filled.Lock), enabled = false)
+        QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Icons.Filled.Delete), destructive = true)
+    }
+    MenuButton(Icons.Filled.DateRange, "Timer", tuning, Modifier.align(Alignment.CenterStart)) {
+        QuvenGlassMenuItem("15 minutes", {})
+        QuvenGlassMenuItem("30 minutes", {})
+        QuvenGlassMenuItem("End of chapter", {})
+        QuvenGlassMenuItem("Off", {}, destructive = true)
+    }
+    MenuButton(Icons.Filled.Add, "New", tuning, Modifier.align(Alignment.BottomStart)) {
+        QuvenGlassMenuItem("Collection", {}, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
+        QuvenGlassMenuItem("Message", {}, icon = rememberVectorPainter(Icons.Filled.Email))
+        QuvenGlassMenuItem("Order", {}, icon = rememberVectorPainter(Icons.Filled.ShoppingCart))
+    }
+}
+
+/**
+ * Draws a gear that opens into the panel tuning the material, as one piece of glass.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.MorphingPanelExhibit(tuning: SampleTuning) {
+    val morph = rememberQuvenGlassMorphState()
+    var open by remember { mutableStateOf(false) }
+    var gear by remember { mutableStateOf(Rect.Zero) }
+    SampleGlassButton(
+        onClick = { open = true },
+        style = tuning.buttonStyle,
+        reduceMotion = tuning.reduceMotion,
+        modifier = Modifier.align(Alignment.TopStart).onPlaced { gear = it.boundsInParent() },
+        shown = !morph.isShown,
+    ) { ink -> GlyphFace(Icons.Filled.Settings, contentDescription = "Tune", tint = ink) }
+    if (open) {
+        Box(Modifier.matchParentSize().clickable(interactionSource = null, indication = null) { open = false })
+    }
+    QuvenGlassMorph(
+        state = morph,
+        expanded = open,
+        anchor = gear,
+        width = PanelWidth,
+        placement = QuvenGlassMorphPlacement.hangingFromTopLeft(),
+        modifier = Modifier.matchParentSize(),
+        style = tuning.style,
+        cornerRadius = PanelCornerRadius,
+        reduceMotion = tuning.reduceMotion,
+        face = { GlyphFace(Icons.Filled.Settings, contentDescription = null) },
+    ) {
+        TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
+    }
+}
+
+/**
+ * Draws the card of an exhibit the library does not draw yet, pointing to the reference that shows Apple's element.
+ *
+ * @param exhibit The exhibit.
+ * @param tuning The live settings.
+ * @param modifier Modifier applied to the card.
+ */
+@Composable
+internal fun PendingExhibitCard(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifier = Modifier) {
+    Column(
+        modifier
+            .widthIn(max = PendingCardWidth)
+            .quvenLiquidGlass(
+                backdrop = LocalQuvenGlassBackdrop.current,
+                style = tuning.style,
+                shape = RoundedCornerShape(PanelCornerRadius),
+                reduceMotion = tuning.reduceMotion,
+            )
+            .padding(PendingCardPadding),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(exhibit.status.label, color = exhibit.status.color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text(exhibit.title, color = SampleColors.TextHigh, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            "The iOS reference shows Apple's element under the same name.",
+            color = SampleColors.TextHigh.copy(alpha = 0.8f),
+            fontSize = 15.sp,
+        )
+    }
+}
+
+/**
+ * Draws still glass of the live material.
+ *
+ * @param tuning The live settings.
+ * @param modifier Modifier applied to the glass, which sizes it.
+ */
+@Composable
+private fun Glass(tuning: SampleTuning, modifier: Modifier) {
+    Box(modifier.quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, CircleShape, reduceMotion = tuning.reduceMotion))
+}
+
+/**
+ * Draws a round glass button that opens a glass menu, hiding while the menu's glass takes its place.
+ *
+ * @param icon The button's glyph.
+ * @param name The button's name.
+ * @param tuning The live settings.
+ * @param modifier Modifier applied to the button.
+ * @param menu The menu's entries.
+ */
+@Composable
+private fun MenuButton(icon: ImageVector, name: String, tuning: SampleTuning, modifier: Modifier, menu: @Composable ColumnScope.() -> Unit) {
+    QuvenGlassMenuBox(menu = menu, face = { GlyphFace(icon, contentDescription = null) }) {
+        SampleGlassButton(
+            onClick = { openMenu() },
+            style = tuning.buttonStyle,
+            reduceMotion = tuning.reduceMotion,
+            modifier = modifier.menuAnchor(),
+            shown = !isMenuShown,
+        ) { ink -> GlyphFace(icon, contentDescription = name, tint = ink) }
+    }
+}
+
+private val ExhibitGap = 28.dp
+private val MaterialSizes = listOf(36.dp, 51.dp, 70.dp, 100.dp)
+private val CapsuleWidth = 240.dp
+private val CapsuleHeight = 62.dp
+private val ButtonFaces: List<Pair<Dp, ImageVector>> = listOf(
+    46.dp to Icons.Filled.PlayArrow,
+    56.dp to Icons.Filled.Favorite,
+    69.dp to Icons.Filled.Share,
+)
+private const val ButtonGlyphShare = 0.42f
+private const val JoiningMillis = 1800
+private val JoiningDiameter = 90.dp
+private val JoiningApart = 80.dp
+private val JoiningTogether = 38.dp
+private val JoiningSpacing = 24.dp
+private val SortOrders = listOf("Title", "Year", "Added")
+private val PanelWidth = 340.dp
+private val PanelMaxHeight = 560.dp
+private val PanelCornerRadius = 28.dp
+private val PendingCardWidth = 440.dp
+private val PendingCardPadding = 28.dp

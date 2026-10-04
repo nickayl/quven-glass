@@ -49,6 +49,7 @@ dependencies {
     api(libs.androidx.compose.ui.graphics)
     api(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.animation.core)
+    implementation(libs.androidx.activity.compose)
 
     testImplementation(libs.junit4)
     testImplementation(libs.robolectric)

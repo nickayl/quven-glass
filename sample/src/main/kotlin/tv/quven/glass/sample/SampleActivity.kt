@@ -7,7 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,19 +15,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -42,21 +31,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import tv.quven.glass.LocalQuvenGlassBackdrop
 import tv.quven.glass.QuvenGlassMenu
-import tv.quven.glass.QuvenGlassMenuDivider
-import tv.quven.glass.QuvenGlassMenuItem
 import tv.quven.glass.QuvenGlassMenuMetrics
-import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.quvenGlassSource
-import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMorphState
 import java.io.File
@@ -156,13 +140,14 @@ private fun SampleScreen(launch: SampleLaunch) {
                     .padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                TuneButton(
-                    style = if (launch.menu) tuning.style.copy(pressGlow = MenuPressGlow) else tuning.style,
-                    tuning = tuning,
-                    shown = !morph.isShown,
+                SampleGlassButton(
                     onClick = { panelOpen = true },
+                    style = if (launch.menu) tuning.buttonStyle else tuning.style,
+                    reduceMotion = tuning.reduceMotion,
                     modifier = Modifier.onGloballyPositioned { gear = it.boundsInRoot() },
-                )
+                    diameter = ButtonSide,
+                    shown = !morph.isShown,
+                ) { ink -> GlyphFace(Icons.Filled.Settings, contentDescription = "Tune", tint = ink) }
                 SampleDensityTrack(held = density, onHold = { density = it }, tuning = tuning)
             }
             if (panelOpen) {
@@ -175,13 +160,13 @@ private fun SampleScreen(launch: SampleLaunch) {
                 width = if (launch.menu) QuvenGlassMenuMetrics.Tablet.width else PanelWidth,
                 placement = QuvenGlassMorphPlacement.hangingFromTopLeft(edge = 16.dp),
                 modifier = Modifier.fillMaxSize(),
-                style = if (launch.menu) tuning.style.copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow) else tuning.style,
+                style = if (launch.menu) tuning.menuStyle else tuning.style,
                 cornerRadius = if (launch.menu) QuvenGlassMenuMetrics.Tablet.cornerRadius else 28.dp,
                 reduceMotion = tuning.reduceMotion,
-                face = { GearFace() },
+                face = { GlyphFace(Icons.Filled.Settings, contentDescription = null) },
             ) {
                 if (launch.menu) {
-                    SampleMenu(onChoose = { panelOpen = false })
+                    QuvenGlassMenu(metrics = QuvenGlassMenuMetrics.Tablet, onChosen = { panelOpen = false }) { LibraryMenuEntries() }
                 } else {
                     TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
                 }
@@ -198,58 +183,9 @@ private fun SampleScreen(launch: SampleLaunch) {
     }
 }
 
-@Composable
-private fun TuneButton(style: QuvenGlassStyle, tuning: SampleTuning, shown: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val interactions = remember { MutableInteractionSource() }
-    Box(
-        modifier
-            .size(ButtonSide)
-            .graphicsLayer { alpha = if (shown) 1f else 0f }
-            .quvenLiquidGlass(
-                backdrop = LocalQuvenGlassBackdrop.current,
-                style = style,
-                shape = CircleShape,
-                interactionSource = interactions,
-                reduceMotion = tuning.reduceMotion,
-            )
-            .clickable(interactionSource = interactions, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        GearFace()
-    }
-}
-
-@Composable
-private fun GearFace() {
-    Box(Modifier.size(ButtonSide), contentAlignment = Alignment.Center) {
-        Icon(Icons.Filled.Settings, contentDescription = "Tune", tint = SampleColors.TextHigh)
-    }
-}
-
-// The menu the reference's gear opens, entry for entry, laid out as iPadOS lays it out.
-@Composable
-private fun SampleMenu(onChoose: () -> Unit) {
-    QuvenGlassMenu(metrics = QuvenGlassMenuMetrics.Tablet) {
-        QuvenGlassMenuTitle("Library")
-        QuvenGlassMenuItem("Collections", onChoose, icon = rememberVectorPainter(Icons.Filled.PlayArrow))
-        QuvenGlassMenuItem("Saved", onChoose, icon = rememberVectorPainter(Icons.Filled.Favorite))
-        QuvenGlassMenuItem("Bookshelf", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
-        QuvenGlassMenuDivider()
-        QuvenGlassMenuTitle("Account")
-        QuvenGlassMenuItem("Profile", onChoose, icon = rememberVectorPainter(Icons.Filled.Person))
-        QuvenGlassMenuItem("Sync", onChoose, icon = rememberVectorPainter(Icons.Filled.Refresh))
-        QuvenGlassMenuItem("Switch view", onChoose, icon = rememberVectorPainter(Icons.Filled.Share))
-        QuvenGlassMenuItem("Settings", onChoose, icon = rememberVectorPainter(Icons.Filled.Settings))
-        QuvenGlassMenuItem("Sign out", onChoose, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.ExitToApp), destructive = true)
-    }
-}
-
 private val ButtonSide = 69.dp
 private val RecordedWidth = 330.dp
 private val RecordedHeight = 520.dp
 private const val RecordedPixelsPerDp = 0.5f
-private val MenuBlur = 9.5.dp
-private const val MenuPressGlow = 3.6f
-private const val MenuRimGlow = 1.7f
 private val PanelWidth = 340.dp
 private val PanelMaxHeight = 560.dp

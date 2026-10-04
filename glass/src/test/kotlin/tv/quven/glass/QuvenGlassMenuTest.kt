@@ -1,7 +1,8 @@
 package tv.quven.glass
 
 import android.app.Application
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -15,6 +16,9 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.geometry.Offset
@@ -26,9 +30,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [34])
+@Config(application = Application::class, sdk = [34], qualifiers = "w800dp-h600dp")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class QuvenGlassMenuTest {
 
     @get:Rule
@@ -100,6 +106,78 @@ class QuvenGlassMenuTest {
     }
 
     @Test
+    fun aMenuHoldingAChoice_opensAColumnOfChecksBeforeEveryRow_andWidensByIt() {
+        show(QuvenGlassMenuMetrics.Tablet) {
+            QuvenGlassMenuItem("Download", {}, Modifier.testTag("item"), icon = ColorPainter(Color.White))
+            QuvenGlassMenuChoice("Year", selected = true, onClick = {}, modifier = Modifier.testTag("choice"))
+        }
+
+        assertEquals(55f + 12f, drawn("Download").left.value, 0.5f)
+        assertEquals(32f, drawn("Year").left.value, 0.5f)
+        assertEquals(223f + 12f, tagged("item").right.value - tagged("item").left.value, 0.5f)
+    }
+
+    @Test
+    fun aMenuWithoutAChoice_keepsItsRowsAtTheirPlaces() {
+        show(QuvenGlassMenuMetrics.Tablet) {
+            QuvenGlassMenuItem("Download", {}, Modifier.testTag("item"), icon = ColorPainter(Color.White))
+        }
+
+        assertEquals(55f, drawn("Download").left.value, 0.5f)
+        assertEquals(223f, tagged("item").right.value - tagged("item").left.value, 0.5f)
+    }
+
+    @Test
+    fun aMenuOfPlainRows_startsTheirNamesAtThePlainInset() {
+        show(QuvenGlassMenuMetrics.Tablet) {
+            QuvenGlassMenuItem("Off", {})
+            QuvenGlassMenuItem("End of chapter", {})
+        }
+
+        assertEquals(21.5f, drawn("Off").left.value, 0.5f)
+    }
+
+    @Test
+    fun aLongName_widensTheMenu_upToItsGreatestWidth() {
+        show(QuvenGlassMenuMetrics.Tablet) {
+            QuvenGlassMenuItem("W".repeat(80), {}, Modifier.testTag("item"))
+        }
+
+        assertEquals(320f, tagged("item").right.value - tagged("item").left.value, 0.5f)
+    }
+
+    @Test
+    fun aChoice_isMarkedSelectedOnlyWhenChosen() {
+        show(QuvenGlassMenuMetrics.Tablet) {
+            QuvenGlassMenuChoice("Year", selected = true, onClick = {}, modifier = Modifier.testTag("chosen"))
+            QuvenGlassMenuChoice("Title", selected = false, onClick = {}, modifier = Modifier.testTag("other"))
+        }
+
+        compose.onNodeWithTag("chosen").assertIsSelected()
+        compose.onNodeWithTag("other").assertIsNotSelected()
+    }
+
+    @Test
+    fun aDisabledRow_isChosenNeitherByAPressNorByASlide() {
+        var chosen = 0
+        show(QuvenGlassMenuMetrics.Phone) {
+            QuvenGlassMenuItem("Play", {}, Modifier.testTag("first"))
+            QuvenGlassMenuItem("Unavailable", { chosen++ }, Modifier.testTag("disabled"), enabled = false)
+        }
+
+        compose.onNodeWithTag("disabled").performClick()
+        compose.onNodeWithTag("first").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, height * 0.5f))
+            moveBy(Offset(0f, height * 0.6f))
+            up()
+        }
+
+        assertEquals(0, chosen)
+        compose.onNodeWithTag("disabled").assertIsNotEnabled()
+    }
+
+    @Test
     fun aFingerLiftingOverNoRow_choosesNothing() {
         var chosen = 0
         render(QuvenGlassMenuMetrics.Phone, onFirst = { chosen++ }, onSecond = { chosen++ })
@@ -119,17 +197,23 @@ class QuvenGlassMenuTest {
         onFirst: () -> Unit = {},
         onSecond: () -> Unit = {},
         haptics: HapticFeedback = CountingHaptics(),
+    ) = show(metrics, haptics) {
+        QuvenGlassMenuTitle("Library")
+        QuvenGlassMenuItem("Collections", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
+        QuvenGlassMenuItem("Saved", onSecond, Modifier.testTag("second"))
+        QuvenGlassMenuDivider(Modifier.testTag("divider"))
+        QuvenGlassMenuTitle("Account")
+        QuvenGlassMenuItem("Sign out", {}, destructive = true)
+    }
+
+    private fun show(
+        metrics: QuvenGlassMenuMetrics,
+        haptics: HapticFeedback = CountingHaptics(),
+        content: @Composable ColumnScope.() -> Unit,
     ) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f), LocalHapticFeedback provides haptics) {
-                QuvenGlassMenu(Modifier.width(metrics.width), metrics = metrics) {
-                    QuvenGlassMenuTitle("Library")
-                    QuvenGlassMenuItem("Collections", onFirst, Modifier.testTag("first"), icon = ColorPainter(Color.White))
-                    QuvenGlassMenuItem("Saved", onSecond, Modifier.testTag("second"))
-                    QuvenGlassMenuDivider(Modifier.testTag("divider"))
-                    QuvenGlassMenuTitle("Account")
-                    QuvenGlassMenuItem("Sign out", {}, destructive = true)
-                }
+                QuvenGlassMenu(metrics = metrics, content = content)
             }
         }
     }

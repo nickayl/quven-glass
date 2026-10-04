@@ -45,6 +45,9 @@ import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import kotlin.math.roundToInt
 
 /**
@@ -87,10 +90,28 @@ public fun interface QuvenGlassMorphPlacement {
             QuvenGlassMorphPlacement { size, anchor, space, density ->
                 val inset = with(density) { edge.roundToPx() }
                 IntOffset(
-                    left(size, anchor).coerceIn(inset, maxOf(inset, space.width - inset - size.width)),
-                    anchor.top.coerceIn(inset, maxOf(inset, space.height - inset - size.height)),
+                    left(size, anchor).keptInside(size.width, space.width, inset),
+                    anchor.top.keptInside(size.height, space.height, inset),
                 )
             }
+
+        /**
+         * Returns the placement that stands the opened glass over its anchor, as a system menu opens from its button:
+         * aligned with the anchor's side nearer the space's edge, hanging from the anchor's top where there is at
+         * least as much room below the anchor as above it and the glass fits, and otherwise rising from the anchor's
+         * foot, kept at least [edge] inside the space.
+         *
+         * @param edge The least room between the glass and the space's sides.
+         * @return The placement.
+         */
+        public fun overAnchor(edge: Dp = 0.dp): QuvenGlassMorphPlacement = QuvenGlassMorphPlacement { size, anchor, space, density ->
+            val inset = with(density) { edge.roundToPx() }
+            val left = if (anchor.center.x > space.width / 2) anchor.right - size.width else anchor.left
+            val hangs = space.height - anchor.top >= anchor.bottom && anchor.top + size.height <= space.height - inset
+            val rises = anchor.bottom - size.height >= inset
+            val top = if (hangs || !rises) anchor.top else anchor.bottom - size.height
+            IntOffset(left.keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
+        }
 
         /**
          * Returns the placement that stands the opened glass above the anchor, centred on it, [gap] above it and at least
@@ -102,19 +123,28 @@ public fun interface QuvenGlassMorphPlacement {
          */
         public fun above(gap: Dp, edge: Dp): QuvenGlassMorphPlacement = QuvenGlassMorphPlacement { size, anchor, space, density ->
             val inset = with(density) { edge.roundToPx() }
-            val x = (anchor.center.x - size.width / 2f).roundToInt().coerceIn(inset, maxOf(inset, space.width - inset - size.width))
+            val x = (anchor.center.x - size.width / 2f).roundToInt().keptInside(size.width, space.width, inset)
             val y = (anchor.top - with(density) { gap.roundToPx() } - size.height).coerceAtLeast(0)
             IntOffset(x, y)
         }
     }
 }
 
-/** The opening of a [QuvenGlassMorph]: whether the glass stands open, on its way or closed back into its control. */
+/**
+ * The opening of a [QuvenGlassMorph]: whether the glass stands open, on its way or closed back into its control, and
+ * where that control stands once [quvenGlassAnchor] marks it.
+ */
 @Stable
 public class QuvenGlassMorphState {
 
     /** Gets how far the glass is open, from 0 to 1. */
     internal val progress: Animatable<Float, *> = Animatable(0f)
+
+    /** Gets the bounds of the control the glass grows from, in the window, or `null` while none is marked. */
+    internal var anchorInWindow: Rect? by mutableStateOf(null)
+
+    /** Gets a value indicating whether the open glass covers its control and rises above it. */
+    internal var rises: Boolean by mutableStateOf(false)
 
     /**
      * Gets a value indicating whether the glass is on screen: opening, open or closing. The control it grows from hides
@@ -122,6 +152,16 @@ public class QuvenGlassMorphState {
      */
     public val isShown: Boolean by derivedStateOf { progress.isRunning || progress.value != 0f }
 }
+
+/**
+ * Marks the control a morph grows from, so a glass that opens elsewhere in the window, as a menu in a
+ * [QuvenGlassMenuHost] does, grows out of it.
+ *
+ * @param state The opening the control belongs to.
+ * @return The decorated modifier.
+ */
+public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState): Modifier =
+    onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }
 
 /**
  * Creates and remembers a [QuvenGlassMorphState].
@@ -144,7 +184,7 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
  * @param state The opening, which the control reads to hide while the glass is shown.
  * @param expanded Whether the panel is open.
  * @param anchor The bounds of the control the glass grows from, in the morph's coordinates.
- * @param width The open panel's width; its height is its content's.
+ * @param width The open panel's width, or [Dp.Unspecified] for its content's own; its height is its content's.
  * @param placement Where the open panel stands.
  * @param modifier Modifier applied to the morph, which fills its parent.
  * @param style The material.
@@ -160,7 +200,7 @@ public fun QuvenGlassMorph(
     state: QuvenGlassMorphState,
     expanded: Boolean,
     anchor: Rect,
-    width: Dp,
+    width: Dp = Dp.Unspecified,
     placement: QuvenGlassMorphPlacement,
     modifier: Modifier = Modifier,
     style: QuvenGlassStyle = QuvenGlassStyle.Standard,
@@ -212,10 +252,16 @@ public fun QuvenGlassMorph(
         },
     ) { measurables, constraints ->
         val space = IntSize(constraints.maxWidth, constraints.maxHeight)
-        val panel = measurables[2].measure(Constraints(minWidth = width.roundToPx(), maxWidth = width.roundToPx(), maxHeight = space.height))
+        val panelConstraints = if (width.isSpecified) {
+            Constraints(minWidth = width.roundToPx(), maxWidth = width.roundToPx(), maxHeight = space.height)
+        } else {
+            Constraints(maxWidth = space.width, maxHeight = space.height)
+        }
+        val panel = measurables[2].measure(panelConstraints)
         if (!expanded && !state.isShown) return@Layout layout(space.width, space.height) {}
         val target = placement.place(IntSize(panel.width, panel.height), anchor.toIntRectRounded(), space, this)
         val open = Rect(Offset(target.x.toFloat(), target.y.toFloat()), Size(panel.width.toFloat(), panel.height.toFloat()))
+        state.rises = open.top < anchor.top && open.bottom >= anchor.bottom
         val progress = state.progress.value
         val glass = if (reduceMotion) open else lerp(anchor, open, progress)
         frame.update(glass, open, if (reduceMotion) cornerRadius.toPx() else morphRadius(glass.size, cornerRadius.toPx(), progress))
@@ -264,6 +310,9 @@ private class MorphShape(private val frame: MorphFrame) : Shape {
     override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
         Outline.Rounded(RoundRect(Rect(Offset.Zero, size), CornerRadius(frame.radius.coerceAtMost(size.minDimension / 2f))))
 }
+
+// Moves a start along one axis so the extent it begins stands inside the space, or at the inset where it cannot.
+private fun Int.keptInside(extent: Int, space: Int, inset: Int): Int = coerceIn(inset, maxOf(inset, space - inset - extent))
 
 private fun Rect.toIntRectRounded(): IntRect = IntRect(left.roundToInt(), top.roundToInt(), right.roundToInt(), bottom.roundToInt())
 

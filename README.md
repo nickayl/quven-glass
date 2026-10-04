@@ -11,6 +11,7 @@ What you get:
 - neighbouring surfaces that flow into one piece of glass as they come close;
 - a segmented track whose pill turns into a lens under a press or a drag;
 - a control that opens into a panel as one piece of glass, and closes back into it;
+- menus that grow out of their button and lay out every kind of row the way Apple does;
 - thin and thick glass chosen by size, as iOS does, and thin glass that turns light over a bright backdrop.
 
 ## Requirements
@@ -44,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.1.0")
+    implementation("tv.quven.glass:glass:2.4.0")
 }
 ```
 
@@ -162,37 +163,52 @@ QuvenGlassMorph(
 
 `hangingFromTopRight` and `above` place the panel for a button on the other side or an entry of a bottom bar.
 
-For a menu like the ones iOS opens from a toolbar button, fill the panel with `QuvenGlassMenu` and its entries. They take
-Apple's measures for a phone or a tablet, and you open the morph at the same width and corner radius:
+## Menus
+
+A menu needs a host: one `QuvenGlassMenuHost`, placed last at the root of the screen so it can draw over everything,
+with its state provided below it. Then any control can open a menu with `QuvenGlassMenuBox`:
 
 ```kotlin
-val metrics = QuvenGlassMenuMetrics.Phone
-
-QuvenGlassMorph(
-    state = morph,
-    expanded = open,
-    anchor = anchor,
-    width = metrics.width,
-    cornerRadius = metrics.cornerRadius,
-    placement = QuvenGlassMorphPlacement.hangingFromTopRight(edge = 16.dp),
-    modifier = Modifier.fillMaxSize(),
-    style = QuvenGlassStyle.Standard.copy(blur = 9.5.dp, pressGlow = 3.6f, rimGlow = 1.7f),
-    face = { AvatarFace() },
-) {
-    QuvenGlassMenu(metrics = metrics) {
-        QuvenGlassMenuTitle("Library")
-        QuvenGlassMenuItem("Collections", onClick = { open = false }, icon = painterResource(R.drawable.collections))
-        QuvenGlassMenuDivider()
-        QuvenGlassMenuItem("Sign out", onClick = { signOut() }, destructive = true)
+val menus = rememberQuvenGlassMenuHostState()
+CompositionLocalProvider(LocalQuvenGlassBackdrop provides backdrop, LocalQuvenGlassMenuHost provides menus) {
+    Box(Modifier.fillMaxSize()) {
+        Screen()
+        QuvenGlassMenuHost(
+            state = menus,
+            style = QuvenGlassStyle.Standard.copy(blur = 9.5.dp, pressGlow = 3.6f, rimGlow = 1.7f),
+            metrics = QuvenGlassMenuMetrics.Phone,
+        )
     }
+}
+
+// Anywhere inside Screen():
+QuvenGlassMenuBox(
+    menu = {
+        QuvenGlassMenuTitle("Sort by")
+        QuvenGlassMenuChoices(orders, selected = order, label = { it.title }, onSelect = { order = it })
+        QuvenGlassMenuDivider()
+        QuvenGlassMenuItem("Share", onClick = ::share, icon = painterResource(R.drawable.share))
+        QuvenGlassMenuItem("Remove", onClick = ::remove, destructive = true)
+    },
+    face = { MoreFace() },
+) {
+    MoreButton(
+        modifier = Modifier.menuAnchor().graphicsLayer { alpha = if (isMenuShown) 0f else 1f },
+        onClick = { openMenu() },
+    )
 }
 ```
 
-A system menu doesn't dim what's behind it, so a dismissing layer under the morph should stay transparent. Its rim is
-brighter than a bar's, which is what `rimGlow` draws. Give the control that opens it the same `pressGlow`: it lights up
-under the finger, and the menu's glass carries that light for the first part of its growth. As on iOS, a finger can
-slide along an open menu: the row under it lights at once with a light tick, and the row it lifts over is the one
-chosen.
+The menu closes itself once a row is chosen, on Back and on a press anywhere else. It opens over its button and hangs
+down from it when the room below is enough; otherwise it rises, and an untitled menu then lists its rows from the foot
+up, so the first one stays nearest the finger. A menu holding a choice makes room for the check before every row, as
+iOS does. `QuvenGlassMenuChoice` with `role = Role.Checkbox` is a toggle, `enabled = false` greys a row out, and
+`QuvenGlassDropdown` takes the place of the box when you'd rather hold the open state yourself.
+
+A system menu doesn't dim what's behind it, and neither does the host. Its rim is brighter than a bar's, which is what
+`rimGlow` draws. Give the button that opens it the same `pressGlow`: it lights up under the finger, and the menu's glass
+carries that light for the first part of its growth. A finger can also slide along an open menu: the row under it
+lights at once with a light tick, and the row it lifts over is the one chosen.
 
 ## Styling
 
@@ -238,6 +254,8 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
 | Press on a glass button | The backdrop lit about 3.6 times and untoned, within 80–100 ms |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
+| Menu choices | Check centred at 21 or 24 pt, name from 32 or 36 pt; a menu holding one widens by 12 or 14 pt and moves its glyphs as far |
+| Menu placement | Over its button, hanging when the room below suffices, otherwise rising with untitled rows reversed |
 | Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
 | Menu opening | Spring with damping 0.72 and stiffness 580; a capsule until 60% of the way, content fading in and coming into focus from a quarter of the way |
 | Menu closing | Back into its button in about 165 ms on an almost even ease, with no bounce |
@@ -248,9 +266,13 @@ Android screenshots may be Display P3 while ReplayKit frames are sRGB, so conver
 whole channel drifts by a few levels and reads as a difference in the glass when it is only a difference in the colour
 space.
 
-## Sample launch extras
+## Sample
 
-`adb shell am start -n tv.quven.glass.sample/.SampleActivity --ef scroll 224 --ef shift 21 --ez panel false --ei tab 2
+The sample opens on a gallery of every Liquid Glass element Apple draws: the ones the library draws stand over hard
+content to try, and the rest say what they will do. The reference app lists the same exhibits in the same order with
+the system's own elements, so the two can be held side by side.
+
+`SampleActivity` is the bench the measurements use: `adb shell am start -n tv.quven.glass.sample/.SampleActivity --ef scroll 224 --ef shift 21 --ez panel false --ei tab 2
 --ef gap 8 --ez liquid true --ef refraction 22 ...`: every `Knob.key` of the tuning panel is also an extra. `shift`
 moves the content left, so what sits under the centred bar matches the iPad's wider screen (21 dp on the tablet it was
 tuned on). With `--ez menu true` the gear opens the reference's system menu instead of the tuning panel, and
@@ -261,6 +283,7 @@ tuned on). With `--ez menu true` the gear opens the reference's system menu inst
 
 `reference/ios/build-device.sh <profile> <identity>`, then `xcrun devicectl device install app` and `device process
 launch --environment-variables '{...}'`; ReplayKit asks once per install, and the frames land in the app's Documents.
+Launched from the Home Screen the reference shows the gallery; any `GLASS_` variable launches it for a measurement.
 
 | Variable | Effect |
 |---|---|
@@ -273,6 +296,7 @@ launch --environment-variables '{...}'`; ReplayKit asks once per install, and th
 | `GLASS_PROBE_INK` | Each probe circle carries a glyph in the primary style, one in explicit white and one telling its colour scheme. |
 | `GLASS_CONTROLS` | The system's tab bar and segmented control instead of the screen. |
 | `GLASS_CONTROLS_WHITE` | Those controls over a white page. |
+| `GLASS_MENUS` | A pull-down with every kind of entry, a plain menu and a card's context menu over the screen. |
 
 ## Licence
 

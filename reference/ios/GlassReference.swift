@@ -16,8 +16,12 @@ struct GlassReferenceApp: App {
                 MaterialProbe()
             } else if ReferenceLaunch.controls {
                 ControlsProbe()
-            } else {
+            } else if ReferenceLaunch.menus {
+                MenusProbe()
+            } else if ReferenceLaunch.measuring {
                 ReferenceScreen()
+            } else {
+                GalleryScreen()
             }
         }
     }
@@ -76,10 +80,17 @@ enum ReferenceLaunch {
     static let window = value("GLASS_WINDOW")
     /// The number of presses a recording keeps a clip of before it ends.
     static let taps = Int(value("GLASS_TAPS") ?? 4)
+    /// Whether the app shows the system's menus over the screen's content: a pull-down from a glass disc and a card's
+    /// context menu, with every kind of entry a menu can hold.
+    static let menus = ProcessInfo.processInfo.environment["GLASS_MENUS"] != nil
     /// Whether the app shows the system's own glass controls, a tab bar and a segmented control, instead of the screen.
     static let controls = ProcessInfo.processInfo.environment["GLASS_CONTROLS"] != nil
     /// Whether the system's controls stand over a white page instead of the screen's content.
     static let controlsOverWhite = ProcessInfo.processInfo.environment["GLASS_CONTROLS_WHITE"] != nil
+    /// Whether the app was launched to be measured, with a `GLASS_` setting in its environment or arguments; launched
+    /// from the Home Screen it shows the gallery.
+    static let measuring = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("GLASS_") }
+        || ProcessInfo.processInfo.arguments.contains { $0.hasPrefix("-GLASS_") }
     /// The scroll offsets, in points, to capture one after the other.
     static let scrolls: [CGFloat] = (ProcessInfo.processInfo.environment["GLASS_SCROLLS"] ?? "")
         .split(separator: ",")
@@ -168,18 +179,7 @@ struct ReferenceScreen: View {
             VStack {
                 HStack(spacing: 12) {
                     Menu {
-                        Section("Library") {
-                            Button("Collections", systemImage: "play.rectangle.on.rectangle.fill") {}
-                            Button("Saved", systemImage: "bookmark.fill") {}
-                            Button("Bookshelf", systemImage: "books.vertical.fill") {}
-                        }
-                        Section("Account") {
-                            Button("Profile", systemImage: "person.fill") {}
-                            Button("Sync", systemImage: "arrow.triangle.2.circlepath") {}
-                            Button("Switch view", systemImage: "rectangle.2.swap") {}
-                            Button("Settings", systemImage: "gearshape.fill") {}
-                            Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {}
-                        }
+                        LibraryMenuEntries()
                     } label: {
                         Image(systemName: "gearshape.fill")
                             .font(.system(size: 22, weight: .semibold))
@@ -763,6 +763,899 @@ struct ControlsProbe: View {
             await screen.recordPresses(presses.stream, seconds: seconds, named: name)
             recording = false
             screen.stop()
+        }
+    }
+}
+
+/// The system's menus over the screen's content: a pull-down from a glass disc holding a choice, a toggle, a disabled
+/// entry, an entry with a second line, a submenu and a destructive entry, and a card's context menu.
+struct MenusProbe: View {
+    @State private var sort = 1
+    @State private var ascending = true
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    Header()
+                    PosterRow(offset: 0)
+                    TextBlock()
+                    PosterRow(offset: 3)
+                }
+            }
+            .background(Palette.ground)
+            .ignoresSafeArea()
+
+            HStack(alignment: .top) {
+                PosterCard(poster: posters[2])
+                    .contextMenu {
+                        Button("Play", systemImage: "play.fill") {}
+                        Button("Details", systemImage: "info.circle") {}
+                        Button("Save", systemImage: "bookmark") {}
+                    }
+                    .accessibilityIdentifier("probe.card")
+                Menu {
+                    Button("15 minutes") {}
+                    Button("30 minutes") {}
+                    Button("End of chapter") {}
+                    Button("Off", role: .destructive) {}
+                } label: {
+                    Image(systemName: "moon.zzz")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .glassEffect(.regular.interactive(), in: Circle())
+                }
+                .accessibilityIdentifier("probe.plain")
+                .padding(.leading, 40)
+                Spacer()
+                Menu {
+                    Section("Sort by") {
+                        Picker("Sort by", selection: $sort) {
+                            Text("Title").tag(0)
+                            Text("Year").tag(1)
+                            Text("Added").tag(2)
+                        }
+                        .pickerStyle(.inline)
+                        Toggle("Ascending", isOn: $ascending)
+                    }
+                    Section {
+                        Button {} label: {
+                            Label {
+                                Text("Download")
+                                Text("2.4 GB")
+                            } icon: {
+                                Image(systemName: "arrow.down.circle")
+                            }
+                        }
+                        Button("Unavailable", systemImage: "nosign") {}
+                            .disabled(true)
+                        Menu("More", systemImage: "ellipsis.circle") {
+                            Button("First", systemImage: "1.circle") {}
+                            Button("Second", systemImage: "2.circle") {}
+                        }
+                        Button("Remove", systemImage: "trash", role: .destructive) {}
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 46, height: 46)
+                        .glassEffect(.regular.interactive(), in: Circle())
+                }
+                .accessibilityIdentifier("probe.overflow")
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 360)
+        }
+        .preferredColorScheme(.dark)
+    }
+}
+
+/// The entries of the gear's menu: two titled sections of glyphed rows, the last one destructive.
+struct LibraryMenuEntries: View {
+    var body: some View {
+        Section("Library") {
+            Button("Collections", systemImage: "play.rectangle.on.rectangle.fill") {}
+            Button("Saved", systemImage: "bookmark.fill") {}
+            Button("Bookshelf", systemImage: "books.vertical.fill") {}
+        }
+        Section("Account") {
+            Button("Profile", systemImage: "person.fill") {}
+            Button("Sync", systemImage: "arrow.triangle.2.circlepath") {}
+            Button("Switch view", systemImage: "rectangle.2.swap") {}
+            Button("Settings", systemImage: "gearshape.fill") {}
+            Button("Sign out", systemImage: "rectangle.portrait.and.arrow.right", role: .destructive) {}
+        }
+    }
+}
+
+// MARK: - Gallery
+
+/// How far along the Android library is with one of the system's Liquid Glass elements.
+enum ExhibitStatus: CaseIterable {
+    /// The library draws the element.
+    case ready
+    /// The element is being built.
+    case inDevelopment
+    /// The element waits on a decision before it is built.
+    case planned
+
+    /// The name the gallery shows for the status.
+    var label: String {
+        switch self {
+        case .ready: "Ready"
+        case .inDevelopment: "In development"
+        case .planned: "Planned"
+        }
+    }
+
+    /// The colour the gallery marks the status with.
+    var color: Color {
+        switch self {
+        case .ready: Color(argb: 0xFF34_C759)
+        case .inDevelopment: Color(argb: 0xFFFF_9F0A)
+        case .planned: Color(argb: 0xFF8E_8E93)
+        }
+    }
+}
+
+/// One of the system's Liquid Glass elements, in the order and under the names the Android sample's gallery lists them.
+enum Exhibit: CaseIterable, Identifiable {
+    case material, glassButtons, tabBar, segmentedControl, joiningGlass, menus, morphingPanel
+    case contextMenu, submenus, capsuleButtons, toolbar, toggle, slider, sheet, alert, popover, search
+    case minimizingTabBar, bottomAccessory, scrollEdge, clearAndTinted, touchLight, textMenu
+    case adaptiveSidebar
+
+    var id: Self { self }
+
+    /// The element's name.
+    var title: String {
+        switch self {
+        case .material: "Material"
+        case .glassButtons: "Glass buttons"
+        case .tabBar: "Tab bar"
+        case .segmentedControl: "Segmented control"
+        case .joiningGlass: "Joining glass"
+        case .menus: "Menus"
+        case .morphingPanel: "Morphing panel"
+        case .contextMenu: "Context menu"
+        case .submenus: "Submenus"
+        case .capsuleButtons: "Capsule buttons"
+        case .toolbar: "Toolbar"
+        case .toggle: "Switch"
+        case .slider: "Slider"
+        case .sheet: "Sheet"
+        case .alert: "Alert"
+        case .popover: "Popover"
+        case .search: "Search"
+        case .minimizingTabBar: "Minimizing tab bar"
+        case .bottomAccessory: "Bottom accessory"
+        case .scrollEdge: "Scroll edge"
+        case .clearAndTinted: "Clear and tinted glass"
+        case .touchLight: "Touch light"
+        case .textMenu: "Text menu"
+        case .adaptiveSidebar: "Adaptive sidebar"
+        }
+    }
+
+    /// What the element is and does.
+    var summary: String {
+        switch self {
+        case .material:
+            "Glass bends the content at its rim, blurs and tones it, and catches the light on its edge. Up to 63 dp it is "
+                + "thin glass, which turns light over a bright page; from 66 dp it is thick glass."
+        case .glassButtons: "Round controls of glass that swell and light the content under them while pressed."
+        case .tabBar:
+            "Entries in a capsule beside a Search circle. The held pill slides with a stretch, a press lifts it into a lens "
+                + "and a drag carries it to the entry let go over."
+        case .segmentedControl: "Options on a glass track whose pill slides, stretches and lifts as the tab bar's does."
+        case .joiningGlass:
+            "Surfaces closer than their container's spacing flow into one piece of glass, and part again as they move apart."
+        case .menus:
+            "Menus grow out of their control: titles, glyphs, choices, disabled and destructive entries, and plain menus. "
+                + "A menu with more room above rises, its entries reversed. Slide a finger along the rows to choose."
+        case .morphingPanel:
+            "A control opens into a panel of any content as one piece of glass and closes back into it. This panel tunes "
+                + "the material of every exhibit."
+        case .contextMenu: "A long press lifts the card out of the page, dims the rest and opens the card's menu beside it."
+        case .submenus: "An entry that opens a second menu at the first one's side, and entries that carry a second line."
+        case .capsuleButtons: "Buttons of clear glass and of prominent, tinted glass, holding a name, a glyph or both."
+        case .toolbar: "Glass buttons along the top of a page, grouped into capsules that join and part."
+        case .toggle: "A switch whose thumb lifts into a lens of glass while it is held or dragged."
+        case .slider: "A slider whose thumb lifts into a lens of glass while it is dragged."
+        case .sheet: "A sheet of glass that rises from the bottom edge and turns opaque as it is drawn to full height."
+        case .alert: "A dialog on glass over a dimmed page, its buttons capsules."
+        case .popover: "A panel of glass that grows out of the control it belongs to and points at it."
+        case .search: "The Search circle opens into a field of glass along the bar."
+        case .minimizingTabBar:
+            "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back as it scrolls up."
+        case .bottomAccessory: "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar."
+        case .scrollEdge: "Content fades and blurs as it passes under the bars at the top and bottom of a page."
+        case .clearAndTinted: "The clear variant, which lets bright media through, and glass tinted with a colour."
+        case .touchLight: "Light that gathers under the finger and follows it across interactive glass."
+        case .textMenu: "The menu of cut, copy and paste on glass, over selected text."
+        case .adaptiveSidebar: "A sidebar of glass floating over the content, which becomes a tab bar in a narrow window."
+        }
+    }
+
+    /// How far along the Android library is with the element.
+    var status: ExhibitStatus {
+        switch self {
+        case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel: .ready
+        case .adaptiveSidebar: .planned
+        default: .inDevelopment
+        }
+    }
+}
+
+/// Lists the system's Liquid Glass elements beside the one chosen, each drawn by the system over hard content.
+struct GalleryScreen: View {
+    @State private var chosen = Exhibit.material
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ExhibitList(chosen: $chosen)
+                .frame(width: 300)
+            ExhibitPage(exhibit: chosen)
+        }
+        .background(Palette.ground)
+        .preferredColorScheme(.dark)
+    }
+}
+
+/// The exhibits grouped by status, the chosen one marked.
+struct ExhibitList: View {
+    @Binding var chosen: Exhibit
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Liquid Glass").font(.system(size: 30, weight: .bold)).foregroundStyle(Palette.textHigh)
+                    let ready = Exhibit.allCases.filter { $0.status == .ready }.count
+                    Text("\(ready) of \(Exhibit.allCases.count) elements ready on Android")
+                        .font(.system(size: 15)).foregroundStyle(Palette.textMedium)
+                }
+                .padding(.leading, 12)
+                .padding(.bottom, 8)
+                ForEach(ExhibitStatus.allCases, id: \.self) { status in
+                    let group = Exhibit.allCases.filter { $0.status == status }
+                    if !group.isEmpty {
+                        Text(status.label.uppercased())
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(Palette.textMedium)
+                            .padding(.leading, 12)
+                            .padding(.top, 20)
+                            .padding(.bottom, 6)
+                        ForEach(group) { exhibit in
+                            Button {
+                                chosen = exhibit
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Circle().fill(exhibit.status.color).frame(width: 8, height: 8)
+                                    Text(exhibit.title)
+                                        .font(.system(size: 16, weight: exhibit == chosen ? .semibold : .regular))
+                                        .foregroundStyle(Palette.textHigh)
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 11)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(exhibit == chosen ? Palette.textHigh.opacity(0.12) : .clear)
+                                )
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+            .padding(12)
+        }
+    }
+}
+
+/// An exhibit's name, status and summary over the stage where the system draws it.
+struct ExhibitPage: View {
+    let exhibit: Exhibit
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                Text(exhibit.title).font(.system(size: 28, weight: .bold)).foregroundStyle(Palette.textHigh)
+                Text(exhibit.status.label)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(exhibit.status.color)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(exhibit.status.color.opacity(0.16)))
+            }
+            Text(exhibit.summary).font(.system(size: 15)).foregroundStyle(Palette.textMedium)
+            ExhibitStage(exhibit: exhibit)
+                .id(exhibit)
+                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .padding(.top, 6)
+        }
+        .padding(16)
+    }
+}
+
+/// Content that is hard for glass to stand over, scrolling under the exhibit.
+struct StageBackdrop: View {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                Header()
+                PosterRow(offset: 0)
+                TextBlock()
+                Bands()
+                PosterRow(offset: 3)
+                TextBlock()
+                PosterRow(offset: 6)
+            }
+        }
+        .background(Palette.ground)
+    }
+}
+
+/// An element standing over the stage's content, inset from its edges.
+struct OverBackdrop<Content: View>: View {
+    var alignment: Alignment = .center
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        ZStack(alignment: alignment) {
+            StageBackdrop()
+            content.padding(24)
+        }
+    }
+}
+
+/// A round glass control holding a glyph, the label of a menu or a button.
+struct GlassDisc: View {
+    let symbol: String
+    var diameter: CGFloat = 56
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: diameter * 0.36, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: diameter, height: diameter)
+            .glassEffect(.regular.interactive(), in: Circle())
+    }
+}
+
+/// A short name on a capsule of glass, readable over any content.
+struct GlassCaption: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.system(size: 13, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .glassEffect(.regular, in: Capsule())
+    }
+}
+
+/// The system's drawing of one exhibit.
+struct ExhibitStage: View {
+    let exhibit: Exhibit
+
+    var body: some View {
+        switch exhibit {
+        case .material: OverBackdrop { MaterialStage() }
+        case .glassButtons: OverBackdrop { GlassButtonsStage() }
+        case .tabBar: OverBackdrop(alignment: .bottom) { TabBarStage() }
+        case .segmentedControl: OverBackdrop { SegmentedStage() }
+        case .joiningGlass: OverBackdrop { JoiningStage() }
+        case .menus: OverBackdrop { MenusStage() }
+        case .morphingPanel: OverBackdrop(alignment: .topLeading) { MorphingPanelStage() }
+        case .contextMenu: OverBackdrop { ContextMenuStage() }
+        case .submenus: OverBackdrop(alignment: .topTrailing) { SubmenusStage() }
+        case .capsuleButtons: OverBackdrop { CapsuleButtonsStage() }
+        case .toolbar: ToolbarStage()
+        case .toggle: OverBackdrop { ToggleStage() }
+        case .slider: OverBackdrop { SliderStage() }
+        case .sheet: OverBackdrop { SheetStage() }
+        case .alert: OverBackdrop { AlertStage() }
+        case .popover: OverBackdrop { PopoverStage() }
+        case .search: SearchStage()
+        case .minimizingTabBar: MinimizingTabBarStage()
+        case .bottomAccessory: BottomAccessoryStage()
+        case .scrollEdge: ScrollEdgeStage()
+        case .clearAndTinted: OverBackdrop { ClearAndTintedStage() }
+        case .touchLight: OverBackdrop { TouchLightStage() }
+        case .textMenu: OverBackdrop { TextMenuStage() }
+        case .adaptiveSidebar: AdaptiveSidebarStage()
+        }
+    }
+}
+
+/// Still glass of several sizes, thin and thick, round and a capsule.
+struct MaterialStage: View {
+    var body: some View {
+        HStack(spacing: 28) {
+            ForEach([36, 51, 70, 100] as [CGFloat], id: \.self) { side in
+                Color.clear.frame(width: side, height: side).glassEffect(.regular, in: Circle())
+            }
+            Color.clear.frame(width: 240, height: 62).glassEffect(.regular, in: Capsule())
+        }
+    }
+}
+
+/// Round glass buttons of three sizes.
+struct GlassButtonsStage: View {
+    var body: some View {
+        HStack(spacing: 28) {
+            ForEach([(46, "play.fill"), (56, "heart.fill"), (69, "square.and.arrow.up")] as [(CGFloat, String)], id: \.0) { diameter, symbol in
+                Button {} label: { GlassDisc(symbol: symbol, diameter: diameter) }
+                    .buttonStyle(.plain)
+            }
+        }
+    }
+}
+
+/// A tablet's tab bar at the foot of the stage.
+struct TabBarStage: View {
+    @State private var held = 0
+
+    var body: some View {
+        ReferenceBar(held: $held)
+    }
+}
+
+/// The glass track the Android sample copies, above the system's own segmented control.
+struct SegmentedStage: View {
+    @State private var held = 1
+
+    var body: some View {
+        VStack(spacing: 28) {
+            DensityTrack(held: $held)
+            Picker("Density", selection: $held) {
+                ForEach(0..<3, id: \.self) { option in
+                    Image(systemName: ["square.grid.3x3.fill", "square.grid.2x2.fill", "square.fill"][option]).tag(option)
+                }
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 300)
+        }
+    }
+}
+
+/// Two circles of glass that move together until they join and apart again, over and over.
+struct JoiningStage: View {
+    @State private var together = false
+
+    var body: some View {
+        GlassEffectContainer(spacing: 24) {
+            HStack(spacing: together ? -14 : 70) {
+                Color.clear.frame(width: 90, height: 90).glassEffect(.regular, in: Circle())
+                Color.clear.frame(width: 90, height: 90).glassEffect(.regular, in: Circle())
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.8).repeatForever(autoreverses: true)) { together = true }
+        }
+    }
+}
+
+/// The four kinds of menu: titled sections of glyphed rows, choices among other rows, a plain menu and one that rises
+/// from the foot of the stage.
+struct MenusStage: View {
+    @State private var order = 1
+    @State private var ascending = true
+
+    var body: some View {
+        Color.clear
+            .overlay(alignment: .topLeading) {
+                Menu { LibraryMenuEntries() } label: { GlassDisc(symbol: "gearshape.fill") }
+            }
+            .overlay(alignment: .topTrailing) {
+                Menu {
+                    Section("Sort by") {
+                        Picker("Sort by", selection: $order) {
+                            Text("Title").tag(0)
+                            Text("Year").tag(1)
+                            Text("Added").tag(2)
+                        }
+                        .pickerStyle(.inline)
+                        Toggle("Ascending", isOn: $ascending)
+                    }
+                    Section {
+                        Button("Share", systemImage: "square.and.arrow.up") {}
+                        Button("Unavailable", systemImage: "nosign") {}.disabled(true)
+                        Button("Remove", systemImage: "trash", role: .destructive) {}
+                    }
+                } label: {
+                    GlassDisc(symbol: "ellipsis")
+                }
+            }
+            .overlay(alignment: .leading) {
+                Menu {
+                    Button("15 minutes") {}
+                    Button("30 minutes") {}
+                    Button("End of chapter") {}
+                    Button("Off", role: .destructive) {}
+                } label: {
+                    GlassDisc(symbol: "moon.zzz")
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                Menu {
+                    Button("Collection", systemImage: "list.bullet") {}
+                    Button("Message", systemImage: "envelope") {}
+                    Button("Order", systemImage: "cart") {}
+                } label: {
+                    GlassDisc(symbol: "plus")
+                }
+            }
+    }
+}
+
+/// A gear that opens into a panel as one piece of glass.
+struct MorphingPanelStage: View {
+    @State private var open = false
+    @State private var blur = 0.5
+    @State private var liquid = true
+    @State private var reduceMotion = false
+    @Namespace private var glass
+
+    var body: some View {
+        GlassEffectContainer(spacing: 24) {
+            if open {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text("Material").font(.system(size: 20, weight: .semibold))
+                        Spacer()
+                        Button("Done") { withAnimation(.bouncy) { open = false } }
+                    }
+                    Toggle("Liquid glass", isOn: $liquid)
+                    Toggle("Reduce motion", isOn: $reduceMotion)
+                    Text("Blur").foregroundStyle(.secondary)
+                    Slider(value: $blur)
+                }
+                .padding(20)
+                .frame(width: 340)
+                .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .glassEffectID("panel", in: glass)
+            } else {
+                Button {
+                    withAnimation(.bouncy) { open = true }
+                } label: {
+                    GlassDisc(symbol: "gearshape.fill")
+                }
+                .buttonStyle(.plain)
+                .glassEffectID("panel", in: glass)
+            }
+        }
+    }
+}
+
+/// Cards that open a context menu on a long press, one with a preview of its own.
+struct ContextMenuStage: View {
+    var body: some View {
+        HStack(spacing: 32) {
+            PosterCard(poster: posters[2])
+                .contextMenu {
+                    Button("Play", systemImage: "play.fill") {}
+                    Button("Details", systemImage: "info.circle") {}
+                    Button("Save", systemImage: "bookmark") {}
+                    Button("Remove", systemImage: "trash", role: .destructive) {}
+                }
+            PosterCard(poster: posters[6])
+                .contextMenu {
+                    Button("Play", systemImage: "play.fill") {}
+                    Button("Share", systemImage: "square.and.arrow.up") {}
+                } preview: {
+                    PosterCard(poster: posters[6]).scaleEffect(1.6).frame(width: 272, height: 408)
+                }
+        }
+    }
+}
+
+/// A menu with a submenu and an entry carrying a second line.
+struct SubmenusStage: View {
+    var body: some View {
+        Menu {
+            Button {} label: {
+                Label {
+                    Text("Download")
+                    Text("2.4 GB")
+                } icon: {
+                    Image(systemName: "arrow.down.circle")
+                }
+            }
+            Menu("Share", systemImage: "square.and.arrow.up") {
+                Button("Message", systemImage: "message") {}
+                Button("Mail", systemImage: "envelope") {}
+            }
+            Menu("More", systemImage: "ellipsis.circle") {
+                Button("First", systemImage: "1.circle") {}
+                Button("Second", systemImage: "2.circle") {}
+            }
+        } label: {
+            GlassDisc(symbol: "ellipsis")
+        }
+    }
+}
+
+/// Buttons of clear and of prominent glass, in three sizes.
+struct CapsuleButtonsStage: View {
+    var body: some View {
+        VStack(spacing: 22) {
+            HStack(spacing: 16) {
+                Button("Play") {}.buttonStyle(.glass)
+                Button("Play", systemImage: "play.fill") {}.buttonStyle(.glass)
+                Button {} label: { Image(systemName: "heart.fill") }.buttonStyle(.glass)
+            }
+            HStack(spacing: 16) {
+                Button("Buy") {}.buttonStyle(.glassProminent)
+                Button("Download", systemImage: "arrow.down") {}.buttonStyle(.glassProminent).tint(Palette.accent)
+                Button("Delete", role: .destructive) {}.buttonStyle(.glassProminent).tint(.red)
+            }
+            HStack(spacing: 16) {
+                Button("Large") {}.buttonStyle(.glass).controlSize(.large)
+                Button("Extra large") {}.buttonStyle(.glass).controlSize(.extraLarge)
+                Button("Prominent", systemImage: "star.fill") {}.buttonStyle(.glassProminent).controlSize(.extraLarge)
+            }
+        }
+    }
+}
+
+/// A page with its toolbar: grouped buttons at the top and at the bottom.
+struct ToolbarStage: View {
+    var body: some View {
+        NavigationStack {
+            StageBackdrop()
+                .navigationTitle("Library")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Back", systemImage: "chevron.left") {}
+                    }
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button("Share", systemImage: "square.and.arrow.up") {}
+                        Button("Favorite", systemImage: "heart") {}
+                    }
+                    ToolbarSpacer(.fixed, placement: .topBarTrailing)
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("More", systemImage: "ellipsis") {}
+                    }
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button("Shuffle", systemImage: "shuffle") {}
+                        Spacer()
+                        Button("Play", systemImage: "play.fill") {}
+                    }
+                }
+        }
+    }
+}
+
+/// Switches on and off.
+struct ToggleStage: View {
+    @State private var first = true
+    @State private var second = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Toggle(isOn: $first) { GlassCaption(text: "Downloads") }
+            Toggle(isOn: $second) { GlassCaption(text: "Subtitles") }
+        }
+        .frame(width: 280)
+    }
+}
+
+/// A continuous slider and one with steps.
+struct SliderStage: View {
+    @State private var volume = 0.4
+    @State private var rating = 3.0
+
+    var body: some View {
+        VStack(spacing: 28) {
+            Slider(value: $volume)
+            Slider(value: $rating, in: 0...5, step: 1)
+        }
+        .frame(width: 380)
+    }
+}
+
+/// A button that raises a sheet.
+struct SheetStage: View {
+    @State private var shown = false
+
+    var body: some View {
+        Button("Show sheet") { shown = true }
+            .buttonStyle(.glass)
+            .controlSize(.large)
+            .sheet(isPresented: $shown) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Sheet").font(.title2.bold())
+                    Text("Drag it up to full height to see it turn opaque.").foregroundStyle(.secondary)
+                    Spacer()
+                }
+                .padding(24)
+                .presentationDetents([.medium, .large])
+            }
+    }
+}
+
+/// A button that raises an alert.
+struct AlertStage: View {
+    @State private var shown = false
+
+    var body: some View {
+        Button("Show alert") { shown = true }
+            .buttonStyle(.glass)
+            .controlSize(.large)
+            .alert("Remove this collection?", isPresented: $shown) {
+                Button("Remove", role: .destructive) {}
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("Its titles stay in the library.")
+            }
+    }
+}
+
+/// A button that opens a popover.
+struct PopoverStage: View {
+    @State private var shown = false
+
+    var body: some View {
+        Button("Show popover") { shown = true }
+            .buttonStyle(.glass)
+            .controlSize(.large)
+            .popover(isPresented: $shown) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text("Popover").font(.headline)
+                    Text("A panel that points at its control.").foregroundStyle(.secondary)
+                }
+                .padding(20)
+                .frame(width: 280)
+            }
+    }
+}
+
+/// A tab bar laid out as on a phone, whose Search tab opens into a field.
+struct SearchStage: View {
+    @State private var text = ""
+
+    var body: some View {
+        TabView {
+            ForEach(Array(entries.prefix(3).enumerated()), id: \.offset) { _, entry in
+                Tab(entry.label, systemImage: entry.symbol) { StageBackdrop() }
+            }
+            Tab(role: .search) {
+                NavigationStack { StageBackdrop().navigationTitle("Search") }
+                    .searchable(text: $text)
+            }
+        }
+        .environment(\.horizontalSizeClass, .compact)
+    }
+}
+
+/// A tab bar laid out as on a phone that shrinks while the content scrolls down.
+struct MinimizingTabBarStage: View {
+    var body: some View {
+        TabView {
+            ForEach(Array(entries.prefix(4).enumerated()), id: \.offset) { _, entry in
+                Tab(entry.label, systemImage: entry.symbol) { StageBackdrop() }
+            }
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .environment(\.horizontalSizeClass, .compact)
+    }
+}
+
+/// A tab bar laid out as on a phone with a player's strip above it.
+struct BottomAccessoryStage: View {
+    var body: some View {
+        TabView {
+            ForEach(Array(entries.prefix(4).enumerated()), id: \.offset) { _, entry in
+                Tab(entry.label, systemImage: entry.symbol) { StageBackdrop() }
+            }
+        }
+        .tabBarMinimizeBehavior(.onScrollDown)
+        .tabViewBottomAccessory {
+            HStack(spacing: 12) {
+                Image(systemName: "music.note")
+                Text("Now playing").font(.system(size: 15, weight: .semibold))
+                Spacer()
+                Image(systemName: "play.fill")
+                Image(systemName: "forward.fill")
+            }
+            .padding(.horizontal, 16)
+        }
+        .environment(\.horizontalSizeClass, .compact)
+    }
+}
+
+/// A page whose content fades under its bars, softly or with a hard edge.
+struct ScrollEdgeStage: View {
+    @State private var hard = false
+
+    var body: some View {
+        NavigationStack {
+            StageBackdrop()
+                .scrollEdgeEffectStyle(hard ? .hard : .soft, for: .all)
+                .navigationTitle("Scroll edge")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .principal) {
+                        Picker("Edge", selection: $hard) {
+                            Text("Soft").tag(false)
+                            Text("Hard").tag(true)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 200)
+                    }
+                    ToolbarItemGroup(placement: .bottomBar) {
+                        Button("Shuffle", systemImage: "shuffle") {}
+                        Spacer()
+                        Button("Play", systemImage: "play.fill") {}
+                    }
+                }
+        }
+    }
+}
+
+/// Regular, clear and tinted glass side by side.
+struct ClearAndTintedStage: View {
+    var body: some View {
+        HStack(spacing: 28) {
+            sample(.regular, "Regular")
+            sample(.clear, "Clear")
+            sample(.regular.tint(Palette.accent), "Tinted")
+            sample(.clear.tint(Color(argb: 0x6629_79FF)), "Clear, tinted")
+        }
+    }
+
+    private func sample(_ glass: Glass, _ name: String) -> some View {
+        VStack(spacing: 12) {
+            Color.clear.frame(width: 100, height: 100).glassEffect(glass.interactive(), in: Circle())
+            GlassCaption(text: name)
+        }
+    }
+}
+
+/// A wide pane of interactive glass to press and drag across.
+struct TouchLightStage: View {
+    var body: some View {
+        Text("Press and drag")
+            .font(.system(size: 20, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 440, height: 260)
+            .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+    }
+}
+
+/// Text to select, which raises the system's text menu.
+struct TextMenuStage: View {
+    @State private var text = "Select a word of this text to raise the menu of cut, copy and paste."
+
+    var body: some View {
+        TextEditor(text: $text)
+            .font(.system(size: 20))
+            .scrollContentBackground(.hidden)
+            .padding(16)
+            .frame(width: 440, height: 200)
+            .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+    }
+}
+
+/// A sidebar of glass over a page.
+struct AdaptiveSidebarStage: View {
+    var body: some View {
+        NavigationSplitView {
+            List(entries) { entry in
+                Label(entry.label, systemImage: entry.symbol)
+            }
+            .navigationTitle("Library")
+        } detail: {
+            StageBackdrop()
         }
     }
 }

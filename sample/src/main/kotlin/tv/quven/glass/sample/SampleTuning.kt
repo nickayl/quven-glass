@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import tv.quven.glass.QuvenGlassStyle
 
 /** The colours of the sample, a dark palette. */
@@ -48,6 +49,14 @@ internal class SampleTuning {
     /** Gets or sets the space, in density-independent pixels, between the bar's capsule and its Search circle. */
     var barGap: Float by mutableFloatStateOf(8f)
 
+    /** Gets the material of a glass button, which lights its backdrop brightly under the finger. */
+    val buttonStyle: QuvenGlassStyle
+        get() = style.copy(pressGlow = ButtonPressGlow)
+
+    /** Gets the material of an open menu: thick glass blurred harder, its rim lit by what lies just outside it. */
+    val menuStyle: QuvenGlassStyle
+        get() = style.copy(blur = MenuBlur, pressGlow = ButtonPressGlow, rimGlow = MenuRimGlow)
+
     companion object {
         /** Gets the material of a handheld bar: the standard glass, its static form on a dark ground with quieter rims. */
         val BarStyle = QuvenGlassStyle.Standard.copy(
@@ -56,5 +65,9 @@ internal class SampleTuning {
             rimBottom = Color(0x0AFFFFFF),
             pillRim = Color(0x2EFFFFFF),
         )
+
+        private const val ButtonPressGlow = 3.6f
+        private const val MenuRimGlow = 1.7f
+        private val MenuBlur = 9.5.dp
     }
 }

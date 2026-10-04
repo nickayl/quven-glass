@@ -56,6 +56,29 @@ class QuvenGlassMorphTest {
     }
 
     @Test
+    fun overAnchor_hangsFromAnAnchorWithRoomBelow_alignedWithItsNearerSide() {
+        val placement = QuvenGlassMorphPlacement.overAnchor(edge = 10.dp)
+
+        assertEquals(IntOffset(546, 40), placement.place(IntSize(200, 300), IntRect(700, 40, 746, 86), Space, Unit))
+        assertEquals(IntOffset(40, 40), placement.place(IntSize(200, 300), IntRect(40, 40, 86, 86), Space, Unit))
+    }
+
+    @Test
+    fun overAnchor_risesFromTheAnchorsFoot_whereThereIsMoreRoomAbove() {
+        val placement = QuvenGlassMorphPlacement.overAnchor(edge = 10.dp)
+
+        assertEquals(IntOffset(546, 87), placement.place(IntSize(200, 350), IntRect(700, 391, 746, 437), IntSize(800, 820), Unit))
+        assertEquals(IntOffset(40, 146), placement.place(IntSize(200, 200), IntRect(40, 300, 86, 346), Space, Unit))
+    }
+
+    @Test
+    fun overAnchor_keepsATallGlassInsideTheSpace() {
+        val placement = QuvenGlassMorphPlacement.overAnchor(edge = 10.dp)
+
+        assertEquals(IntOffset(546, 10), placement.place(IntSize(200, 580), IntRect(700, 300, 746, 346), Space, Unit))
+    }
+
+    @Test
     fun above_centresTheGlassOverTheAnchor_andKeepsItInsideTheSides() {
         val placement = QuvenGlassMorphPlacement.above(gap = 8.dp, edge = 10.dp)
 
