@@ -1,15 +1,20 @@
 package tv.quven.glass
 
 import android.app.Application
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.platform.LocalDensity
@@ -131,7 +136,8 @@ class QuvenGlassButtonTest {
         val prominent = QuvenGlassStyle.Standard.forButtons(Color.Blue)
         val menus = QuvenGlassStyle.Standard.forMenus()
 
-        assertEquals(3.6f, buttons.pressGlow, 0f)
+        assertEquals(0f, buttons.pressGlow, 0f)
+        assertEquals(1.05f, buttons.pressLighten, 0f)
         assertEquals(16.dp, buttons.pressExpansion)
         assertEquals(1f, buttons.rimGlow, 0f)
         assertEquals(0f, buttons.rimLight, 0f)
@@ -155,8 +161,28 @@ class QuvenGlassButtonTest {
         compose.waitForIdle()
     }
 
+    @Test
+    fun aPress_risesOnOneAnimation_andFallsOnAnother_soTheLightCanOutlastTheGrowth() {
+        val press = GlassPress()
+        val interactions = MutableInteractionSource()
+        compose.setContent { LaunchedEffect(Unit) { press.follow(this, interactions) { held -> tween(if (held) RiseMillis else FallMillis) } } }
+        compose.waitForIdle()
+        compose.mainClock.autoAdvance = false
+
+        val down = PressInteraction.Press(Offset.Zero)
+        compose.runOnIdle { interactions.tryEmit(down) }
+        compose.mainClock.advanceTimeBy(RiseMillis * 2L)
+        assertEquals(1f, press.value, 0f)
+
+        compose.runOnIdle { interactions.tryEmit(PressInteraction.Release(down)) }
+        compose.mainClock.advanceTimeBy(FallMillis / 4L)
+        assertTrue(press.value > 0.5f)
+    }
+
     private companion object {
         const val ButtonTag = "button"
         const val FaceTag = "face"
+        const val RiseMillis = 50
+        const val FallMillis = 800
     }
 }

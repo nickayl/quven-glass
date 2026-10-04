@@ -1,5 +1,7 @@
 package tv.quven.glass
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
@@ -116,8 +118,11 @@ public fun QuvenGlassButton(
         style.forButtons(tint).let { if (reduceMotion) it.copy(pressExpansion = 0.dp) else it }
     }
     val press = remember { GlassPress() }
+    // The light comes up at once and dies away slowly, long after the button has shrunk back, as Apple's does.
+    val glow = remember { GlassPress() }
     LaunchedEffect(interactions, reduceMotion) {
         press.follow(this, interactions) { if (reduceMotion) tween(ReducedMotionFadeMillis) else ButtonPressSpring }
+        glow.follow(this, interactions) { held -> if (held) ButtonGlowRise else ButtonGlowFade }
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
     val shownInk = if (prominent) ink else appearance.contentColor(onDark = ink, onLight = lightInk)
@@ -133,6 +138,7 @@ public fun QuvenGlassButton(
                 lift = remember(press) { GlassLiftSource { press.value } },
                 pill = null,
                 appearance = appearance.takeUnless { prominent },
+                glow = remember(glow) { GlassLiftSource { glow.value } },
             )
             .clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(contentPadding)
@@ -267,6 +273,12 @@ private val NoPadding = PaddingValues(0.dp)
 
 /** The spring a glass button grows and shrinks on under the finger, passing its size a little, as measured on Apple's. */
 private val ButtonPressSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 685f)
+
+/** How a glass button's light comes up under the finger, as measured on Apple's. */
+private val ButtonGlowRise = tween<Float>(70, easing = LinearOutSlowInEasing)
+
+/** How a glass button's light dies away once the finger lifts, as measured on Apple's. */
+private val ButtonGlowFade = tween<Float>(450, easing = FastOutSlowInEasing)
 
 /** The opacity of a control that cannot be used, as Apple dims one. */
 internal const val DisabledAlpha = 0.4f

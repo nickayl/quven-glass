@@ -65,6 +65,7 @@ public fun Modifier.quvenLiquidGlass(
  * @param pill Reads the pill inside the surface, or `null` for none.
  * @param appearance The appearance the glass reports to its content, or `null` for none.
  * @param adapts Whether thin glass turns light over a bright backdrop; `false` for glass that is never thin for long.
+ * @param glow Reads how brightly the surface lights under the finger, or `null` to light it as far as it is lifted.
  * @return The decorated modifier.
  */
 internal fun Modifier.liquidGlass(
@@ -77,11 +78,12 @@ internal fun Modifier.liquidGlass(
     pill: GlassPillSource?,
     appearance: QuvenGlassAppearance? = null,
     adapts: Boolean = true,
+    glow: GlassLiftSource? = null,
 ): Modifier =
     if (backdrop == null || !QuvenGlass.isLiquidSupported) {
         quvenGlassTrack(style, shape)
     } else {
-        this then LiquidGlassElement(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts)
+        this then LiquidGlassElement(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts, glow)
     }
 
 /** Reads how far a surface is lifted, from 0 to 1. */
@@ -117,15 +119,16 @@ private data class LiquidGlassElement(
     val pill: GlassPillSource?,
     val appearance: QuvenGlassAppearance?,
     val adapts: Boolean,
+    val glow: GlassLiftSource?,
 ) : ModifierNodeElement<LiquidGlassNode>() {
 
     @RequiresApi(33)
     override fun create(): LiquidGlassNode =
-        LiquidGlassNode(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts)
+        LiquidGlassNode(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts, glow)
 
     @RequiresApi(33)
     override fun update(node: LiquidGlassNode) {
-        node.update(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts)
+        node.update(backdrop, style, shape, interactionSource, reduceMotion, lift, pill, appearance, adapts, glow)
     }
 
     override fun InspectorInfo.inspectableProperties() {
@@ -147,6 +150,7 @@ private data class LiquidGlassElement(
  * @param pillSource Reads the pill inside the surface, or `null` for none.
  * @param appearance The appearance the glass reports to its content, or `null` for none.
  * @param adapts Whether thin glass turns light over a bright backdrop.
+ * @param glowSource Reads how brightly the surface lights under the finger, or `null` to light it as far as it is lifted.
  */
 @RequiresApi(33)
 internal class LiquidGlassNode(
@@ -159,6 +163,7 @@ internal class LiquidGlassNode(
     private var pillSource: GlassPillSource?,
     private var appearance: QuvenGlassAppearance?,
     private var adapts: Boolean,
+    private var glowSource: GlassLiftSource?,
 ) : GlassPaintingNode(), CompositionLocalConsumerModifierNode {
 
     private val press = GlassPress()
@@ -179,6 +184,8 @@ internal class LiquidGlassNode(
      * @param pillSource Reads the pill inside the surface, or `null` for none.
      * @param appearance The appearance the glass reports to its content, or `null` for none.
      * @param adapts Whether thin glass turns light over a bright backdrop.
+     * @param glowSource Reads how brightly the surface lights under the finger, or `null` to light it as far as it is
+     * lifted.
      */
     fun update(
         backdrop: QuvenGlassBackdrop,
@@ -190,6 +197,7 @@ internal class LiquidGlassNode(
         pillSource: GlassPillSource?,
         appearance: QuvenGlassAppearance?,
         adapts: Boolean,
+        glowSource: GlassLiftSource?,
     ) {
         if (this.backdrop !== backdrop) {
             unregister()
@@ -201,6 +209,7 @@ internal class LiquidGlassNode(
         this.reduceMotion = reduceMotion
         this.liftSource = liftSource
         this.pillSource = pillSource
+        this.glowSource = glowSource
         this.appearance = appearance
         if (this.adapts != adapts) {
             this.adapts = adapts
@@ -258,7 +267,8 @@ internal class LiquidGlassNode(
         val swell = lift * style.pressGrowth * min(size.width, size.height) / 2f
         val grown = pressScale(lift, with(requireDensity()) { style.pressExpansion.toPx() }, max(size.width, size.height))
         val pill = pillSource?.pill(size)?.translate(offset)
-        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness)
+        val glow = glowSource?.lift() ?: lift
+        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, glow)
     }
 
     private fun shownAppearance(): QuvenGlassAppearance = appearance ?: ownAppearance

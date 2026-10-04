@@ -70,6 +70,9 @@ import androidx.compose.ui.unit.dp
  * finger; 1 keeps its tint.
  * @property rimLight The share of white the rim turns all the way round, from 0 to 1, as a glass button's rim catches the
  * light; 0 leaves the rim to [specular].
+ * @property pressLighten How far a pressed surface turns towards white, the whole surface alike, as a multiple of the
+ * mean luminance of what lies under it, as Apple's glass buttons lighten under the finger: barely over dark content, to
+ * white over bright content; 0 leaves it to [pressGlow].
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -115,6 +118,7 @@ public data class QuvenGlassStyle(
     val pressExpansion: Dp = 0.dp,
     val pressTintGlow: Float = 1f,
     val rimLight: Float = 0f,
+    val pressLighten: Float = 0f,
 ) {
 
     /**
@@ -136,7 +140,8 @@ public data class QuvenGlassStyle(
 
     /**
      * Returns this material as a glass button draws it, as Apple's glass buttons answer the finger: the button grows,
-     * and plain glass lights what lies under it while a prominent button, given a [tint], lightens its tint.
+     * plain glass turns towards white, the more over brighter content, and a prominent button, given a [tint], lightens
+     * its tint.
      *
      * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
      * @return The button's material.
@@ -153,7 +158,7 @@ public data class QuvenGlassStyle(
             )
         } else {
             // Plain glass shows at its rim what lies just outside it, as it is.
-            copy(pressGlow = ButtonPressGlow, pressGrowth = 0f, pressExpansion = ButtonPressExpansion, rimGlow = ButtonRimGlow)
+            copy(pressLighten = ButtonPressLighten, pressGrowth = 0f, pressExpansion = ButtonPressExpansion, rimGlow = ButtonRimGlow)
         }
 
     /**
@@ -162,7 +167,7 @@ public data class QuvenGlassStyle(
      *
      * @return The menu's material.
      */
-    public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = ButtonPressGlow, rimGlow = MenuRimGlow)
+    public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
@@ -183,8 +188,9 @@ public data class QuvenGlassStyle(
             specular = 0.75f,
         )
 
-        private const val ButtonPressGlow = 3.6f
+        private const val MenuPressGlow = 3.6f
         private const val ButtonTintGlow = 1.65f
+        private const val ButtonPressLighten = 1.05f
         private const val ButtonRimGlow = 1f
         private const val ButtonRimLight = 0.3f
         private val ButtonPressExpansion = 16.dp

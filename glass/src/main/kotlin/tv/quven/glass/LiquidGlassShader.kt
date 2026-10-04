@@ -23,6 +23,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeRadii("shapeRadii", 4 * MaxGlassSurfaces),
     ShapeLift("shapeLift", MaxGlassSurfaces),
     ShapeLight("shapeLight", MaxGlassSurfaces),
+    ShapeGlow("shapeGlow", MaxGlassSurfaces),
     PillRect("pillRect", 4 * MaxGlassSurfaces),
     PillLook("pillLook", 4 * MaxGlassSurfaces),
     ShapeCount("shapeCount", 0),
@@ -47,6 +48,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     BackdropDim("backdropDim", 1),
     PressTintGlow("pressTintGlow", 1),
     RimLight("rimLight", 1),
+    PressLighten("pressLighten", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -65,15 +67,16 @@ internal const val LiquidGlassContent = "content"
  * `thickTone.rgb` by `leans.x + leans.y × luminance`, and the saturation scales by the tone's alpha; thin glass turned
  * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
- * is lifted. Where
- * `pressGlow` is positive, a lifted surface turns towards the untoned backdrop lit `pressGlow` times; where `rimGlow` is,
- * the rim shows the backdrop just outside it lit `rimGlow` times.
+ * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
+ * `pressGlow` times, and where `pressLighten` is, it turns towards white by `pressLighten` times the mean luminance of the
+ * backdrop under it, the whole surface alike, in place of the light a lifted surface otherwise gains;
+ * where `rimGlow` is, the rim shows the backdrop just outside it lit `rimGlow` times.
  *
  * Inside each surface the backdrop is read `zoom` times further from the surface's centre, so a `zoom` above 1 shows it
  * smaller. Where `seeThrough` is 1 the backdrop's own alpha holds: the glass covers what lies under it only where the
  * backdrop has content, and elsewhere lays the rim's light and a veil of white over it, `brighten` times
  * `SEE_THROUGH_VEIL`, as clear glass lightens a page it does not bend. Every read of the backdrop sees it darkened by
- * `backdropDim`, as glass over a dimmed screen reads it. A lifted tinted surface brightens its tint `pressTintGlow`
+ * `backdropDim`, as glass over a dimmed screen reads it. A lit tinted surface brightens its tint `pressTintGlow`
  * times, and the rim turns `rimLight` of the way to white all the way round.
  */
 internal const val LiquidGlassShaderSource: String = """
@@ -82,6 +85,7 @@ uniform float4 shapeRect[4];
 uniform float4 shapeRadii[4];
 uniform float shapeLift[4];
 uniform float shapeLight[4];
+uniform float shapeGlow[4];
 uniform float4 pillRect[4];
 uniform float4 pillLook[4];
 uniform int shapeCount;
@@ -106,6 +110,7 @@ uniform float seeThrough;
 uniform float backdropDim;
 uniform float pressTintGlow;
 uniform float rimLight;
+uniform float pressLighten;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -145,10 +150,11 @@ float cornerRadius(float2 p, float4 rect, float4 radii) {
     return q.x < 0.0 ? (q.y < 0.0 ? radii.x : radii.w) : (q.y < 0.0 ? radii.y : radii.z);
 }
 
-float field(float2 p, out float lift, out float radius, out float size, out float light) {
+float field(float2 p, out float lift, out float glow, out float radius, out float size, out float light) {
     float d = FAR;
     float closest = FAR;
     lift = 0.0;
+    glow = 0.0;
     radius = 0.0;
     size = 0.0;
     light = 0.0;
@@ -167,7 +173,9 @@ float field(float2 p, out float lift, out float radius, out float size, out floa
                 size = min(rect.z - rect.x, rect.w - rect.y);
                 light = shapeLight[i];
             }
-            lift = max(lift, shapeLift[i] * (1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, s)));
+            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, s);
+            lift = max(lift, shapeLift[i] * within);
+            glow = max(glow, shapeGlow[i] * within);
             float4 look = pillLook[i];
             if (look.x > 0.0 && look.w > 0.0) {
                 float4 pr = pillRect[i];
@@ -177,7 +185,9 @@ float field(float2 p, out float lift, out float radius, out float size, out floa
                     closest = pill;
                     radius = look.z;
                 }
-                lift = max(lift, look.w * look.x * (1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, pill)));
+                float pillLift = look.w * look.x * (1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, pill));
+                lift = max(lift, pillLift);
+                glow = max(glow, pillLift);
             }
         }
     }
@@ -186,13 +196,14 @@ float field(float2 p, out float lift, out float radius, out float size, out floa
 
 float2 fieldNormal(float2 p) {
     float ignoredLift;
+    float ignoredGlow;
     float ignoredRadius;
     float ignoredSize;
     float ignoredLight;
-    float dx = field(p + float2(1.0, 0.0), ignoredLift, ignoredRadius, ignoredSize, ignoredLight)
-        - field(p - float2(1.0, 0.0), ignoredLift, ignoredRadius, ignoredSize, ignoredLight);
-    float dy = field(p + float2(0.0, 1.0), ignoredLift, ignoredRadius, ignoredSize, ignoredLight)
-        - field(p - float2(0.0, 1.0), ignoredLift, ignoredRadius, ignoredSize, ignoredLight);
+    float dx = field(p + float2(1.0, 0.0), ignoredLift, ignoredGlow, ignoredRadius, ignoredSize, ignoredLight)
+        - field(p - float2(1.0, 0.0), ignoredLift, ignoredGlow, ignoredRadius, ignoredSize, ignoredLight);
+    float dy = field(p + float2(0.0, 1.0), ignoredLift, ignoredGlow, ignoredRadius, ignoredSize, ignoredLight)
+        - field(p - float2(0.0, 1.0), ignoredLift, ignoredGlow, ignoredRadius, ignoredSize, ignoredLight);
     float2 g = float2(dx, dy);
     float len = length(g);
     return len > EPSILON ? g / len : float2(0.0, -1.0);
@@ -216,16 +227,34 @@ float2 boxNormal(float2 p, float4 rect, float4 radii) {
     return len > EPSILON ? g / len : float2(0.0, -1.0);
 }
 
+// The mean luminance of the backdrop under the surface holding p, read on a grid of three by three inside it.
+float surfaceLuma(float2 p) {
+    for (int i = 0; i < 4; i++) {
+        if (i < shapeCount && roundBox(p, shapeRect[i], shapeRadii[i]) < 0.0) {
+            float4 rect = shapeRect[i];
+            float sum = 0.0;
+            for (int x = 0; x < 3; x++) {
+                for (int y = 0; y < 3; y++) {
+                    sum += luma(backdropAt(mix(rect.xy, rect.zw, float2(0.25 + 0.25 * float(x), 0.25 + 0.25 * float(y)))));
+                }
+            }
+            return sum / 9.0;
+        }
+    }
+    return 0.0;
+}
+
 float bendAt(float depth, float band, float curve) {
     return pow(clamp(1.0 - depth / band, 0.0, 1.0), curve);
 }
 
 half4 main(float2 coord) {
     float lift;
+    float glow;
     float radius;
     float size;
     float light;
-    float d = field(coord, lift, radius, size, light);
+    float d = field(coord, lift, glow, radius, size, light);
     if (d > 1.0) {
         return half4(0.0);
     }
@@ -287,11 +316,11 @@ half4 main(float2 coord) {
     // The rim catches its light under the tint, so a strong tint all but hides it.
     float facing = 0.5 + 0.5 * dot(n, lens.zw);
     float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
-    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + LIFT_GLOW * lift;
+    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + (pressLighten > 0.0 ? 0.0 : LIFT_GLOW * glow);
     rgb += shine;
     rgb = mix(rgb, tint.rgb, tint.a);
     if (pressTintGlow > 1.0) {
-        rgb = mix(rgb, clamp(rgb * pressTintGlow, 0.0, 1.0), lift * tint.a);
+        rgb = mix(rgb, clamp(rgb * pressTintGlow, 0.0, 1.0), glow * tint.a);
     }
 
     for (int i = 0; i < 4; i++) {
@@ -304,7 +333,10 @@ half4 main(float2 coord) {
     }
 
     if (pressGlow > 0.0) {
-        rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), lift);
+        rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), glow);
+    }
+    if (pressLighten > 0.0 && glow > 0.0) {
+        rgb = mix(rgb, float3(1.0), clamp(pressLighten * surfaceLuma(coord), 0.0, 1.0) * glow);
     }
 
     if (rimGlow > 0.0) {
@@ -316,8 +348,8 @@ half4 main(float2 coord) {
     float alpha = clamp(0.5 - d, 0.0, 1.0);
     if (seeThrough > 0.5) {
         float body = alpha * float(content.eval(at).a);
-        float glow = (alpha - body) * clamp(shine + brighten * SEE_THROUGH_VEIL, 0.0, 1.0);
-        return half4(half3(clamp(rgb, 0.0, 1.0) * body + glow), half(body + glow));
+        float veil = (alpha - body) * clamp(shine + brighten * SEE_THROUGH_VEIL, 0.0, 1.0);
+        return half4(half3(clamp(rgb, 0.0, 1.0) * body + veil), half(body + veil));
     }
     rgb = clamp(rgb, 0.0, 1.0) * alpha;
     return half4(half3(rgb), half(alpha));
@@ -353,8 +385,16 @@ internal data class GlassPill(val rect: Rect, val radius: Float, val alpha: Floa
  * @property lift How far the surface is pressed, from 0 to 1.
  * @property pill The pill inside the surface, or `null` for none.
  * @property light How light the surface has turned, from 0 to 1.
+ * @property glow How brightly the surface lights under the finger, from 0 to 1; as far as it is pressed unless a press
+ * lights it on a timing of its own.
  */
-internal data class GlassSurface(val form: GlassForm, val lift: Float, val pill: GlassPill?, val light: Float = 0f)
+internal data class GlassSurface(
+    val form: GlassForm,
+    val lift: Float,
+    val pill: GlassPill?,
+    val light: Float = 0f,
+    val glow: Float = lift,
+)
 
 /** Binds a [QuvenGlassStyle] and a set of [GlassSurface]s to the Liquid Glass program and builds its effect. */
 @RequiresApi(33)
@@ -365,6 +405,7 @@ internal class LiquidGlassShader private constructor() {
     private val radii = FloatArray(LiquidGlassUniform.ShapeRadii.floats)
     private val lifts = FloatArray(LiquidGlassUniform.ShapeLift.floats)
     private val lights = FloatArray(LiquidGlassUniform.ShapeLight.floats)
+    private val glows = FloatArray(LiquidGlassUniform.ShapeGlow.floats)
     private val pillRects = FloatArray(LiquidGlassUniform.PillRect.floats)
     private val pillLooks = FloatArray(LiquidGlassUniform.PillLook.floats)
 
@@ -385,6 +426,7 @@ internal class LiquidGlassShader private constructor() {
         radii.fill(0f)
         lifts.fill(0f)
         lights.fill(0f)
+        glows.fill(0f)
         pillRects.fill(0f)
         pillLooks.fill(0f)
         for (index in 0 until count) {
@@ -401,6 +443,7 @@ internal class LiquidGlassShader private constructor() {
             radii[at + 3] = form.bottomLeft
             lifts[index] = surface.lift
             lights[index] = surface.light
+            glows[index] = surface.glow
             surface.pill?.let { pill ->
                 pillRects[at] = pill.rect.left
                 pillRects[at + 1] = pill.rect.top
@@ -418,6 +461,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.ShapeRadii.uniform, radii)
             setFloatUniform(LiquidGlassUniform.ShapeLift.uniform, lifts)
             setFloatUniform(LiquidGlassUniform.ShapeLight.uniform, lights)
+            setFloatUniform(LiquidGlassUniform.ShapeGlow.uniform, glows)
             setFloatUniform(LiquidGlassUniform.PillRect.uniform, pillRects)
             setFloatUniform(LiquidGlassUniform.PillLook.uniform, pillLooks)
             setIntUniform(LiquidGlassUniform.ShapeCount.uniform, count)
@@ -452,6 +496,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.BackdropDim.uniform, style.backdropDim)
             setFloatUniform(LiquidGlassUniform.PressTintGlow.uniform, style.pressTintGlow)
             setFloatUniform(LiquidGlassUniform.RimLight.uniform, style.rimLight)
+            setFloatUniform(LiquidGlassUniform.PressLighten.uniform, style.pressLighten)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

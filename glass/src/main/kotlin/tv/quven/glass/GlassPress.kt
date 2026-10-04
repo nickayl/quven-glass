@@ -31,9 +31,9 @@ internal class GlassPress {
      *
      * @param scope The scope the presses are collected in.
      * @param source The source of the presses, or `null` to follow none.
-     * @param spec Gets the animation the press rises and falls on.
+     * @param spec Gets the animation the press rises on, given `true`, and falls on, given `false`.
      */
-    fun follow(scope: CoroutineScope, source: InteractionSource?, spec: () -> AnimationSpec<Float>) {
+    fun follow(scope: CoroutineScope, source: InteractionSource?, spec: (held: Boolean) -> AnimationSpec<Float>) {
         presses?.cancel()
         presses = source?.let {
             scope.launch {
@@ -43,7 +43,7 @@ internal class GlassPress {
                         is PressInteraction.Press -> held++
                         is PressInteraction.Release, is PressInteraction.Cancel -> held = max(0, held - 1)
                     }
-                    launch { press.animateTo(if (held > 0) 1f else 0f, spec()) }
+                    launch { press.animateTo(if (held > 0) 1f else 0f, spec(held > 0)) }
                 }
             }
         }
