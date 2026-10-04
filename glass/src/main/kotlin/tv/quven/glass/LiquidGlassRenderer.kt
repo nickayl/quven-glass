@@ -76,9 +76,18 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
      * @param blend The distance over which two surfaces join, in pixels.
      * @param source The layer the backdrop's source records into.
      * @param sourceOffset The position of this scope's origin in the source.
+     * @param seeThrough Whether the source's own alpha holds, letting what lies under the glass show where it is empty.
      */
-    fun DrawScope.drawGlass(surfaces: List<GlassSurface>, style: QuvenGlassStyle, blend: Float, source: GraphicsLayer, sourceOffset: Offset) {
-        val region = glassRegion(surfaces.map(GlassSurface::form), glassMargin(style.blur.toPx()))
+    fun DrawScope.drawGlass(
+        surfaces: List<GlassSurface>,
+        style: QuvenGlassStyle,
+        blend: Float,
+        source: GraphicsLayer,
+        sourceOffset: Offset,
+        seeThrough: Boolean = false,
+    ) {
+        val forms = surfaces.map(GlassSurface::form)
+        val region = glassRegion(forms, glassMargin(forms, style.blur.toPx(), style.zoom))
         val regionOrigin = Offset(region.left.toFloat(), region.top.toFloat())
         val share = style.backdropScale.coerceIn(MinBackdropScale, 1f)
         backdrop.record(IntSize(ceil(region.width * share).toInt(), ceil(region.height * share).toInt())) {
@@ -95,7 +104,7 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
         val local = surfaces.map { surface ->
             surface.copy(form = surface.form.translate(-regionOrigin), pill = surface.pill?.translate(-regionOrigin))
         }
-        layer.renderEffect = shader.effect(local, style, blend, density).asComposeRenderEffect()
+        layer.renderEffect = shader.effect(local, style, blend, density, seeThrough).asComposeRenderEffect()
         // The program's output is unbounded; clipped, it runs over the region alone rather than the whole window.
         layer.clip = true
         layer.topLeft = IntOffset(region.left, region.top)

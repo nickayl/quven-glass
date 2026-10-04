@@ -41,7 +41,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
@@ -53,6 +52,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
+import androidx.compose.ui.util.lerp
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.coroutineScope
@@ -339,15 +339,28 @@ public val DefaultMorphCornerRadius: Dp = 24.dp
  * placement and shape and by the panel's clip, so all of them follow the glass as it grows.
  */
 private class MorphFrame {
+
+    /** Gets the control's glass at this frame. */
     var source: Rect by mutableStateOf(Rect.Zero)
         private set
+
+    /** Gets the panel's glass at this frame. */
     var body: Rect by mutableStateOf(Rect.Zero)
         private set
+
+    /** Gets the radius of the panel's glass's corners at this frame, in pixels. */
     var bodyRadius: Float by mutableFloatStateOf(0f)
         private set
+
     private var open: Rect = Rect.Zero
     private val clip = Path()
 
+    /**
+     * Records the glass at this frame.
+     *
+     * @param geometry The two surfaces.
+     * @param open The bounds the panel is laid out at, where it stands open.
+     */
     fun update(geometry: MorphGeometry, open: Rect) {
         source = geometry.source
         body = geometry.body
@@ -355,7 +368,12 @@ private class MorphFrame {
         this.open = open
     }
 
-    // The panel is laid out where it stands open; it shows only inside the panel's glass as it grows.
+    /**
+     * Runs [block], which draws the panel laid out where it stands open, clipped to the panel's glass as it grows.
+     *
+     * @param scope The panel's drawing scope.
+     * @param block Draws the panel.
+     */
     fun clipToBody(scope: ContentDrawScope, block: () -> Unit) {
         clip.rewind()
         clip.addOutline(Outline.Rounded(RoundRect(body.translate(-open.topLeft), CornerRadius(bodyRadius))))
@@ -369,20 +387,6 @@ private class BodyShape(private val frame: MorphFrame) : Shape {
         Outline.Rounded(
             RoundRect(Rect(Offset.Zero, size), CornerRadius(frame.bodyRadius.coerceAtMost(size.minDimension / 2f))),
         )
-}
-
-/**
- * Sizes a surface to the rectangle [rect] reads and stands it there, in its parent's coordinates.
- *
- * @param rect Reads the rectangle, observed, at layout.
- * @return The decorated modifier.
- */
-private fun Modifier.standingAt(rect: () -> Rect): Modifier = layout { measurable, _ ->
-    val bounds = rect()
-    val placeable = measurable.measure(
-        Constraints.fixed(bounds.width.roundToInt().coerceAtLeast(0), bounds.height.roundToInt().coerceAtLeast(0)),
-    )
-    layout(placeable.width, placeable.height) { placeable.place(bounds.left.roundToInt(), bounds.top.roundToInt()) }
 }
 
 /**
@@ -451,8 +455,6 @@ internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float
     return MorphGeometry(source, body, morphRadius(body.size, cornerRadius, spread))
 }
 
-private fun lerp(start: Float, stop: Float, fraction: Float): Float = start + (stop - start) * fraction
-
 /**
  * Returns this material as the morph's glass draws it: as clear as a control's while [frost] is 0, the thick tone and
  * the blur of the material once it reaches 1.
@@ -469,11 +471,6 @@ private fun QuvenGlassStyle.frosted(frost: Float): QuvenGlassStyle = if (frost >
     ),
     blur = lerp(ClearBlur.value, blur.value, frost).dp,
 )
-
-private fun smoothstep(from: Float, to: Float, value: Float): Float {
-    val t = ((value - from) / (to - from)).coerceIn(0f, 1f)
-    return t * t * (3f - 2f * t)
-}
 
 private fun morphSpec(expanded: Boolean, reduceMotion: Boolean, damping: Float, stiffness: Float): AnimationSpec<Float> =
     when {
@@ -508,9 +505,7 @@ private fun contentBlur(radius: Float): RenderEffect? =
  */
 internal fun morphRadius(glass: Size, cornerRadius: Float, progress: Float): Float {
     val capsule = glass.minDimension / 2f
-    val settled = ((progress - CornerSettleStart) / (1f - CornerSettleStart)).coerceIn(0f, 1f)
-    val eased = settled * settled * (3f - 2f * settled)
-    return capsule + (cornerRadius.coerceAtMost(capsule) - capsule) * eased
+    return lerp(capsule, cornerRadius.coerceAtMost(capsule), smoothstep(CornerSettleStart, 1f, progress))
 }
 
 private const val SpreadDamping = 0.72f

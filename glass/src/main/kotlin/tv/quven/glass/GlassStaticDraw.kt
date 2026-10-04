@@ -3,8 +3,10 @@ package tv.quven.glass
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -23,13 +25,11 @@ private val StaticRimWidth = 1.dp
  * @param path A path to draw with, rewound first.
  */
 internal fun DrawScope.drawFrost(outline: Outline, style: QuvenGlassStyle, path: Path) {
-    val bounds = outline.bounds
-    path.rewind()
-    path.addOutline(outline)
+    path.trace(outline)
     drawPath(path, style.ground)
-    drawPath(path, Brush.verticalGradient(0f to style.trackTop, 1f to style.trackBottom, startY = bounds.top, endY = bounds.bottom))
+    drawPath(path, outline.verticalFade(style.trackTop, style.trackBottom))
     if (style.tint.alpha > 0f) drawPath(path, style.tint)
-    drawRim(path, Brush.verticalGradient(0f to style.rimTop, 1f to style.rimBottom, startY = bounds.top, endY = bounds.bottom))
+    drawRim(path, outline.verticalFade(style.rimTop, style.rimBottom))
 }
 
 /**
@@ -41,11 +41,9 @@ internal fun DrawScope.drawFrost(outline: Outline, style: QuvenGlassStyle, path:
  * @param alpha The pill's opacity.
  */
 internal fun DrawScope.drawPillFrost(outline: Outline, style: QuvenGlassStyle, path: Path, alpha: Float = 1f) {
-    val bounds = outline.bounds
-    path.rewind()
-    path.addOutline(outline)
-    drawPath(path, Brush.verticalGradient(0f to style.pillTop, 1f to style.pillBottom, startY = bounds.top, endY = bounds.bottom), alpha)
-    drawRim(path, Brush.verticalGradient(0f to style.pillRim, 1f to style.pillRim), alpha)
+    path.trace(outline)
+    drawPath(path, outline.verticalFade(style.pillTop, style.pillBottom), alpha)
+    drawRim(path, SolidColor(style.pillRim), alpha)
 }
 
 /**
@@ -60,6 +58,14 @@ internal fun DrawScope.drawStaticSurface(surface: GlassSurface, style: QuvenGlas
     val pill = surface.pill?.takeIf { it.alpha > 0f } ?: return
     drawPillFrost(Outline.Rounded(RoundRect(pill.rect, CornerRadius(pill.radius))), style, path, pill.alpha)
 }
+
+private fun Path.trace(outline: Outline) {
+    rewind()
+    addOutline(outline)
+}
+
+private fun Outline.verticalFade(top: Color, bottom: Color): Brush =
+    Brush.verticalGradient(0f to top, 1f to bottom, startY = bounds.top, endY = bounds.bottom)
 
 private fun DrawScope.drawRim(path: Path, brush: Brush, alpha: Float = 1f) {
     clipPath(path) { drawPath(path, brush, alpha, style = Stroke(StaticRimWidth.toPx() * 2f)) }

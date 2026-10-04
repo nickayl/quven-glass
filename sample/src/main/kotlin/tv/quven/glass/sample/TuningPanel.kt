@@ -11,8 +11,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -22,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import tv.quven.glass.QuvenGlassStyle
+import tv.quven.glass.QuvenGlassSwitch
 import java.util.Locale
 
 /**
@@ -95,14 +94,29 @@ internal fun TuningPanel(tuning: SampleTuning, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * Draws a setting that is on or off: its name beside a glass switch.
+ *
+ * @param name The setting's name.
+ * @param on Whether the setting is on.
+ * @param onChange Invoked with the setting's new state.
+ */
 @Composable
 private fun Toggle(name: String, on: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(name, color = SampleColors.TextHigh, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Switch(on, onChange, colors = SwitchDefaults.colors(checkedTrackColor = SampleColors.Accent))
+        QuvenGlassSwitch(checked = on, onCheckedChange = onChange, onColor = SampleColors.Accent)
     }
 }
 
+/**
+ * Draws a setting of a value in a range: its name and value over a slider.
+ *
+ * @param name The setting's name.
+ * @param value The setting's value.
+ * @param range The values the slider spans.
+ * @param onChange Invoked with the setting's new value.
+ */
 @Composable
 private fun Setting(name: String, value: Float, range: ClosedFloatingPointRange<Float>, onChange: (Float) -> Unit) {
     Column {

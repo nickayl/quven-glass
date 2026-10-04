@@ -132,6 +132,31 @@ Box(Modifier.quvenLiquidGlass(backdrop, shape = CircleShape, appearance = appear
 
 `QuvenGlassSegmentedTrack` takes the same `appearance` parameter. Thick glass, from a shorter side of 66 dp, never turns.
 
+## Buttons and switches
+
+`QuvenGlassButton` draws a glass button of any shape around content you give it, and hands that content the ink that
+reads on it. With a label, or a label after a glyph, it is a capsule sized as Apple sizes its buttons, and
+`QuvenGlassIconButton` holds a glyph alone. Plain glass lights what's behind it under the finger; give it a `tint` and
+it becomes a prominent button, tinted almost opaque, with white ink.
+
+```kotlin
+QuvenGlassButton(onClick = ::play, label = "Play", icon = painterResource(R.drawable.play))
+QuvenGlassButton(onClick = ::buy, label = "Buy", tint = Color(0xFF0091FF))
+QuvenGlassButton(onClick = ::close, modifier = Modifier.size(44.dp)) { ink -> Icon(Icons.Filled.Close, null, tint = ink) }
+```
+
+`QuvenGlassStyle.Clear` is the clear variant for glass over bright media: no tone, a little lighter than what it covers.
+`forButtons()` and `forMenus()` turn any material into the one a button or a menu draws.
+
+`QuvenGlassSwitch` is the system's switch. Its white thumb lifts into a lens of clear glass while it's held, dragged or
+carried across, shows the track a fifth smaller through it, and settles back into a thumb once it rests. A tap turns it
+over, and a drag turns it to the side it's let go nearer. The lens reads only the switch's own track, so it works
+anywhere, inside a page that is itself a backdrop too.
+
+```kotlin
+QuvenGlassSwitch(checked = downloads, onCheckedChange = { downloads = it })
+```
+
 ## Menus that grow from their control
 
 `QuvenGlassMorph` grows a panel out of the bounds of the control that opened it and folds it back on close. Hide the
@@ -175,7 +200,7 @@ CompositionLocalProvider(LocalQuvenGlassBackdrop provides backdrop, LocalQuvenGl
         Screen()
         QuvenGlassMenuHost(
             state = menus,
-            style = QuvenGlassStyle.Standard.copy(blur = 9.5.dp, pressGlow = 3.6f, rimGlow = 1.7f),
+            style = QuvenGlassStyle.Standard.forMenus(),
             metrics = QuvenGlassMenuMetrics.Phone,
         )
     }
@@ -211,8 +236,8 @@ or a TV remote, the menu moves the focus to its first row, keeps it there until 
 button. A menu too tall for the screen stays 16 dp inside its edges and scrolls, and a swipe over it only scrolls it.
 
 A system menu doesn't dim what's behind it, and neither does the host. Its rim is brighter than a bar's, which is what
-`rimGlow` draws. Give the button that opens it the same `pressGlow`: it lights up under the finger, and the menu's glass
-carries that light for the first part of its growth. A finger can also slide along an open menu: the row under it
+`rimGlow` draws. A `QuvenGlassButton` opening it lights up under the finger, and the menu's glass carries that light for
+the first part of its growth. A finger can also slide along an open menu: the row under it
 lights at once with a light tick, and the row it lifts over is the one chosen.
 
 ## Styling
@@ -230,6 +255,7 @@ lights at once with a light tick, and the row it lifts over is the one chosen.
 | `pressGrowth`, `slideDamping`, `slideStiffness` | How a press swells the glass and how the pill travels |
 | `pressGlow` | How brightly a pressed button lights what's behind it; bars keep it at zero |
 | `rimGlow` | How brightly the rim shows what lies just outside it; only menus use it |
+| `zoom` | How much smaller the glass shows what's behind its body; only a switch's lens uses it |
 | `ground`, `trackTop`, `rimTop` and siblings | The static material drawn without Liquid Glass |
 
 You should pass `reduceMotion` from the system setting to every surface. Springs then become short fades.
@@ -265,6 +291,10 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
 | Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
+| Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
+| Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |
+| Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
+| Clear glass | No tone, lightened by about 0.086 |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a

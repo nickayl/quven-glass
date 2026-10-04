@@ -96,7 +96,8 @@ public fun QuvenGlassMenu(
     val scroll = rememberScrollState()
     val touch = remember(scroll) { MenuTouch(scroll) }
     val chosen by rememberUpdatedState(onChosen)
-    val menu = remember(metrics, colors, textStyle, touch) { OpenMenu(metrics, colors, textStyle, touch) { chosen() } }
+    val contents = remember { MenuContents() }
+    val menu = remember(metrics, colors, textStyle, touch, contents) { OpenMenu(metrics, colors, textStyle, touch, contents) { chosen() } }
     val haptics = LocalHapticFeedback.current
     val wash by animateFloatAsState(
         if (touch.isTouched) 1f else 0f,
@@ -113,7 +114,7 @@ public fun QuvenGlassMenu(
                 .drawBehind { if (wash > 0f) drawRect(colors.pressWash, alpha = wash) }
                 .verticalScroll(scroll)
                 .padding(vertical = metrics.verticalInset),
-            verticalArrangement = if (rising && touch.titles == 0) FromTheFoot else Arrangement.Top,
+            verticalArrangement = if (rising && contents.titles == 0) FromTheFoot else Arrangement.Top,
             content = content,
         )
     }
@@ -129,7 +130,7 @@ public fun QuvenGlassMenu(
 public fun QuvenGlassMenuTitle(text: String, modifier: Modifier = Modifier) {
     val menu = LocalOpenMenu.current
     val metrics = menu.metrics
-    menu.counts(menu.touch::titles)
+    menu.counts(menu.contents::titles)
     Layout(
         content = { MenuText(text, menu.colors.title, metrics.titleSize, menu) },
         modifier = modifier
@@ -172,31 +173,12 @@ public fun QuvenGlassMenuItem(
     val menu = LocalOpenMenu.current
     val metrics = menu.metrics
     val ink = menu.inkOf(enabled, color.takeOrElse { if (destructive) menu.colors.destructive else menu.colors.label })
-    if (icon != null) menu.counts(menu.touch::glyphs)
+    if (icon != null) menu.counts(menu.contents::glyphs)
     MenuRowBody(onClick, enabled, Role.Button, modifier) {
-        if (icon != null) {
-            Image(
-                painter = icon,
-                contentDescription = null,
-                modifier = Modifier
-                    .padding(start = metrics.iconCentre + menu.choiceShift - metrics.iconSize / 2)
-                    .size(metrics.iconSize),
-                colorFilter = ColorFilter.tint(ink),
-            )
-        }
+        if (icon != null) MenuGlyph(icon, ink, Modifier.padding(start = metrics.iconCentre + menu.choiceShift - metrics.iconSize / 2))
         val trailingRoom = if (trailingIcon != null) metrics.iconSize + TrailingGap else 0.dp
         MenuLabel(label, ink, start = menu.labelStart, end = metrics.sideInset + trailingRoom)
-        if (trailingIcon != null) {
-            Image(
-                painter = trailingIcon,
-                contentDescription = null,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = metrics.sideInset)
-                    .size(metrics.iconSize),
-                colorFilter = ColorFilter.tint(ink),
-            )
-        }
+        if (trailingIcon != null) MenuGlyph(trailingIcon, ink, Modifier.align(Alignment.CenterEnd).padding(end = metrics.sideInset))
     }
 }
 
@@ -223,7 +205,7 @@ public fun QuvenGlassMenuChoice(
     val menu = LocalOpenMenu.current
     val metrics = menu.metrics
     val ink = menu.inkOf(enabled, menu.colors.label)
-    menu.counts(menu.touch::choices)
+    menu.counts(menu.contents::choices)
     MenuRowBody(onClick, enabled, role, modifier.semantics { this.selected = selected }) {
         if (selected) {
             MenuCheck(
@@ -361,6 +343,18 @@ private fun MenuRowBody(
 }
 
 /**
+ * Draws a row's glyph at the menu's glyph size, in the row's colour.
+ *
+ * @param painter The glyph.
+ * @param ink The row's colour.
+ * @param modifier Modifier applied to the glyph, which places it.
+ */
+@Composable
+private fun MenuGlyph(painter: Painter, ink: Color, modifier: Modifier) {
+    Image(painter, contentDescription = null, modifier = modifier.size(LocalOpenMenu.current.metrics.iconSize), colorFilter = ColorFilter.tint(ink))
+}
+
+/**
  * Draws a row's name on one line, cut short where the menu is at its widest.
  *
  * @param text The name.
@@ -416,7 +410,8 @@ private fun MenuCheck(color: Color, modifier: Modifier) {
  * @property metrics The layout of the rows.
  * @property colors The colours of the rows.
  * @property textStyle The typeface of the names and titles.
- * @property touch What a finger does on the menu and what it holds.
+ * @property touch What a finger does on the menu.
+ * @property contents How many entries carry a check or a glyph and how many sections a title.
  * @property onChosen Runs after any row is chosen.
  */
 internal class OpenMenu(
@@ -424,17 +419,18 @@ internal class OpenMenu(
     val colors: QuvenGlassMenuColors,
     val textStyle: TextStyle,
     val touch: MenuTouch,
+    val contents: MenuContents,
     val onChosen: () -> Unit,
 ) {
     /** Gets the room the column of checks takes before every other row, nothing while the menu holds no choice. */
     val choiceShift: Dp
-        get() = if (touch.choices > 0) metrics.choiceShift else 0.dp
+        get() = if (contents.choices > 0) metrics.choiceShift else 0.dp
 
     /** Gets where a row's name stands: after the glyphs where any row has one, after the checks, or at the plain inset. */
     val labelStart: Dp
         get() = when {
-            touch.glyphs > 0 -> metrics.labelStart + choiceShift
-            touch.choices > 0 -> metrics.choiceLabelStart
+            contents.glyphs > 0 -> metrics.labelStart + choiceShift
+            contents.choices > 0 -> metrics.choiceLabelStart
             else -> metrics.plainLabelStart
         }
 
@@ -462,7 +458,7 @@ internal class OpenMenu(
 }
 
 private val LocalOpenMenu = staticCompositionLocalOf {
-    OpenMenu(QuvenGlassMenuMetrics.Phone, QuvenGlassMenuColors.Standard, TextStyle.Default, MenuTouch(ScrollState(0))) {}
+    OpenMenu(QuvenGlassMenuMetrics.Phone, QuvenGlassMenuColors.Standard, TextStyle.Default, MenuTouch(ScrollState(0)), MenuContents()) {}
 }
 
 // Places the entries from the foot up, the first at the foot, as a menu rising from its control lists them.

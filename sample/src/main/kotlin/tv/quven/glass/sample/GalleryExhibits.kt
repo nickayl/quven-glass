@@ -14,10 +14,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -61,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassBackdrop
 import tv.quven.glass.QuvenGlassButton
 import tv.quven.glass.QuvenGlassButtonSize
+import tv.quven.glass.QuvenGlassIconButton
 import tv.quven.glass.QuvenGlassContainer
 import tv.quven.glass.QuvenGlassMenuBox
 import tv.quven.glass.QuvenGlassMenuChoice
@@ -71,6 +74,7 @@ import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassStyle
+import tv.quven.glass.QuvenGlassSwitch
 import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassAppearance
 import tv.quven.glass.rememberQuvenGlassMorphState
@@ -105,7 +109,7 @@ internal fun BoxScope.GlassButtonsExhibit(tuning: SampleTuning) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ButtonFaces.forEach { (diameter, icon) ->
-            SampleGlassButton(onClick = {}, style = tuning.buttonStyle, reduceMotion = tuning.reduceMotion, diameter = diameter) { ink ->
+            SampleGlassButton(onClick = {}, tuning = tuning, diameter = diameter) { ink ->
                 GlyphFace(icon, contentDescription = null, tint = ink, size = diameter * ButtonGlyphShare)
             }
         }
@@ -208,8 +212,7 @@ internal fun BoxScope.MorphingPanelExhibit(tuning: SampleTuning) {
     var gear by remember { mutableStateOf(Rect.Zero) }
     SampleGlassButton(
         onClick = { open = true },
-        style = tuning.buttonStyle,
-        reduceMotion = tuning.reduceMotion,
+        tuning = tuning,
         modifier = Modifier.align(Alignment.TopStart).onPlaced { gear = it.boundsInParent() },
         shown = !morph.isShown,
     ) { ink -> GlyphFace(Icons.Filled.Settings, contentDescription = "Tune", tint = ink) }
@@ -276,7 +279,7 @@ internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
         ButtonRow {
             QuvenGlassButton(onClick = {}, label = "Play", reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Play", icon = play, reduceMotion = tuning.reduceMotion)
-            QuvenGlassButton(onClick = {}, icon = heart, contentDescription = "Favorite", reduceMotion = tuning.reduceMotion)
+            QuvenGlassIconButton(onClick = {}, icon = heart, contentDescription = "Favorite", reduceMotion = tuning.reduceMotion)
             QuvenGlassButton(onClick = {}, label = "Small", size = QuvenGlassButtonSize.Small, reduceMotion = tuning.reduceMotion)
         }
         ButtonRow {
@@ -296,6 +299,37 @@ internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
                 reduceMotion = tuning.reduceMotion,
             )
         }
+    }
+}
+
+/**
+ * Draws a switch that is on and one that is off, each beside its name, as the reference lays out Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SwitchExhibit(tuning: SampleTuning) {
+    var downloads by remember { mutableStateOf(true) }
+    var subtitles by remember { mutableStateOf(false) }
+    Column(Modifier.align(Alignment.Center).width(SwitchColumnWidth), verticalArrangement = Arrangement.spacedBy(18.dp)) {
+        SwitchRow("Downloads", downloads, { downloads = it }, tuning)
+        SwitchRow("Subtitles", subtitles, { subtitles = it }, tuning)
+    }
+}
+
+/**
+ * Lays out a switch at the end of a row holding its name.
+ *
+ * @param name The switch's name.
+ * @param checked Whether the switch is on.
+ * @param onCheckedChange Invoked with the switch's new state.
+ * @param tuning The live settings.
+ */
+@Composable
+private fun SwitchRow(name: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit, tuning: SampleTuning) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        GlassCaption(name, tuning)
+        QuvenGlassSwitch(checked = checked, onCheckedChange = onCheckedChange, reduceMotion = tuning.reduceMotion)
     }
 }
 
@@ -391,8 +425,7 @@ private fun MenuButton(icon: ImageVector, name: String, tuning: SampleTuning, mo
     QuvenGlassMenuBox(menu = menu, face = { GlyphFace(icon, contentDescription = null) }) {
         SampleGlassButton(
             onClick = { openMenu() },
-            style = tuning.buttonStyle,
-            reduceMotion = tuning.reduceMotion,
+            tuning = tuning,
             modifier = modifier.menuAnchor(),
             shown = !isMenuShown,
         ) { ink -> GlyphFace(icon, contentDescription = name, tint = ink) }
@@ -403,6 +436,7 @@ private val ExhibitGap = 28.dp
 private val MaterialSizes = listOf(36.dp, 51.dp, 70.dp, 100.dp)
 private val CapsuleWidth = 240.dp
 private val CapsuleHeight = 62.dp
+private val SwitchColumnWidth = 280.dp
 private val ButtonFaces: List<Pair<Dp, ImageVector>> = listOf(
     46.dp to Icons.Filled.PlayArrow,
     56.dp to Icons.Filled.Favorite,

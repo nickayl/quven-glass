@@ -96,6 +96,11 @@ internal val Exhibits: List<Exhibit> = listOf(
         ExhibitStatus.Ready,
     ) { CapsuleButtonsExhibit(it) },
     Exhibit(
+        "Switch",
+        "A switch whose thumb lifts into a lens of glass while it is held or dragged.",
+        ExhibitStatus.Ready,
+    ) { SwitchExhibit(it) },
+    Exhibit(
         "Context menu",
         "A long press lifts the card out of the page, dims the rest and opens the card's menu beside it.",
         ExhibitStatus.InDevelopment,
@@ -108,11 +113,6 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Toolbar",
         "Glass buttons along the top of a page, grouped into capsules that join and part.",
-        ExhibitStatus.InDevelopment,
-    ),
-    Exhibit(
-        "Switch",
-        "A switch whose thumb lifts into a lens of glass while it is held or dragged.",
         ExhibitStatus.InDevelopment,
     ),
     Exhibit(

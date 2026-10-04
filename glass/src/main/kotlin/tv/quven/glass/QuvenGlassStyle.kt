@@ -59,6 +59,8 @@ import androidx.compose.ui.unit.dp
  * brighter and untoned, as the rim of a system menu shows it; 0 keeps the toned rim.
  * @property shadow The colour of the soft shadow under a Liquid Glass surface.
  * @property shadowRadius The blur radius of the shadow under a Liquid Glass surface.
+ * @property zoom How much smaller Liquid Glass shows what lies under its body: 1 shows it at its own size, and 1.25 a
+ * fifth smaller, as the lens a control's thumb lifts into shows its track.
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -99,6 +101,7 @@ public data class QuvenGlassStyle(
     val rimGlow: Float = 0f,
     val shadow: Color = Color(0x14000000),
     val shadowRadius: Dp = 14.dp,
+    val zoom: Float = 1f,
 ) {
 
     /**
@@ -118,6 +121,22 @@ public data class QuvenGlassStyle(
      */
     public fun tinted(color: Color): QuvenGlassStyle = copy(tint = color.copy(alpha = tintStrength))
 
+    /**
+     * Returns this material as a glass button draws it, lighting what lies under it while pressed, as Apple's glass
+     * buttons light under the finger.
+     *
+     * @return The button's material.
+     */
+    public fun forButtons(): QuvenGlassStyle = copy(pressGlow = ButtonPressGlow)
+
+    /**
+     * Returns this material as a menu draws it: frosted more deeply, its rim lit by what lies just outside it, and still
+     * lit by the press of the control it grows from, as Apple's system menus are.
+     *
+     * @return The menu's material.
+     */
+    public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = ButtonPressGlow, rimGlow = MenuRimGlow)
+
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
         public val Standard: QuvenGlassStyle = QuvenGlassStyle()
@@ -133,5 +152,9 @@ public data class QuvenGlassStyle(
             tintStrength = 0.8f,
             brighten = 0.086f,
         )
+
+        private const val ButtonPressGlow = 3.6f
+        private const val MenuRimGlow = 1.7f
+        private val MenuBlur = 9.5.dp
     }
 }

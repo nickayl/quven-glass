@@ -7,8 +7,10 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.lerp
 
 /**
@@ -19,13 +21,8 @@ import androidx.compose.ui.graphics.lerp
  * @param shape The track's shape.
  * @return The decorated modifier.
  */
-public fun Modifier.quvenGlassTrack(style: QuvenGlassStyle = QuvenGlassStyle.Standard, shape: Shape = CircleShape): Modifier = this
-    .clip(shape)
-    .drawWithCache {
-        val outline = shape.createOutline(size, layoutDirection, this)
-        val path = Path()
-        onDrawBehind { drawFrost(outline, style, path) }
-    }
+public fun Modifier.quvenGlassTrack(style: QuvenGlassStyle = QuvenGlassStyle.Standard, shape: Shape = CircleShape): Modifier =
+    clip(shape).drawBehindOutline(shape) { outline, path -> drawFrost(outline, style, path) }
 
 /**
  * Draws the static pill of [style] that marks the held option of a [quvenGlassTrack].
@@ -37,11 +34,7 @@ public fun Modifier.quvenGlassTrack(style: QuvenGlassStyle = QuvenGlassStyle.Sta
 public fun Modifier.quvenGlassPill(style: QuvenGlassStyle = QuvenGlassStyle.Standard, shape: Shape = CircleShape): Modifier = this
     .shadow(style.pillShadow, shape, ambientColor = Color.Black, spotColor = Color.Black)
     .clip(shape)
-    .drawWithCache {
-        val outline = shape.createOutline(size, layoutDirection, this)
-        val path = Path()
-        onDrawBehind { drawPillFrost(outline, style, path) }
-    }
+    .drawBehindOutline(shape) { outline, path -> drawPillFrost(outline, style, path) }
 
 /**
  * Draws the mark of an option held or opened apart from a track's sliding pill: the platter of [style] where [backdrop]
@@ -64,3 +57,10 @@ public fun Modifier.quvenGlassMark(
     } else {
         quvenGlassPill(style, shape)
     }
+
+// Draws behind the content with the shape's outline at the node's size, laid out once per size, and a path to draw it.
+private fun Modifier.drawBehindOutline(shape: Shape, draw: DrawScope.(Outline, Path) -> Unit): Modifier = drawWithCache {
+    val outline = shape.createOutline(size, layoutDirection, this)
+    val path = Path()
+    onDrawBehind { draw(outline, path) }
+}

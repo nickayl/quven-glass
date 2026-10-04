@@ -159,15 +159,13 @@ internal class LiquidGlassNode(
     private var pillSource: GlassPillSource?,
     private var appearance: QuvenGlassAppearance?,
     private var adapts: Boolean,
-) : Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, CompositionLocalConsumerModifierNode, BackdropReader {
+) : GlassPaintingNode(), CompositionLocalConsumerModifierNode {
 
-    private val painter = GlassPainter(this)
     private val press = GlassPress()
     private val ownAppearance = QuvenGlassAppearance()
     private val tracker = GlassAppearanceTracker(::backdropBrightness, ::isWindowShown)
     private var probe: GlassBrightnessProbe? = null
     private var container: GlassContainerState? = null
-    private var coordinates: LayoutCoordinates? = null
 
     /**
      * Applies the arguments of a recomposed modifier.
@@ -227,17 +225,11 @@ internal class LiquidGlassNode(
         tracker.stop()
         probe?.release()
         probe = null
-        painter.detach()
-        coordinates = null
+        releasePainter()
     }
 
-    override fun onBackdropChanged() {
-        invalidateDraw()
-    }
-
-    override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        this.coordinates = coordinates
-        if (painter.place(coordinates)) invalidateGlass()
+    override fun onMoved() {
+        invalidateGlass()
     }
 
     /**

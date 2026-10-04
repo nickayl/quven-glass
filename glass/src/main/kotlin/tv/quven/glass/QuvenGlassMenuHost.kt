@@ -282,6 +282,7 @@ private class MenuBoxScope : QuvenGlassMenuBoxScope {
         isMenuOpen = true
     }
 
+    /** Closes the menu. */
     fun closeMenu() {
         isMenuOpen = false
     }
@@ -295,12 +296,26 @@ private class MenuBoxScope : QuvenGlassMenuBoxScope {
  * @property morph The opening, whose control the menu grows from.
  */
 internal class DropdownRequest(val morph: QuvenGlassMorphState) {
-    var expanded by mutableStateOf(false)
+
+    /** Gets or sets a value indicating whether the menu is open. */
+    var expanded: Boolean by mutableStateOf(false)
+
+    /** Gets or sets what closes the menu. */
     var onDismissRequest: () -> Unit by mutableStateOf({})
+
+    /** Gets or sets the modifier applied to the open menu. */
     var menuModifier: Modifier by mutableStateOf(Modifier)
+
+    /** Gets or sets the modifier applied to the layer outside the menu. */
     var outsideModifier: Modifier by mutableStateOf(Modifier)
+
+    /** Gets or sets where the open menu stands. */
     var placement: QuvenGlassMorphPlacement by mutableStateOf(DefaultDropdownPlacement)
+
+    /** Gets or sets the control's face, drawn inside the glass while it starts to grow. */
     var face: @Composable () -> Unit by mutableStateOf({})
+
+    /** Gets or sets the menu's entries. */
     var content: @Composable ColumnScope.() -> Unit by mutableStateOf({})
 }
 

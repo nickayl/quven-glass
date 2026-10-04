@@ -4,7 +4,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -16,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.semantics.Role
@@ -29,8 +32,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * The sizes of a [QuvenGlassButton], as Apple sizes its glass buttons: the capsule is as tall as its label's line and
- * its padding, and as wide as its content and its padding.
+ * The sizes of a [QuvenGlassButton] holding a label or a glyph, as Apple sizes its glass buttons: the capsule is as tall
+ * as its label's line and its padding, and as wide as its content and its padding.
  *
  * @property horizontalPadding The room on either side of the content.
  * @property verticalPadding The room above and below the content.
@@ -58,15 +61,74 @@ public enum class QuvenGlassButtonSize(
 }
 
 /**
- * Draws a capsule of glass holding a glyph, a label or both, as Apple's glass buttons: clear glass that swells and
- * lights what lies under it while pressed, or, given a [tint], a prominent button of glass tinted nearly opaque. Plain
- * glass over a bright backdrop turns light, and its content turns dark with it.
+ * Draws a button of glass of [shape] holding [content], as Apple's glass buttons: clear glass that swells and lights
+ * what lies under it while pressed, or, given a [tint], a prominent button of glass tinted nearly opaque. Plain glass
+ * over a bright backdrop turns light, and the ink handed to [content] turns with it.
  *
  * @param onClick Invoked when the button is pressed.
+ * @param modifier Modifier applied to the button, which sizes it.
+ * @param shape The button's shape.
+ * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
+ * @param style The material, which a prominent button tints and a plain one lights under the finger.
+ * @param ink The colour of the content over dark glass and over a prominent button.
+ * @param lightInk The colour of the content over plain glass turned light.
+ * @param contentPadding The room between the button's edge and its content.
+ * @param enabled Whether the button can be pressed.
+ * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
+ * @param reduceMotion Whether motion is reduced.
+ * @param interactionSource The source of the button's presses and focus, or `null` for one of its own.
+ * @param content Draws the button's content, in a row centred in the button, given its ink.
+ */
+@Composable
+public fun QuvenGlassButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = CircleShape,
+    tint: Color = Color.Unspecified,
+    style: QuvenGlassStyle = QuvenGlassStyle.Standard,
+    ink: Color = Color.White,
+    lightInk: Color = Color.Black,
+    contentPadding: PaddingValues = NoPadding,
+    enabled: Boolean = true,
+    backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
+    reduceMotion: Boolean = false,
+    interactionSource: MutableInteractionSource? = null,
+    content: @Composable RowScope.(ink: Color) -> Unit,
+) {
+    val interactions = interactionSource ?: remember { MutableInteractionSource() }
+    val appearance = rememberQuvenGlassAppearance()
+    val prominent = tint.isSpecified
+    // A prominent button keeps its tint under the finger; plain glass lights what it stands over.
+    val glass = remember(style, tint) { if (prominent) style.tinted(tint) else style.forButtons() }
+    val shownInk = if (prominent) ink else appearance.contentColor(onDark = ink, onLight = lightInk)
+    Row(
+        modifier = modifier
+            .quvenLiquidGlass(
+                backdrop = backdrop,
+                style = glass,
+                shape = shape,
+                interactionSource = interactions,
+                reduceMotion = reduceMotion,
+                appearance = appearance.takeUnless { prominent },
+            )
+            .clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(contentPadding)
+            .alpha(if (enabled) 1f else DisabledAlpha),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        content(shownInk)
+    }
+}
+
+/**
+ * Draws a capsule of glass holding a label, after a glyph where one is given, as Apple's glass buttons: plain glass that
+ * lights under the finger, or a prominent button tinted with [tint].
+ *
+ * @param onClick Invoked when the button is pressed.
+ * @param label The button's label.
  * @param modifier Modifier applied to the button.
- * @param label The button's label, or `null` for a glyph alone.
- * @param icon The button's glyph, or `null` for a label alone.
- * @param contentDescription The button's name where it carries no label, or `null` where the label names it.
+ * @param icon The glyph before the label, or `null` for none.
  * @param size The button's size.
  * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
  * @param style The material, which a prominent button tints.
@@ -74,15 +136,13 @@ public enum class QuvenGlassButtonSize(
  * @param enabled Whether the button can be pressed.
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
  * @param reduceMotion Whether motion is reduced.
- * @throws IllegalArgumentException Neither [label] nor [icon] is given.
  */
 @Composable
 public fun QuvenGlassButton(
     onClick: () -> Unit,
+    label: String,
     modifier: Modifier = Modifier,
-    label: String? = null,
     icon: Painter? = null,
-    contentDescription: String? = null,
     size: QuvenGlassButtonSize = QuvenGlassButtonSize.Regular,
     tint: Color = Color.Unspecified,
     style: QuvenGlassStyle = QuvenGlassStyle.Standard,
@@ -91,51 +151,91 @@ public fun QuvenGlassButton(
     backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
     reduceMotion: Boolean = false,
 ) {
-    require(label != null || icon != null) { "A glass button holds a label, a glyph or both." }
-    val interactions = remember { MutableInteractionSource() }
-    val appearance = rememberQuvenGlassAppearance()
-    val prominent = tint.isSpecified
-    // A prominent button keeps its tint under the finger; plain glass lights what it stands over.
-    val glass = remember(style, tint) { if (prominent) style.tinted(tint) else style.copy(pressGlow = ButtonPressGlow) }
-    val ink = if (prominent) Color.White else appearance.contentColor(onDark = Color.White, onLight = Color.Black)
-    Row(
-        modifier = modifier
-            .semantics { if (contentDescription != null) this.contentDescription = contentDescription }
-            .quvenLiquidGlass(
-                backdrop = backdrop,
-                style = glass,
-                shape = CircleShape,
-                interactionSource = interactions,
-                reduceMotion = reduceMotion,
-                appearance = appearance.takeUnless { prominent },
-            )
-            .clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
-            .padding(horizontal = size.horizontalPadding, vertical = size.verticalPadding)
-            .alpha(if (enabled) 1f else DisabledAlpha),
-        horizontalArrangement = Arrangement.spacedBy(size.iconGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (icon != null) {
-            Image(icon, contentDescription = null, colorFilter = ColorFilter.tint(ink), modifier = Modifier.size(size.iconSize))
-        }
-        if (label != null) {
-            BasicText(
-                label,
-                style = textStyle.merge(
-                    TextStyle(
-                        color = ink,
-                        fontSize = size.labelSize,
-                        lineHeight = size.lineHeight,
-                        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
-                    ),
+    QuvenGlassButton(
+        onClick = onClick,
+        modifier = modifier,
+        tint = tint,
+        style = style,
+        contentPadding = size.padding,
+        enabled = enabled,
+        backdrop = backdrop,
+        reduceMotion = reduceMotion,
+    ) { ink ->
+        if (icon != null) ButtonGlyph(icon, ink, size, Modifier.padding(end = size.iconGap))
+        BasicText(
+            label,
+            style = textStyle.merge(
+                TextStyle(
+                    color = ink,
+                    fontSize = size.labelSize,
+                    lineHeight = size.lineHeight,
+                    lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
                 ),
-                maxLines = 1,
-            )
-        }
+            ),
+            maxLines = 1,
+        )
     }
 }
 
-/** How brightly a pressed glass button lights what lies under it, as measured on Apple's. */
-internal const val ButtonPressGlow = 3.6f
+/**
+ * Draws a capsule of glass holding a glyph alone, as Apple's glass buttons: plain glass that lights under the finger, or
+ * a prominent button tinted with [tint].
+ *
+ * @param onClick Invoked when the button is pressed.
+ * @param icon The button's glyph.
+ * @param contentDescription The button's name, or `null` where it is named elsewhere.
+ * @param modifier Modifier applied to the button.
+ * @param size The button's size.
+ * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
+ * @param style The material, which a prominent button tints.
+ * @param enabled Whether the button can be pressed.
+ * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
+ * @param reduceMotion Whether motion is reduced.
+ */
+@Composable
+public fun QuvenGlassIconButton(
+    onClick: () -> Unit,
+    icon: Painter,
+    contentDescription: String?,
+    modifier: Modifier = Modifier,
+    size: QuvenGlassButtonSize = QuvenGlassButtonSize.Regular,
+    tint: Color = Color.Unspecified,
+    style: QuvenGlassStyle = QuvenGlassStyle.Standard,
+    enabled: Boolean = true,
+    backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
+    reduceMotion: Boolean = false,
+) {
+    QuvenGlassButton(
+        onClick = onClick,
+        modifier = modifier.semantics { if (contentDescription != null) this.contentDescription = contentDescription },
+        tint = tint,
+        style = style,
+        contentPadding = size.padding,
+        enabled = enabled,
+        backdrop = backdrop,
+        reduceMotion = reduceMotion,
+    ) { ink ->
+        ButtonGlyph(icon, ink, size)
+    }
+}
 
-private const val DisabledAlpha = 0.4f
+/**
+ * Draws a button's glyph at its size, in its ink.
+ *
+ * @param icon The glyph.
+ * @param ink The button's ink.
+ * @param size The button's size.
+ * @param modifier Modifier applied to the glyph.
+ */
+@Composable
+private fun ButtonGlyph(icon: Painter, ink: Color, size: QuvenGlassButtonSize, modifier: Modifier = Modifier) {
+    Image(icon, contentDescription = null, colorFilter = ColorFilter.tint(ink), modifier = modifier.size(size.iconSize))
+}
+
+private val QuvenGlassButtonSize.padding: PaddingValues
+    get() = PaddingValues(horizontal = horizontalPadding, vertical = verticalPadding)
+
+private val NoPadding = PaddingValues(0.dp)
+
+/** The opacity of a control that cannot be used, as Apple dims one. */
+internal const val DisabledAlpha = 0.4f

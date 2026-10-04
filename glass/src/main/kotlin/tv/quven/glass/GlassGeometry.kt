@@ -101,13 +101,19 @@ internal data class GlassForm(
 }
 
 /**
- * The margin a glass surface reads beyond its edge, so the blur near the edge averages the backdrop that is really
- * there; the lens folds the inside of the glass and reads nothing beyond it.
+ * The margin a set of glass surfaces reads beyond their edges: enough for the blur near an edge to average the backdrop
+ * that is really there, and for glass that shows the backdrop smaller to read as far out as its zoom reaches. The fold
+ * at the rim reads inwards and needs none.
  *
+ * @param forms The surfaces' forms.
  * @param blur The radius of the blur, in pixels.
+ * @param zoom How much smaller the glass shows the backdrop, 1 for its own size.
  * @return The margin, in pixels.
  */
-internal fun glassMargin(blur: Float): Float = max(0f, blur) * 2f + 2f
+internal fun glassMargin(forms: List<GlassForm>, blur: Float, zoom: Float = 1f): Float {
+    val reach = (zoom - 1f).coerceAtLeast(0f) * (forms.maxOfOrNull { max(it.rect.width, it.rect.height) / 2f } ?: 0f)
+    return max(0f, blur) * 2f + 2f + reach
+}
 
 /**
  * Returns the whole pixels a set of forms covers once grown by [margin], the region a glass layer is recorded over.
@@ -135,4 +141,18 @@ internal fun glassRegion(forms: List<GlassForm>, margin: Float): IntRect {
         ceil(right + margin).toInt(),
         ceil(bottom + margin).toInt(),
     )
+}
+
+/**
+ * Returns the smooth step of [value] between [from] and [to]: 0 at or below [from], 1 at or above [to], easing in and
+ * out between.
+ *
+ * @param from The value at which the step begins.
+ * @param to The value at which the step ends; greater than [from].
+ * @param value The value to step.
+ * @return The step, from 0 to 1.
+ */
+internal fun smoothstep(from: Float, to: Float, value: Float): Float {
+    val t = ((value - from) / (to - from)).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
 }

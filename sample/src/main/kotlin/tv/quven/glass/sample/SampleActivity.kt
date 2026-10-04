@@ -142,8 +142,7 @@ private fun SampleScreen(launch: SampleLaunch) {
             ) {
                 SampleGlassButton(
                     onClick = { panelOpen = true },
-                    style = if (launch.menu) tuning.buttonStyle else tuning.style,
-                    reduceMotion = tuning.reduceMotion,
+                    tuning = tuning,
                     modifier = Modifier.onGloballyPositioned { gear = it.boundsInRoot() },
                     diameter = ButtonSide,
                     shown = !morph.isShown,
@@ -160,7 +159,7 @@ private fun SampleScreen(launch: SampleLaunch) {
                 width = if (launch.menu) QuvenGlassMenuMetrics.Tablet.width else PanelWidth,
                 placement = QuvenGlassMorphPlacement.hangingFromTopLeft(edge = 16.dp),
                 modifier = Modifier.fillMaxSize(),
-                style = if (launch.menu) tuning.menuStyle else tuning.style,
+                style = if (launch.menu) tuning.style.forMenus() else tuning.style,
                 cornerRadius = if (launch.menu) QuvenGlassMenuMetrics.Tablet.cornerRadius else 28.dp,
                 reduceMotion = tuning.reduceMotion,
                 face = { GlyphFace(Icons.Filled.Settings, contentDescription = null) },

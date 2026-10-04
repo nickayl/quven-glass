@@ -42,6 +42,8 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     PressGlow("pressGlow", 1),
     RimGlow("rimGlow", 1),
     Brighten("brighten", 1),
+    Zoom("zoom", 1),
+    SeeThrough("seeThrough", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -62,6 +64,10 @@ internal const val LiquidGlassContent = "content"
  * platter, which clears into a lens while the pill is lifted, and the rim, brighter where it faces the light. Where
  * `pressGlow` is positive, a lifted surface turns towards the untoned backdrop lit `pressGlow` times; where `rimGlow` is,
  * the rim shows the backdrop just outside it lit `rimGlow` times.
+ *
+ * Inside each surface the backdrop is read `zoom` times further from the surface's centre, so a `zoom` above 1 shows it
+ * smaller. Where `seeThrough` is 1 the backdrop's own alpha holds: the glass covers what lies under it only where the
+ * backdrop has content, and elsewhere shows the rim's light alone.
  */
 internal const val LiquidGlassShaderSource: String = """
 uniform shader content;
@@ -88,6 +94,8 @@ uniform float4 lightPlatter;
 uniform float pressGlow;
 uniform float rimGlow;
 uniform float brighten;
+uniform float zoom;
+uniform float seeThrough;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -183,7 +191,8 @@ float luma(float3 c) {
 }
 
 float3 backdropAt(float2 at) {
-    return float3(content.eval(at).rgb);
+    half4 seen = content.eval(at);
+    return seeThrough > 0.5 ? float3(seen.rgb) / max(float(seen.a), EPSILON) : float3(seen.rgb);
 }
 
 float2 boxNormal(float2 p, float4 rect, float4 radii) {
@@ -219,6 +228,14 @@ half4 main(float2 coord) {
     }
     float shift = reach * bend * (1.0 + LIFT_REACH_GAIN * lift);
     float2 at = coord - n * shift;
+    if (zoom != 1.0) {
+        for (int i = 0; i < 4; i++) {
+            if (i < shapeCount && roundBox(coord, shapeRect[i], shapeRadii[i]) < 0.0) {
+                float2 centre = (shapeRect[i].xy + shapeRect[i].zw) * 0.5;
+                at = centre + (at - centre) * zoom;
+            }
+        }
+    }
 
     for (int i = 0; i < 4; i++) {
         float4 look = pillLook[i];
@@ -270,14 +287,19 @@ half4 main(float2 coord) {
 
     float facing = 0.5 + 0.5 * dot(n, lens.zw);
     float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
-    rgb += lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN;
-    rgb += LIFT_GLOW * lift;
+    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + LIFT_GLOW * lift;
+    rgb += shine;
     if (rimGlow > 0.0) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
         rgb = mix(rgb, clamp(outside * rimGlow, 0.0, 1.0), rim);
     }
 
     float alpha = clamp(0.5 - d, 0.0, 1.0);
+    if (seeThrough > 0.5) {
+        float body = alpha * float(content.eval(at).a);
+        float glow = (alpha - body) * clamp(shine, 0.0, 1.0);
+        return half4(half3(clamp(rgb, 0.0, 1.0) * body + glow), half(body + glow));
+    }
     rgb = clamp(rgb, 0.0, 1.0) * alpha;
     return half4(half3(rgb), half(alpha));
 }
@@ -334,9 +356,11 @@ internal class LiquidGlassShader private constructor() {
      * @param style The material.
      * @param blend The distance over which two surfaces join, in pixels.
      * @param density The number of pixels in a density-independent pixel.
+     * @param seeThrough Whether the backdrop's own alpha holds, letting what lies under the glass show where the backdrop
+     * has no content.
      * @return The glass program, reading the backdrop the renderer has already blurred.
      */
-    fun effect(surfaces: List<GlassSurface>, style: QuvenGlassStyle, blend: Float, density: Float): RenderEffect {
+    fun effect(surfaces: List<GlassSurface>, style: QuvenGlassStyle, blend: Float, density: Float, seeThrough: Boolean = false): RenderEffect {
         val count = minOf(surfaces.size, MaxGlassSurfaces)
         rects.fill(0f)
         radii.fill(0f)
@@ -404,6 +428,8 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.PressGlow.uniform, style.pressGlow)
             setFloatUniform(LiquidGlassUniform.RimGlow.uniform, style.rimGlow)
             setFloatUniform(LiquidGlassUniform.Brighten.uniform, style.brighten)
+            setFloatUniform(LiquidGlassUniform.Zoom.uniform, style.zoom)
+            setFloatUniform(LiquidGlassUniform.SeeThrough.uniform, if (seeThrough) 1f else 0f)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

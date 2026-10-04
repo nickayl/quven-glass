@@ -5,9 +5,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.node.DrawModifierNode
+import androidx.compose.ui.node.GlobalPositionAwareModifierNode
+import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.requireGraphicsContext
 
 /**
@@ -77,6 +81,41 @@ internal class GlassPainter(private val node: DelegatableNode) {
             return
         }
         val drawer = renderer ?: LiquidGlassRenderer(node.requireGraphicsContext()).also { renderer = it }
-        with(drawer) { drawGlass(surfaces, style, blend, source, origin - sourceOrigin) }
+        with(drawer) { drawGlass(surfaces, style, blend, source, origin - sourceOrigin, backdrop.seeThrough) }
+    }
+}
+
+/**
+ * A node that paints glass over a backdrop: it keeps the painter, follows where it stands, and redraws when the backdrop
+ * changes or the node moves.
+ */
+@RequiresApi(33)
+internal abstract class GlassPaintingNode : Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, BackdropReader {
+
+    /** Gets the painter that draws the node's glass. */
+    protected val painter: GlassPainter = GlassPainter(this)
+
+    /** Gets where the node stands, or `null` while it is not placed. */
+    protected var coordinates: LayoutCoordinates? = null
+        private set
+
+    override fun onBackdropChanged() {
+        invalidateDraw()
+    }
+
+    override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
+        this.coordinates = coordinates
+        if (painter.place(coordinates)) onMoved()
+    }
+
+    /** Called when the node has moved; redraws it. */
+    protected open fun onMoved() {
+        invalidateDraw()
+    }
+
+    /** Releases the painter's layer and forgets where the node stood. */
+    protected fun releasePainter() {
+        painter.detach()
+        coordinates = null
     }
 }

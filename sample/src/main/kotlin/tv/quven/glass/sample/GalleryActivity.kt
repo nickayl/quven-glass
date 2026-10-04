@@ -205,7 +205,7 @@ private fun ExhibitStage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modif
             }
             QuvenGlassMenuHost(
                 state = menus,
-                style = tuning.menuStyle,
+                style = tuning.style.forMenus(),
                 metrics = metrics,
                 reduceMotion = tuning.reduceMotion,
             )

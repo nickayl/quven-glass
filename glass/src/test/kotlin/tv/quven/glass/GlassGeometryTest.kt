@@ -84,8 +84,16 @@ class GlassGeometryTest {
 
     @Test
     fun theMargin_coversTwiceTheBlur_andNeverFallsBelowTwoPixels() {
-        assertEquals(6f * 2f + 2f, glassMargin(blur = 6f))
-        assertEquals(2f, glassMargin(blur = -3f))
+        assertEquals(6f * 2f + 2f, glassMargin(emptyList(), blur = 6f))
+        assertEquals(2f, glassMargin(emptyList(), blur = -3f))
+    }
+
+    @Test
+    fun glassThatShowsTheBackdropSmaller_readsAsFarOutAsItsZoomReaches() {
+        val lens = GlassForm(Rect(0f, 0f, 57f, 37.5f), 18.75f, 18.75f, 18.75f, 18.75f)
+
+        assertEquals(2f + 0.25f * 28.5f, glassMargin(listOf(lens), blur = 0f, zoom = 1.25f), 0.001f)
+        assertEquals(2f, glassMargin(listOf(lens), blur = 0f, zoom = 0.8f), 0f)
     }
 
     @Test

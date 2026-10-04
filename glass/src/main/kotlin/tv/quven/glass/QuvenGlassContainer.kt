@@ -134,10 +134,7 @@ internal class GlassContainerNode(
     private val state: GlassContainerState,
     private var style: QuvenGlassStyle,
     private var spacing: Dp,
-) : Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, BackdropReader {
-
-    private val painter = GlassPainter(this)
-    private var coordinates: LayoutCoordinates? = null
+) : GlassPaintingNode() {
 
     /**
      * Applies the arguments of a recomposed container.
@@ -160,17 +157,7 @@ internal class GlassContainerNode(
     override fun onDetach() {
         if (state.node === this) state.node = null
         state.backdrop.removeReader(this)
-        painter.detach()
-        coordinates = null
-    }
-
-    override fun onBackdropChanged() {
-        invalidateDraw()
-    }
-
-    override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
-        this.coordinates = coordinates
-        if (painter.place(coordinates)) invalidateDraw()
+        releasePainter()
     }
 
     override fun ContentDrawScope.draw() {

@@ -24,9 +24,12 @@ import androidx.compose.ui.platform.InspectorInfo
 /**
  * The content glass surfaces stand over: one source records it into a layer every time it draws, and every surface
  * reading the backdrop draws that layer again under itself, bent, blurred and lit.
+ *
+ * @property seeThrough Whether glass over this backdrop keeps the source's own alpha, letting what lies under the glass
+ * show where the source drew nothing: the backdrop a control records its own track into, which a lens over it bends.
  */
 @Stable
-public class QuvenGlassBackdrop internal constructor() {
+public class QuvenGlassBackdrop internal constructor(internal val seeThrough: Boolean = false) {
 
     private val readers = mutableListOf<BackdropReader>()
 

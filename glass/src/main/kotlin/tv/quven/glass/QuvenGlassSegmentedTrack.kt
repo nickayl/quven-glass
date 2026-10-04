@@ -27,18 +27,15 @@ import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 /**
  * Draws options in a row on a glass track, with a pill that marks the held one. The pill slides to a newly held option
@@ -329,13 +326,7 @@ internal fun rememberGlassPillSource(
 internal fun GlassTrackPill(motion: GlassPillMotion, optionSize: DpSize, tag: String?, drawsStaticPill: Boolean, style: QuvenGlassStyle, shape: Shape) {
     Box(
         Modifier
-            .layout { measurable, _ ->
-                // The frame is read here, so the pill's motion relays out the pill alone.
-                val frame = motion.frame(optionSize, this)
-                val width = (frame.right - frame.left).roundToInt().coerceAtLeast(0)
-                val placeable = measurable.measure(Constraints.fixed(width, (frame.bottom - frame.top).roundToInt()))
-                layout(width, frame.restHeight.roundToInt()) { placeable.place(frame.left.roundToInt(), frame.top.roundToInt()) }
-            }
+            .standingAt { motion.frame(optionSize, this).let { Rect(it.left, it.top, it.right, it.bottom) } }
             .then(if (tag != null) Modifier.testTag(tag) else Modifier)
             .then(if (drawsStaticPill) Modifier.graphicsLayer { alpha = motion.alpha.value }.quvenGlassPill(style, shape) else Modifier),
     )

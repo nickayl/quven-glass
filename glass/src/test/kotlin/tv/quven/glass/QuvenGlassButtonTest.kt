@@ -1,7 +1,9 @@
 package tv.quven.glass
 
 import android.app.Application
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -17,6 +19,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -50,7 +53,7 @@ class QuvenGlassButtonTest {
 
     @Test
     fun aGlyphAlone_isPaddedAsApplesIs() {
-        render { QuvenGlassButton(onClick = {}, icon = ColorPainter(Color.White), contentDescription = "Like", modifier = Modifier.testTag(ButtonTag)) }
+        render { QuvenGlassIconButton(onClick = {}, icon = ColorPainter(Color.White), contentDescription = "Like", modifier = Modifier.testTag(ButtonTag)) }
 
         val bounds = compose.onNodeWithTag(ButtonTag).getUnclippedBoundsInRoot()
         assertEquals(42f, (bounds.right - bounds.left).value, 0.5f)
@@ -88,9 +91,42 @@ class QuvenGlassButtonTest {
         assertEquals(1, presses)
     }
 
-    @Test(expected = IllegalArgumentException::class)
-    fun aButtonWithNeitherLabelNorGlyph_isRefused() {
-        render { QuvenGlassButton(onClick = {}) }
+    @Test
+    fun aButtonOfItsOwnSize_centresItsContent_inTheInkOfItsGlass() {
+        var given = Color.Unspecified
+        render {
+            QuvenGlassButton(onClick = {}, modifier = Modifier.size(56.dp).testTag(ButtonTag), ink = Color.Yellow) { ink ->
+                given = ink
+                Box(Modifier.size(20.dp).testTag(FaceTag))
+            }
+        }
+
+        val button = compose.onNodeWithTag(ButtonTag).getUnclippedBoundsInRoot()
+        val face = compose.onNodeWithTag(FaceTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(18f, (face.left - button.left).value, 0.5f)
+        assertEquals(18f, (face.top - button.top).value, 0.5f)
+        assertEquals(Color.Yellow, given)
+    }
+
+    @Test
+    fun aProminentButton_keepsItsInk_whateverTheGlassTurnsTo() {
+        var given = Color.Unspecified
+        render { QuvenGlassButton(onClick = {}, tint = Color.Blue, ink = Color.Green, lightInk = Color.Red) { ink -> given = ink } }
+
+        assertEquals(Color.Green, given)
+    }
+
+    @Test
+    fun theButtonAndMenuMaterials_lightUnderTheFinger_andAMenuFrostsDeeperWithALitRim() {
+        val buttons = QuvenGlassStyle.Standard.forButtons()
+        val menus = QuvenGlassStyle.Standard.forMenus()
+
+        assertEquals(3.6f, buttons.pressGlow, 0f)
+        assertEquals(0f, buttons.rimGlow, 0f)
+        assertEquals(3.6f, menus.pressGlow, 0f)
+        assertEquals(1.7f, menus.rimGlow, 0f)
+        assertEquals(9.5.dp, menus.blur)
+        assertEquals(menus, menus.forMenus())
     }
 
     private fun heightOf(size: QuvenGlassButtonSize): Float {
@@ -105,5 +141,6 @@ class QuvenGlassButtonTest {
 
     private companion object {
         const val ButtonTag = "button"
+        const val FaceTag = "face"
     }
 }

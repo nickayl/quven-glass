@@ -926,7 +926,7 @@ enum ExhibitStatus: CaseIterable {
 /// One of the system's Liquid Glass elements, in the order and under the names the Android sample's gallery lists them.
 enum Exhibit: CaseIterable, Identifiable {
     case material, glassButtons, tabBar, segmentedControl, joiningGlass, menus, morphingPanel, clearAndTinted, capsuleButtons
-    case contextMenu, submenus, toolbar, toggle, slider, sheet, alert, popover, search
+    case toggle, contextMenu, submenus, toolbar, slider, sheet, alert, popover, search
     case minimizingTabBar, bottomAccessory, scrollEdge, touchLight, textMenu
     case adaptiveSidebar
 
@@ -1006,7 +1006,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons: .ready
+             .capsuleButtons, .toggle: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
@@ -1503,8 +1503,8 @@ struct ToggleStage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Toggle(isOn: $first) { GlassCaption(text: "Downloads") }
-            Toggle(isOn: $second) { GlassCaption(text: "Subtitles") }
+            Toggle(isOn: $first) { GlassCaption(text: "Downloads") }.reportsFrame("toggle.on").accessibilityIdentifier("toggle.first")
+            Toggle(isOn: $second) { GlassCaption(text: "Subtitles") }.reportsFrame("toggle.off").accessibilityIdentifier("toggle.second")
         }
         .frame(width: 280)
     }
@@ -1517,8 +1517,8 @@ struct SliderStage: View {
 
     var body: some View {
         VStack(spacing: 28) {
-            Slider(value: $volume)
-            Slider(value: $rating, in: 0...5, step: 1)
+            Slider(value: $volume).reportsFrame("slider").accessibilityIdentifier("slider.volume")
+            Slider(value: $rating, in: 0...5, step: 1).reportsFrame("slider.steps").accessibilityIdentifier("slider.steps")
         }
         .frame(width: 380)
     }
@@ -1690,6 +1690,7 @@ struct TouchLightStage: View {
             .foregroundStyle(.white)
             .frame(width: 440, height: 260)
             .glassEffect(.regular.interactive(), in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+            .accessibilityIdentifier("exhibit.touch")
     }
 }
 
