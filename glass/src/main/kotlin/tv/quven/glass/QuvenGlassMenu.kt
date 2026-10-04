@@ -5,9 +5,11 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -44,11 +48,11 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
@@ -59,15 +63,16 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.awaitCancellation
 import kotlin.math.roundToInt
 import kotlin.reflect.KMutableProperty0
+import kotlinx.coroutines.awaitCancellation
 
 /**
  * Lays out the entries of a glass menu, the content a [QuvenGlassMorph] opens into: [QuvenGlassMenuTitle],
  * [QuvenGlassMenuItem], [QuvenGlassMenuChoice] and [QuvenGlassMenuDivider], one under another. The menu is as wide as
- * its longest row, between the widths [metrics] names. A finger that slides along the menu lights the row under it,
- * with a tick each time it reaches another, and chooses the row it lifts over, as on a system menu.
+ * its longest row, between the widths [metrics] names, and scrolls where it is taller than the room it is given. A
+ * finger that slides along a menu that does not scroll lights the row under it, with a tick each time it reaches
+ * another, and chooses the row it lifts over, as on a system menu.
  *
  * @param modifier Modifier applied to the menu's column.
  * @param metrics The layout of the rows; the morph opening the menu takes its corner radius.
@@ -88,7 +93,8 @@ public fun QuvenGlassMenu(
     rising: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    val touch = remember { MenuTouch() }
+    val scroll = rememberScrollState()
+    val touch = remember(scroll) { MenuTouch(scroll) }
     val chosen by rememberUpdatedState(onChosen)
     val menu = remember(metrics, colors, textStyle, touch) { OpenMenu(metrics, colors, textStyle, touch) { chosen() } }
     val haptics = LocalHapticFeedback.current
@@ -105,6 +111,7 @@ public fun QuvenGlassMenu(
                 .onPlaced { touch.menu = it }
                 .pointerInput(touch, haptics) { scrubRows(touch, haptics) }
                 .drawBehind { if (wash > 0f) drawRect(colors.pressWash, alpha = wash) }
+                .verticalScroll(scroll)
                 .padding(vertical = metrics.verticalInset),
             verticalArrangement = if (rising && touch.titles == 0) FromTheFoot else Arrangement.Top,
             content = content,
@@ -293,6 +300,7 @@ private fun MenuRowBody(
     val touch = menu.touch
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
     val currentClick by rememberUpdatedState(onClick)
     val choose = remember(menu) {
         {
@@ -305,8 +313,13 @@ private fun MenuRowBody(
     val scrubbed = touch.scrubbed === row
     // A press lights its row only once it has lasted, as a touch that goes on to slide never lights the first row.
     val lit by animateFloatAsState(
-        if (pressed || scrubbed) 1f else 0f,
-        if (pressed && !scrubbed) tween(HighlightFadeMillis, delayMillis = HighlightDelayMillis) else snap(),
+        if (pressed || scrubbed || focused) 1f else 0f,
+        when {
+            scrubbed -> snap()
+            pressed -> tween(HighlightFadeMillis, delayMillis = HighlightDelayMillis)
+            focused -> tween(HighlightFadeMillis)
+            else -> snap()
+        },
         label = "highlight",
     )
     DisposableEffect(touch, row) {
@@ -449,7 +462,7 @@ internal class OpenMenu(
 }
 
 private val LocalOpenMenu = staticCompositionLocalOf {
-    OpenMenu(QuvenGlassMenuMetrics.Phone, QuvenGlassMenuColors.Standard, TextStyle.Default, MenuTouch()) {}
+    OpenMenu(QuvenGlassMenuMetrics.Phone, QuvenGlassMenuColors.Standard, TextStyle.Default, MenuTouch(ScrollState(0))) {}
 }
 
 // Places the entries from the foot up, the first at the foot, as a menu rising from its control lists them.

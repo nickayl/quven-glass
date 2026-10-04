@@ -1,11 +1,14 @@
 package tv.quven.glass
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -18,13 +21,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.first
@@ -72,8 +82,10 @@ public val LocalQuvenGlassMenuHost: ProvidableCompositionLocal<QuvenGlassMenuHos
 
 /**
  * Draws the menu a screen has open above everything drawn before it, grown out of its control as one piece of glass,
- * over a layer that closes it on a press elsewhere and dims nothing; Back closes it too. Place it last in the screen's
- * root, where it fills the window, and provide [state] through [LocalQuvenGlassMenuHost] to the content.
+ * over a layer that closes it on a press elsewhere and dims nothing; Back closes it too. A menu too tall for the host
+ * stands 16 dp inside its edges and scrolls. Opened from the keys, the menu takes the focus to its first row and keeps
+ * it among its rows until it closes, when the focus returns to its control. Place it last in the screen's root, where
+ * it fills the window, and provide [state] through [LocalQuvenGlassMenuHost] to the content.
  *
  * @param state The menus the screen opens.
  * @param modifier Modifier applied to the host, which fills its parent.
@@ -97,11 +109,23 @@ public fun QuvenGlassMenuHost(
 ) {
     val request = state.shown ?: return
     var origin by remember { mutableStateOf(Offset.Zero) }
+    val inputMode = LocalInputModeManager.current
+    val menuFocus = remember(request) { FocusRequester() }
+    var holdsFocus by remember(request) { mutableStateOf(false) }
     LaunchedEffect(request) {
         snapshotFlow { request.expanded || request.morph.isShown }.first { !it }
         state.release(request)
     }
-    Box(modifier.fillMaxSize().onPlaced { origin = it.positionInWindow() }) {
+    // A menu opened from the keys takes the focus to its first row, and hands it back to its control as it closes.
+    LaunchedEffect(request, request.expanded) {
+        if (request.expanded && inputMode.inputMode == InputMode.Keyboard) {
+            withFrameNanos {}
+            menuFocus.requestFocus()
+        } else if (!request.expanded && holdsFocus && request.morph.anchorInWindow != null) {
+            request.morph.anchorFocus.requestFocus()
+        }
+    }
+    BoxWithConstraints(modifier.fillMaxSize().onPlaced { origin = it.positionInWindow() }) {
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
@@ -124,7 +148,12 @@ public fun QuvenGlassMenuHost(
             face = request.face,
         ) {
             QuvenGlassMenu(
-                request.menuModifier,
+                request.menuModifier
+                    .focusRequester(menuFocus)
+                    .onFocusChanged { holdsFocus = it.hasFocus }
+                    .focusProperties { onExit = { if (request.expanded) cancelFocusChange() } }
+                    .focusGroup()
+                    .heightIn(max = maxHeight - MenuEdge * 2),
                 metrics = metrics,
                 colors = colors,
                 textStyle = textStyle,
@@ -290,4 +319,7 @@ private suspend fun PointerInputScope.dismissOnPress(onDismiss: () -> Unit) = aw
     } while (event.changes.any { it.pressed })
 }
 
-private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = 16.dp)
+// The least room between a menu and the host's edges, which also caps a long menu's height.
+private val MenuEdge = 16.dp
+
+private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)

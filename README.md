@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.4.0")
+    implementation("tv.quven.glass:glass:2.4.1")
 }
 ```
 
@@ -203,7 +203,9 @@ The menu closes itself once a row is chosen, on Back and on a press anywhere els
 down from it when the room below is enough; otherwise it rises, and an untitled menu then lists its rows from the foot
 up, so the first one stays nearest the finger. A menu holding a choice makes room for the check before every row, as
 iOS does. `QuvenGlassMenuChoice` with `role = Role.Checkbox` is a toggle, `enabled = false` greys a row out, and
-`QuvenGlassDropdown` takes the place of the box when you'd rather hold the open state yourself.
+`QuvenGlassDropdown` takes the place of the box when you'd rather hold the open state yourself. Opened from a keyboard
+or a TV remote, the menu moves the focus to its first row, keeps it there until it closes and then hands it back to its
+button. A menu too tall for the screen stays 16 dp inside its edges and scrolls, and a swipe over it only scrolls it.
 
 A system menu doesn't dim what's behind it, and neither does the host. Its rim is brighter than a bar's, which is what
 `rimGlow` draws. Give the button that opens it the same `pressGlow`: it lights up under the finger, and the menu's glass

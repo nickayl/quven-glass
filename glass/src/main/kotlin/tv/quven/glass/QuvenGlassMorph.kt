@@ -14,28 +14,32 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.lerp
+import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.RenderEffect
-import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
@@ -46,8 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.isSpecified
-import androidx.compose.ui.layout.boundsInWindow
-import androidx.compose.ui.layout.onGloballyPositioned
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -146,6 +149,9 @@ public class QuvenGlassMorphState {
     /** Gets a value indicating whether the open glass covers its control and rises above it. */
     internal var rises: Boolean by mutableStateOf(false)
 
+    /** Gets the requester of the control's focus, which a menu opened from the keys hands back as it closes. */
+    internal val anchorFocus: FocusRequester = FocusRequester()
+
     /**
      * Gets a value indicating whether the glass is on screen: opening, open or closing. The control it grows from hides
      * meanwhile, as the glass takes its place; the spring's swing past the closed state still counts as closing.
@@ -155,13 +161,13 @@ public class QuvenGlassMorphState {
 
 /**
  * Marks the control a morph grows from, so a glass that opens elsewhere in the window, as a menu in a
- * [QuvenGlassMenuHost] does, grows out of it.
+ * [QuvenGlassMenuHost] does, grows out of it, and the focus a menu opened from the keys took returns to it.
  *
  * @param state The opening the control belongs to.
  * @return The decorated modifier.
  */
 public fun Modifier.quvenGlassAnchor(state: QuvenGlassMorphState): Modifier =
-    onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }
+    onGloballyPositioned { state.anchorInWindow = it.boundsInWindow() }.focusRequester(state.anchorFocus)
 
 /**
  * Creates and remembers a [QuvenGlassMorphState].
@@ -261,7 +267,8 @@ public fun QuvenGlassMorph(
         if (!expanded && !state.isShown) return@Layout layout(space.width, space.height) {}
         val target = placement.place(IntSize(panel.width, panel.height), anchor.toIntRectRounded(), space, this)
         val open = Rect(Offset(target.x.toFloat(), target.y.toFloat()), Size(panel.width.toFloat(), panel.height.toFloat()))
-        state.rises = open.top < anchor.top && open.bottom >= anchor.bottom
+        // A glass rises when it ends at its control's foot; one held inside the space past its control does not.
+        state.rises = open.top < anchor.top && abs(open.bottom - anchor.bottom) < 1f
         val progress = state.progress.value
         val glass = if (reduceMotion) open else lerp(anchor, open, progress)
         frame.update(glass, open, if (reduceMotion) cornerRadius.toPx() else morphRadius(glass.size, cornerRadius.toPx(), progress))

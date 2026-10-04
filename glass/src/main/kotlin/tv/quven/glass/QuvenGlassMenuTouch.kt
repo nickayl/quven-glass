@@ -1,5 +1,6 @@
 package tv.quven.glass
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.getValue
@@ -15,10 +16,12 @@ import androidx.compose.ui.layout.LayoutCoordinates
 
 /**
  * What a finger does on a glass menu and what the menu holds: its rows, how many of them are pressed, the row a sliding
- * finger lights, and how many rows carry a glyph or a check and how many sections a title, which set where the names
- * stand and the order the entries are listed in.
+ * finger lights, how many rows carry a glyph or a check and how many sections a title, which set where the names stand
+ * and the order the entries are listed in, and whether the menu is taller than its room and scrolls.
+ *
+ * @param scroll The menu's scrolling.
  */
-internal class MenuTouch {
+internal class MenuTouch(private val scroll: ScrollState) {
     var pressedRows by mutableIntStateOf(0)
     var choices by mutableIntStateOf(0)
     var glyphs by mutableIntStateOf(0)
@@ -27,6 +30,10 @@ internal class MenuTouch {
     var isScrubbing by mutableStateOf(false)
     var menu: LayoutCoordinates? = null
     val rows = mutableListOf<MenuRow>()
+
+    /** Gets a value indicating whether the menu is taller than its room and scrolls. */
+    val scrolls: Boolean
+        get() = scroll.maxValue > 0
 
     /** Gets a value indicating whether a row is pressed or a finger slides along the menu. */
     val isTouched: Boolean
@@ -59,13 +66,15 @@ internal class MenuRow(val action: () -> Unit) {
 
 /**
  * Follows a finger on the menu: once it slides past the touch slop the menu takes the gesture from its rows, lights
- * the row under the finger, ticks as it reaches another and chooses the row it lifts over.
+ * the row under the finger, ticks as it reaches another and chooses the row it lifts over. A menu that scrolls leaves
+ * the gesture to its scrolling, as a system menu does.
  *
  * @param touch The menu the finger is on.
  * @param haptics The feedback that ticks.
  */
 internal suspend fun PointerInputScope.scrubRows(touch: MenuTouch, haptics: HapticFeedback) = awaitEachGesture {
     val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+    if (touch.scrolls) return@awaitEachGesture
     var reached = touch.rowAt(down.position)
     try {
         while (true) {
