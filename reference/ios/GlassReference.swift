@@ -996,7 +996,7 @@ enum Exhibit: CaseIterable, Identifiable {
         case .popover: "A panel of glass that grows out of the control it belongs to and points at it."
         case .search: "The Search circle opens into a field of glass along the bar."
         case .minimizingTabBar:
-            "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back as it scrolls up."
+            "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back at the top or when pressed."
         case .bottomAccessory: "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar."
         case .scrollEdge: "Content fades and blurs as it passes under the bars at the top and bottom of a page."
         case .clearAndTinted: "The clear variant, which lets bright media through, and glass tinted with a colour."
@@ -1010,7 +1010,8 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover, .search: .ready
+             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover, .search,
+             .minimizingTabBar: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }

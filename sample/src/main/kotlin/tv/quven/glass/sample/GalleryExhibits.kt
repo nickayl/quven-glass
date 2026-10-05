@@ -46,6 +46,14 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import tv.quven.glass.rememberQuvenGlassBarMinimizer
+import tv.quven.glass.QuvenGlassMinimizingBar
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.getValue
@@ -307,14 +315,14 @@ internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
         searching = searching,
         onSearch = { if (!searching) searchLit = true },
         onEndSearch = { searching = false },
-        tabsWidth = PhoneTabsWidth,
+        tabsWidth = phoneTabsWidth(3),
         height = PhoneBarHeight,
         gap = tuning.barGap.dp,
-        heldCentre = phoneGlyphCentre(held),
+        heldCentre = phoneGlyphCentre(held, 3),
         modifier = Modifier.align(Alignment.BottomCenter),
         style = tuning.style,
         reduceMotion = tuning.reduceMotion,
-        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 3, entrySize = PhoneEntrySize) },
+        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 3, entrySize = phoneEntrySize(3)) },
         tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching, tuning = tuning) },
         heldGlyph = { SampleHeldGlyph(held, selected = !searching) },
         searchGlyph = { SampleSearchGlyph(selected = searchLit) },
@@ -339,6 +347,52 @@ private const val SearchOpenDelayMillis = 215L
 
 /** How long Search stays lit as chosen once the field opens, before its glyph fades back to the field's colour. */
 private const val SearchLitMillis = 50L
+
+/**
+ * Draws a phone's bar of four entries that minimizes while the stage scrolls down, and grows back when the stage returns
+ * to its top or the minimized bar is pressed, as the reference's tab bar does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.MinimizingTabBarExhibit(tuning: SampleTuning) {
+    var held by remember { mutableIntStateOf(0) }
+    val minimizer = rememberQuvenGlassBarMinimizer()
+    val stage = LocalStageScroll.current
+    DisposableEffect(stage, minimizer) {
+        stage.follower = minimizer.nestedScrollConnection
+        onDispose { stage.follower = null }
+    }
+    QuvenGlassMinimizingBar(
+        minimized = minimizer.minimized,
+        onExpand = minimizer::expand,
+        tabsWidth = phoneTabsWidth(4),
+        height = PhoneBarHeight,
+        heldCentre = phoneGlyphCentre(held, 4),
+        modifier = Modifier.align(Alignment.BottomCenter).wrapContentWidth(unbounded = true),
+        style = tuning.style,
+        reduceMotion = tuning.reduceMotion,
+        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 4, entrySize = phoneEntrySize(4)) },
+        tabsFace = { SampleTabsFace(count = 4, held = held, selected = true, tuning = tuning) },
+        heldGlyph = { SampleHeldGlyph(held, selected = true) },
+    )
+}
+
+/** Relays the scrolling of the stage's content to the exhibit that follows it, if any. */
+internal class StageScroll : NestedScrollConnection {
+
+    /** Gets or sets the connection the scrolling is handed to. */
+    var follower: NestedScrollConnection? = null
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset =
+        follower?.onPostScroll(consumed, available, source) ?: Offset.Zero
+
+    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity =
+        follower?.onPostFling(consumed, available) ?: Velocity.Zero
+}
+
+/** Provides the stage's scrolling to its exhibit. */
+internal val LocalStageScroll: ProvidableCompositionLocal<StageScroll> = staticCompositionLocalOf { StageScroll() }
 
 /**
  * Draws a button that opens a popover pointing at it, as the reference opens Apple's.

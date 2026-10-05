@@ -5,7 +5,6 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -19,18 +18,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
@@ -88,23 +81,29 @@ public fun QuvenGlassSearchMorph(
 ) {
     val progress = remember { Animatable(if (searching) 1f else 0f) }
     LaunchedEffect(searching, reduceMotion) {
-        progress.animateTo(if (searching) 1f else 0f, if (reduceMotion) tween(ReducedMotionFadeMillis) else MorphSpring)
+        progress.animateTo(if (searching) 1f else 0f, if (reduceMotion) tween(ReducedMotionFadeMillis) else BarMorphSpring)
     }
     val density = LocalDensity.current
     val frame = remember(searching, tabsWidth, height, gap, density) {
-        val sizes = with(density) { SearchMorphSizes(tabsWidth.toPx(), height.toPx(), gap.toPx(), SearchInset.toPx(), NearGap.toPx()) }
+        val sizes = with(density) { SearchMorphSizes(tabsWidth.toPx(), height.toPx(), gap.toPx(), BarSinkInset.toPx(), NearGap.toPx()) }
         return@remember { searchMorphFrame(progress.value, opening = searching, sizes) }
     }
     val item = remember(style) { style.forBarItems() }
     QuvenGlassContainer(modifier, style = style, spacing = JoinSpacing, backdrop = backdrop) {
         SearchMorphLayout(frame) {
-            if (progress.value == 0f && !searching) {
-                tabs()
-            } else {
-                BarItemButton(onEndSearch, item, backdrop, reduceMotion) {
-                    FoldingFace(frame, { progress.value }, heldCentre, tabsFace, heldGlyph)
-                }
-            }
+            FoldingTabs(
+                atRest = progress.value == 0f && !searching,
+                onPress = onEndSearch,
+                material = item,
+                backdrop = backdrop,
+                reduceMotion = reduceMotion,
+                fold = { frame().fold },
+                progress = { progress.value },
+                heldCentre = heldCentre,
+                tabs = tabs,
+                tabsFace = tabsFace,
+                heldGlyph = heldGlyph,
+            )
             BarItemButton(onSearch, item, backdrop, reduceMotion) {
                 Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
@@ -133,21 +132,11 @@ internal class SearchMorphSizes(val tabsWidth: Float, val height: Float, val gap
 /**
  * One frame of a [QuvenGlassSearchMorph], in the morph's own pixels.
  *
- * @property tabs The capsule of tabs, folding or folded.
+ * @property fold The capsule of tabs, folding or folded.
  * @property field The Search circle, stretching or stretched into the field.
- * @property facesSize The size the tabs' faces are laid out at, the resting capsule's.
- * @property facesScale The scale the tabs' faces are drawn at from their start.
- * @property facesAlpha The opacity of the tabs' faces.
  * @property fieldAlpha The opacity of the field after the Search glyph.
  */
-internal class SearchMorphFrame(
-    val tabs: Rect,
-    val field: Rect,
-    val facesSize: Size,
-    val facesScale: Float,
-    val facesAlpha: Float,
-    val fieldAlpha: Float,
-)
+internal class SearchMorphFrame(val fold: TabsFold, val field: Rect, val fieldAlpha: Float)
 
 /**
  * Returns the frame [progress] of the way from the resting bar to the field, as Apple's tab bar draws it: opening, the
@@ -162,113 +151,28 @@ internal class SearchMorphFrame(
  */
 internal fun searchMorphFrame(progress: Float, opening: Boolean, sizes: SearchMorphSizes): SearchMorphFrame {
     val width = sizes.tabsWidth + sizes.gap + sizes.height
-    val sunk = sizes.inset * progress.coerceIn(0f, 1f)
-    val tall = sizes.height - sunk * 2f
-    val tabsEnd = max(sunk + tall, lerp(sizes.tabsWidth, sizes.height, progress) - sunk)
-    val searchGap = sizes.inset * 2f
     val back = 1f - progress
+    val fold = tabsFold(
+        progress,
+        sizes.tabsWidth,
+        sizes.height,
+        sizes.inset,
+        scalesFaces = !opening,
+        facesAlpha = if (opening) 1f - smoothstep(0f, FaceHideEnd, progress) else smoothstep(FaceShowStart, FaceShowEnd, back),
+    )
+    val searchGap = sizes.inset * 2f
     val apart = if (opening) {
         lerp(sizes.gap, searchGap, progress)
     } else {
         lerp(lerp(searchGap, sizes.nearGap, smoothstep(0f, GapCollapseEnd, back)), sizes.gap, smoothstep(GapRestoreStart, 1f, back))
     }
-    val fieldStart = min(tabsEnd + apart, width - sunk - tall)
+    val tabs = fold.tabs
+    val fieldStart = min(tabs.right + apart, width - tabs.top - tabs.height)
     return SearchMorphFrame(
-        tabs = Rect(sunk, sunk, tabsEnd, sunk + tall),
-        field = Rect(fieldStart, sunk, width - sunk, sunk + tall),
-        facesSize = Size(sizes.tabsWidth, sizes.height),
-        facesScale = if (opening) 1f else ((tabsEnd - sunk) / sizes.tabsWidth).coerceIn(0f, 1f),
-        facesAlpha = if (opening) 1f - smoothstep(0f, FaceHideEnd, progress) else smoothstep(FaceShowStart, FaceShowEnd, back),
+        fold = fold,
+        field = Rect(fieldStart, tabs.top, width - tabs.top, tabs.bottom),
         fieldAlpha = if (opening) smoothstep(FieldShowStart, FieldShowEnd, progress) else 1f - smoothstep(0f, FieldHideEnd, back),
     )
-}
-
-/**
- * Draws a pressable item of the bar, a capsule of glass that grows and lights under the finger as the tab bar's items do.
- *
- * @param onClick Invoked when the item is pressed.
- * @param material The item's material.
- * @param backdrop The backdrop the glass stands over.
- * @param reduceMotion Whether motion is reduced.
- * @param content Draws the item's content, filling it.
- */
-@Composable
-private fun BarItemButton(
-    onClick: () -> Unit,
-    material: QuvenGlassStyle,
-    backdrop: QuvenGlassBackdrop?,
-    reduceMotion: Boolean,
-    content: @Composable () -> Unit,
-) {
-    GlassButton(
-        onClick = onClick,
-        modifier = Modifier,
-        shape = CircleShape,
-        material = material,
-        prominent = false,
-        ink = Color.White,
-        lightInk = Color.Black,
-        contentPadding = PaddingValues(0.dp),
-        enabled = true,
-        backdrop = backdrop,
-        reduceMotion = reduceMotion,
-        interactionSource = null,
-    ) { content() }
-}
-
-/**
- * Draws the folding tabs' faces where they stood at rest, fading and, as the tabs unfold, scaled with their capsule, and
- * the held tab's glyph travelling between its tab among them and the circle the tabs fold into at the capsule's start.
- *
- * @param frame Reads the morph's frame.
- * @param progress Reads how far the bar has turned into a field.
- * @param heldCentre The centre of the held tab's glyph in the resting capsule.
- * @param tabsFace Draws the tabs' faces.
- * @param heldGlyph Draws the held tab's glyph.
- */
-@Composable
-private fun FoldingFace(
-    frame: () -> SearchMorphFrame,
-    progress: () -> Float,
-    heldCentre: DpOffset,
-    tabsFace: @Composable RowScope.() -> Unit,
-    heldGlyph: @Composable BoxScope.() -> Unit,
-) {
-    val origin = if (LocalLayoutDirection.current == LayoutDirection.Ltr) FacesOrigin else FacesOriginRtl
-    Layout(
-        {
-            Row(
-                Modifier.graphicsLayer {
-                    val shown = frame()
-                    alpha = shown.facesAlpha
-                    scaleX = shown.facesScale
-                    scaleY = shown.facesScale
-                    transformOrigin = origin
-                },
-                verticalAlignment = Alignment.CenterVertically,
-                content = tabsFace,
-            )
-            Box(contentAlignment = Alignment.Center, content = heldGlyph)
-        },
-        Modifier.fillMaxSize().clip(CircleShape),
-    ) { measurables, constraints ->
-        val shown = frame()
-        val width = constraints.maxWidth
-        val tall = constraints.maxHeight
-        val sunk = shown.tabs.top
-        val faces = measurables[0].measure(fixed(shown.facesSize.width, shown.facesSize.height))
-        val glyph = measurables[1].measure(Constraints.fixed(tall, tall))
-        // The glyph leaves the held tab where the faces stand, scaled with them, for the circle at the capsule's start.
-        val p = progress()
-        val scale = shown.facesScale
-        val facesMiddle = shown.facesSize.height / 2f
-        val centreX = lerp(heldCentre.x.toPx() * scale - sunk, tall / 2f, p)
-        val centreY = lerp(facesMiddle + (heldCentre.y.toPx() - facesMiddle) * scale - sunk, tall / 2f, p)
-        layout(width, tall) {
-            faces.placeRelative(-sunk.roundToInt(), -sunk.roundToInt())
-            glyph.placeRelative((centreX - tall / 2f).roundToInt(), (centreY - tall / 2f).roundToInt())
-        }
-    }
 }
 
 /**
@@ -281,18 +185,17 @@ private fun FoldingFace(
 private fun SearchMorphLayout(frame: () -> SearchMorphFrame, content: @Composable () -> Unit) {
     Layout(content) { measurables, constraints ->
         val shown = frame()
-        val folding = measurables[0].measure(fixed(shown.tabs.width, shown.tabs.height))
+        val tabs = shown.fold.tabs
+        val folding = measurables[0].measure(fixed(tabs.width, tabs.height))
         val stretching = measurables[1].measure(fixed(shown.field.width, shown.field.height))
-        val width = shown.field.right + shown.tabs.top
-        val height = shown.tabs.bottom + shown.tabs.top
+        val width = shown.field.right + tabs.top
+        val height = tabs.bottom + tabs.top
         layout(constraints.constrainWidth(width.roundToInt()), constraints.constrainHeight(height.roundToInt())) {
-            folding.placeRelative(shown.tabs.left.roundToInt(), shown.tabs.top.roundToInt())
+            folding.placeRelative(tabs.left.roundToInt(), tabs.top.roundToInt())
             stretching.placeRelative(shown.field.left.roundToInt(), shown.field.top.roundToInt())
         }
     }
 }
-
-private fun fixed(width: Float, height: Float): Constraints = Constraints.fixed(width.roundToInt(), height.roundToInt())
 
 /**
  * Pads the start of the content by half of what its height leaves around [room], so a glyph that wide stays centred in a
@@ -308,12 +211,8 @@ private fun Modifier.startPaddingFromHeight(room: Dp): Modifier = layout { measu
 }
 
 // Measured on the system's tab bar on an iPhone.
-private val MorphSpring = spring<Float>(dampingRatio = 0.82f, stiffness = 380f)
-private val SearchInset = 7.25.dp
 private val NearGap = 4.dp
 private val JoinSpacing = 6.dp
-private val FacesOrigin = TransformOrigin(0f, 0.5f)
-private val FacesOriginRtl = TransformOrigin(1f, 0.5f)
 private val GlyphRoom = 24.dp
 private val GlyphGap = 6.dp
 private const val FaceHideEnd = 0.45f

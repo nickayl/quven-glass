@@ -32,6 +32,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -244,12 +245,14 @@ private fun ExhibitPage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifi
 @Composable
 private fun ExhibitStage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifier) {
     val backdrop = rememberQuvenGlassBackdrop()
+    val scroll = remember { StageScroll() }
     val menus = rememberQuvenGlassMenuHostState()
     val metrics = if (LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp) QuvenGlassMenuMetrics.Tablet else QuvenGlassMenuMetrics.Phone
     Box(modifier.clip(StageShape)) {
-        SampleBackdropContent(Modifier.fillMaxSize().quvenGlassSource(backdrop))
+        SampleBackdropContent(Modifier.fillMaxSize().nestedScroll(scroll).quvenGlassSource(backdrop))
         CompositionLocalProvider(
             LocalQuvenGlassBackdrop provides backdrop.takeIf { tuning.liquid },
+            LocalStageScroll provides scroll,
             LocalQuvenGlassMenuHost provides menus,
         ) {
             Box(Modifier.fillMaxSize().padding(StageInset)) {

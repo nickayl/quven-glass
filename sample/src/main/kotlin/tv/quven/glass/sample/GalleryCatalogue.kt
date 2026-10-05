@@ -142,9 +142,9 @@ internal val Exhibits: List<Exhibit> = listOf(
     ) { SearchExhibit(it) },
     Exhibit(
         "Minimizing tab bar",
-        "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back as it scrolls up.",
-        ExhibitStatus.InDevelopment,
-    ),
+        "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back at the top or when pressed.",
+        ExhibitStatus.Ready,
+    ) { MinimizingTabBarExhibit(it) },
     Exhibit(
         "Bottom accessory",
         "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar.",

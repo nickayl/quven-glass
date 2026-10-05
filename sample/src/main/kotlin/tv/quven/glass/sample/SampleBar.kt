@@ -203,25 +203,41 @@ private val GlyphSize = 24.dp
 private const val SearchFadeMillis = 100
 private val LabelLine = 16.sp
 
-/** The size of a named entry on a phone's bar, as the reference's tab bar sizes it on an iPhone. */
-internal val PhoneEntrySize: DpSize = DpSize(92.dp, 54.dp)
+/**
+ * Returns the width of a phone bar's capsule of [count] entries, as the reference's tab bar sizes it on an iPhone: 288 dp
+ * for three entries beside Search, 354 for four alone.
+ *
+ * @param count The number of entries, three or four.
+ * @return The width.
+ */
+internal fun phoneTabsWidth(count: Int): Dp = if (count == 3) 288.dp else 354.dp
 
-/** The width of a phone bar's capsule of three entries, as its track lays them out. */
-internal val PhoneTabsWidth: Dp = PhoneEntrySize.width * 3 + TrackGap * 2 + TrackInset * 2
+/**
+ * Returns the size of an entry in a phone bar's capsule of [count] entries.
+ *
+ * @param count The number of entries.
+ * @return The size.
+ */
+internal fun phoneEntrySize(count: Int): DpSize =
+    DpSize((phoneTabsWidth(count) - TrackInset * 2 - TrackGap * (count - 1)) / count, PhoneBarHeight - TrackInset * 2)
 
 /** The height of a phone's bar, the side of its Search circle. */
-internal val PhoneBarHeight: Dp = PhoneEntrySize.height + TrackInset * 2
+internal val PhoneBarHeight: Dp = 62.dp
 
 /**
  * Returns the centre of an entry's glyph in a phone bar's capsule, a glyph and a label stacked in the middle of the entry.
  *
  * @param index The index of the entry.
+ * @param count The number of entries.
  * @return The centre, from the capsule's top start corner.
  */
-internal fun phoneGlyphCentre(index: Int): DpOffset = DpOffset(
-    TrackInset + (PhoneEntrySize.width + TrackGap) * index + PhoneEntrySize.width / 2,
-    TrackInset + (PhoneEntrySize.height - GlyphSize - LabelLine.value.dp) / 2 + GlyphSize / 2,
-)
+internal fun phoneGlyphCentre(index: Int, count: Int): DpOffset {
+    val entry = phoneEntrySize(count)
+    return DpOffset(
+        TrackInset + (entry.width + TrackGap) * index + entry.width / 2,
+        TrackInset + (entry.height - GlyphSize - LabelLine.value.dp) / 2 + GlyphSize / 2,
+    )
+}
 
 /**
  * Draws the faces of the first [count] entries where the capsule lays them out, without the held entry's glyph and

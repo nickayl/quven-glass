@@ -1,0 +1,134 @@
+package tv.quven.glass
+
+import android.app.Application
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.text.BasicText
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.runBlocking
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [34], qualifiers = "w500dp-h300dp")
+class QuvenGlassMinimizingBarTest {
+
+    @get:Rule
+    val compose = createComposeRule()
+
+    private var minimized by mutableStateOf(false)
+
+    @Test
+    fun contentScrollingDownPastTheThreshold_minimizesTheBar_andLessDoesNot() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+
+        scroll(minimizer, consumed = -15f)
+        assertFalse(minimizer.minimized)
+        scroll(minimizer, consumed = -6f)
+        assertTrue(minimizer.minimized)
+    }
+
+    @Test
+    fun scrollingBackUpAwayFromTheTop_keepsTheBarMinimized_andTheTopGrowsItBack() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+        scroll(minimizer, consumed = -40f)
+
+        scroll(minimizer, consumed = 30f)
+        assertTrue(minimizer.minimized)
+        scroll(minimizer, consumed = 10f, available = 5f)
+        assertFalse(minimizer.minimized)
+    }
+
+    @Test
+    fun aFlingThatReachesTheTop_growsTheBarBack() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+        scroll(minimizer, consumed = -40f)
+
+        runBlocking { minimizer.nestedScrollConnection.onPostFling(Velocity(0f, 900f), Velocity(0f, 300f)) }
+
+        assertFalse(minimizer.minimized)
+    }
+
+    @Test
+    fun minimized_theTabsSinkIntoACircleAtTheirStart_theirFacesShrunkAndGone() {
+        val fold = minimizingBarFold(1f, minimizing = true, tabsWidth = 354f, height = 62f, inset = 7.25f)
+
+        assertEquals(Rect(7.25f, 7.25f, 54.75f, 54.75f), fold.tabs)
+        assertEquals(47.5f / 354f, fold.facesScale, 0.001f)
+        assertEquals(0f, fold.facesAlpha)
+    }
+
+    @Test
+    fun aPressOnTheMinimizedBar_asksToGrowItBack() {
+        minimized = true
+        render()
+
+        compose.onNodeWithTag(HeldTag, useUnmergedTree = true).performClick()
+
+        compose.runOnIdle { assertFalse(minimized) }
+    }
+
+    @Test
+    fun atRest_theBarDrawsTheCallersTabs_atTheirWidth() {
+        render()
+
+        val tabs = compose.onNodeWithTag(TabsTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(TabsWidth, (tabs.right - tabs.left).value, 0.5f)
+        compose.onNodeWithTag(HeldTag, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    private fun scroll(minimizer: QuvenGlassBarMinimizer, consumed: Float, available: Float = 0f) {
+        minimizer.nestedScrollConnection.onPostScroll(Offset(0f, consumed), Offset(0f, available), NestedScrollSource.UserInput)
+    }
+
+    private fun render() {
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                Box(Modifier.fillMaxSize()) {
+                    QuvenGlassMinimizingBar(
+                        minimized = minimized,
+                        onExpand = { minimized = false },
+                        tabsWidth = TabsWidth.dp,
+                        height = 62.dp,
+                        heldCentre = DpOffset(46.dp, 23.dp),
+                        backdrop = null,
+                        tabs = { Box(Modifier.fillMaxSize().testTag(TabsTag)) },
+                        tabsFace = { BasicText("Tabs") },
+                        heldGlyph = { Box(Modifier.size(20.dp).testTag(HeldTag)) },
+                    )
+                }
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    private companion object {
+        const val TabsTag = "tabs"
+        const val HeldTag = "held"
+        const val TabsWidth = 354f
+    }
+}

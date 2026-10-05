@@ -87,28 +87,28 @@ class QuvenGlassSearchMorphTest {
         val rest = searchMorphFrame(0f, opening = true, Sizes)
         val search = searchMorphFrame(1f, opening = false, Sizes)
 
-        assertEquals(Rect(0f, 0f, TabsWidth, Height), rest.tabs)
+        assertEquals(Rect(0f, 0f, TabsWidth, Height), rest.fold.tabs)
         assertEquals(Rect(TabsWidth + Gap, 0f, TabsWidth + Gap + Height, Height), rest.field)
-        assertEquals(Rect(Inset, Inset, Height - Inset, Height - Inset), search.tabs)
+        assertEquals(Rect(Inset, Inset, Height - Inset, Height - Inset), search.fold.tabs)
         assertEquals(TabsWidth + Gap + Height - Inset, search.field.right, 0.01f)
-        assertEquals(Inset * 2, search.field.left - search.tabs.right, 0.01f)
+        assertEquals(Inset * 2, search.field.left - search.fold.tabs.right, 0.01f)
     }
 
     @Test
     fun opening_theRoomBetweenTheCapsulesGrows_andTheFacesKeepTheirSize() {
         val frame = searchMorphFrame(0.5f, opening = true, Sizes)
 
-        assertTrue(frame.field.left - frame.tabs.right > Gap)
-        assertEquals(1f, frame.facesScale)
+        assertTrue(frame.field.left - frame.fold.tabs.right > Gap)
+        assertEquals(1f, frame.fold.facesScale)
     }
 
     @Test
     fun closing_theCapsulesComeCloseEnoughToJoin_andTheFacesGrowWithTheirCapsule() {
         val frame = searchMorphFrame(0.6f, opening = false, Sizes)
 
-        assertEquals(NearGap, frame.field.left - frame.tabs.right, 0.01f)
-        assertEquals(frame.tabs.width / TabsWidth, frame.facesScale, 0.01f)
-        assertTrue(frame.facesScale < 1f)
+        assertEquals(NearGap, frame.field.left - frame.fold.tabs.right, 0.01f)
+        assertEquals(frame.fold.tabs.width / TabsWidth, frame.fold.facesScale, 0.01f)
+        assertTrue(frame.fold.facesScale < 1f)
         assertTrue(frame.fieldAlpha < 0.01f)
     }
 

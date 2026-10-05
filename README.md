@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.13.0")
+    implementation("tv.quven.glass:glass:2.14.0")
 }
 ```
 
@@ -143,6 +143,31 @@ QuvenGlassSearchMorph(
     heldGlyph = { Icon(Icons.Filled.Home, contentDescription = "Home") },
     searchGlyph = { Icon(Icons.Filled.Search, contentDescription = "Search") },
     field = { SearchField(query, onQueryChange = { query = it }) },
+)
+```
+
+## Minimizing the tab bar
+
+`QuvenGlassMinimizingBar` lets a phone's tab bar get out of the way while you read, the way iOS minimizes its tab bar on
+scrolling down, and it hands the screen back to the content without hiding which tab you're on. The capsule of tabs
+folds into a circle at its start that keeps the held tab's glyph, and the other faces shrink and fade as it goes.
+Scrolling up a little won't bring it back. The content has to reach its top, or you press the circle. Who decides when
+it folds? `rememberQuvenGlassBarMinimizer()` does, once you hand its `nestedScrollConnection` to the scrolling content,
+and you can call `expand()` yourself when a screen should open with the whole bar. The bar stays put.
+
+```kotlin
+val minimizer = rememberQuvenGlassBarMinimizer()
+LazyColumn(Modifier.nestedScroll(minimizer.nestedScrollConnection)) { items(titles) { Row(it) } }
+QuvenGlassMinimizingBar(
+    minimized = minimizer.minimized,
+    onExpand = minimizer::expand,
+    tabsWidth = 354.dp,
+    height = 62.dp,
+    heldCentre = DpOffset(46.dp, 23.dp),
+    modifier = Modifier.align(Alignment.BottomCenter),
+    tabs = { Tabs(held, onHold = { held = it }) },
+    tabsFace = { TabFaces(held) },
+    heldGlyph = { Icon(Icons.Filled.Home, contentDescription = "Home") },
 )
 ```
 
@@ -397,6 +422,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving |
 | Drag | The lens follows the finger and settles on the nearest option |
 | Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
+| Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
 | Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass turns towards white, the whole button alike, by about 1.05 times the mean luminance of what lies under it, within about 70 ms, and dies away over about 450 ms after release; a prominent button's tint lightens 1.65 times |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
