@@ -43,7 +43,13 @@ internal class GlassPress {
                         is PressInteraction.Press -> held++
                         is PressInteraction.Release, is PressInteraction.Cancel -> held = max(0, held - 1)
                     }
-                    launch { press.animateTo(if (held > 0) 1f else 0f, spec(held > 0)) }
+                    val pressed = held > 0
+                    launch {
+                        // A tap lifts before the press has risen; it still rises all the way before it falls, as the
+                        // system's glass lights fully under the briefest touch.
+                        if (!pressed && press.targetValue == 1f && press.value < 1f) press.animateTo(1f, spec(true))
+                        press.animateTo(if (pressed) 1f else 0f, spec(pressed))
+                    }
                 }
             }
         }

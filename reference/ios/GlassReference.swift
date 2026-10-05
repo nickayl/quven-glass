@@ -1,5 +1,6 @@
 import CoreImage
 import ReplayKit
+import CoreText
 import SwiftUI
 import UIKit
 
@@ -62,6 +63,9 @@ enum ReferenceLaunch {
     static let gap = CGFloat(value("GLASS_GAP") ?? 8)
     /// The name of the capture to save into Documents once the screen settles, or `nil` for none.
     static let capture = ProcessInfo.processInfo.environment["GLASS_CAPTURE"]
+    /// Whether the gallery records itself for the whole launch and follows the `RemoteCommand`s the Mac or a UI test
+    /// posts (`GLASS_REMOTE`), so one consent to record serves a whole session.
+    static let remote = ProcessInfo.processInfo.environment["GLASS_REMOTE"] != nil
     /// The seconds to record every frame for, while someone presses the bar, or `nil` for none.
     static let record = value("GLASS_RECORD")
     /// The part of the screen a recording keeps, in points from the top-left corner (`GLASS_REGION=x,y,w,h`); the bar
@@ -360,6 +364,36 @@ final class ScreenCapture: @unchecked Sendable {
 
 }
 
+/// The face the backdrop's text is drawn in, Inter, as the Android sample draws it, so the content under the glass is the
+/// same on both. The face is the app's own, its optical size pinned to its default instance as Android's.
+enum BackdropFont {
+    /// Returns Inter at a size and weight, or the system face where the bundled one is missing.
+    /// - Parameters:
+    ///   - size: The point size.
+    ///   - weight: The weight.
+    /// - Returns: The font.
+    static func inter(size: CGFloat, weight: UIFont.Weight = .regular) -> Font {
+        guard UIFont.fontNames(forFamilyName: "Inter").isEmpty == false else { return .system(size: size, weight: Font.Weight(weight)) }
+        let descriptor = UIFontDescriptor(fontAttributes: [
+            .family: "Inter",
+            .traits: [UIFontDescriptor.TraitKey.weight: weight],
+            UIFontDescriptor.AttributeName(rawValue: kCTFontOpticalSizeAttribute as String): "none",
+        ])
+        return Font(UIFont(descriptor: descriptor, size: size))
+    }
+}
+
+private extension Font.Weight {
+    init(_ weight: UIFont.Weight) {
+        switch weight {
+        case .black: self = .black
+        case .heavy: self = .heavy
+        case .bold: self = .bold
+        default: self = .regular
+        }
+    }
+}
+
 struct Header: View {
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -389,10 +423,11 @@ struct Header: View {
                 endPoint: .bottomTrailing
             )
             VStack(alignment: .leading, spacing: 0) {
-                Text("Quven Glass").font(.system(size: 56, weight: .black)).foregroundStyle(.white)
-                Text("Liquid Glass for Compose").font(.system(size: 22)).foregroundStyle(.white.opacity(0.85))
+                Text("Quven Glass").font(BackdropFont.inter(size: 48, weight: .black)).foregroundStyle(.white)
+                Text("Liquid Glass for Compose").font(BackdropFont.inter(size: 22)).foregroundStyle(.white.opacity(0.85))
             }
             .padding(24)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(height: 280)
     }
@@ -433,7 +468,7 @@ struct PosterCard: View {
                 )
             }
             Text(poster.title.uppercased())
-                .font(.system(size: 22, weight: .heavy))
+                .font(BackdropFont.inter(size: 22, weight: .heavy))
                 .foregroundStyle(poster.text)
                 .padding(12)
         }
@@ -449,7 +484,7 @@ struct TextBlock: View {
                 + "lifts its saturation. Over bright posters it darkens so the labels stay legible; over dark ones it stays "
                 + "clear. Scroll this text under the bar to see it bend."
         )
-        .font(.system(size: 20))
+        .font(BackdropFont.inter(size: 20))
         .lineSpacing(6)
         .foregroundStyle(Palette.textHigh)
         .frame(maxWidth: .infinity, alignment: .topLeading)
@@ -465,7 +500,7 @@ struct Bands: View {
         VStack(spacing: 0) {
             ZStack(alignment: .leading) {
                 Color.white
-                Text("A WHITE BAND").font(.system(size: 30, weight: .bold)).foregroundStyle(.black).padding(.leading, 24)
+                Text("A WHITE BAND").font(BackdropFont.inter(size: 30, weight: .bold)).foregroundStyle(.black).padding(.leading, 24)
             }
             .frame(height: 90)
             Canvas { context, size in
@@ -1050,16 +1085,106 @@ struct GalleryScreen: View {
         .background(Palette.ground)
         .preferredColorScheme(.dark)
         .task {
-            guard let name = ReferenceLaunch.capture, ReferenceLaunch.exhibit != nil else { return }
-            let screen = ScreenCapture()
-            guard await screen.start() else { return }
-            if let seconds = ReferenceLaunch.window {
-                await screen.keepWindow(named: name, seconds: seconds)
-            } else {
-                try? await Task.sleep(for: .seconds(1.5))
-                screen.save(named: name)
+            guard ReferenceLaunch.exhibit != nil else { return }
+            if ReferenceLaunch.remote {
+                await followRemote()
+            } else if let name = ReferenceLaunch.capture {
+                let screen = ScreenCapture()
+                guard await screen.start() else { return }
+                if let seconds = ReferenceLaunch.window {
+                    await screen.keepWindow(named: name, seconds: seconds)
+                } else {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    screen.save(named: name)
+                }
+                screen.stop()
             }
-            screen.stop()
+        }
+    }
+
+    /// Records the screen for as long as the gallery stands and follows each `RemoteCommand`; a capture is saved as
+    /// `remote-<n>.png`, a recording as `remote-<n>-window-000.png` onwards, and `remote-last.txt` names the latest.
+    private func followRemote() async {
+        let screen = ScreenCapture()
+        guard await screen.start() else { return }
+        var count = 0
+        for await command in RemoteCommand.stream() {
+            let name = "remote-\(count)"
+            switch command {
+            case .show(let exhibit):
+                chosen = exhibit
+                continue
+            case .save:
+                screen.save(named: name)
+                RemoteCommand.announce(name)
+            case .record(let seconds):
+                screen.beginRecording(region: RemoteCommand.region())
+                try? await Task.sleep(for: .seconds(seconds))
+                await ScreenCapture.write(screen.endRecording(), named: "\(name)-window")
+                RemoteCommand.announce("\(name)-window")
+            }
+            count += 1
+        }
+    }
+}
+
+/// A command the Mac or a UI test posts to the gallery as a Darwin notification, its name after `RemoteCommand.prefix`:
+/// `show.<exhibit>` (the exhibit's case, `show.clearAndTinted`), `save`, or `record.<seconds>` for 1 to 8 seconds of the
+/// region `RemoteCommand.region()` reads.
+enum RemoteCommand {
+    /// Shows the exhibit.
+    case show(Exhibit)
+    /// Saves the latest frame of the whole screen.
+    case save
+    /// Keeps every frame of `ReferenceLaunch.region` for the seconds given.
+    case record(Int)
+
+    /// The prefix of every command's notification name.
+    static let prefix = "tv.quven.glass.remote."
+    nonisolated(unsafe) private static var continuation: AsyncStream<RemoteCommand>.Continuation?
+
+    /// The commands by their names after the prefix.
+    private static let commands: [String: RemoteCommand] = {
+        var commands = ["save": RemoteCommand.save]
+        for exhibit in Exhibit.allCases { commands["show.\(String(describing: exhibit))"] = .show(exhibit) }
+        for seconds in 1...8 { commands["record.\(seconds)"] = .record(seconds) }
+        return commands
+    }()
+
+    /// Returns the region to record, in points: `remote-region.txt` (`x,y,width,height`) as the Mac last copied it into
+    /// Documents, or `ReferenceLaunch.region`.
+    static func region() -> CGRect {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let text = (try? String(contentsOf: documents.appendingPathComponent("remote-region.txt"), encoding: .utf8)) ?? ""
+        let parts = text.trimmingCharacters(in: .whitespacesAndNewlines).split(separator: ",").compactMap { Double($0) }
+        return parts.count == 4 ? CGRect(x: parts[0], y: parts[1], width: parts[2], height: parts[3]) : ReferenceLaunch.region
+    }
+
+    /// Writes `remote-last.txt`, naming the latest capture or recording, so the Mac knows what to copy.
+    static func announce(_ name: String) {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? name.write(to: documents.appendingPathComponent("remote-last.txt"), atomically: true, encoding: .utf8)
+    }
+
+    /// Returns the commands posted from now on.
+    static func stream() -> AsyncStream<RemoteCommand> {
+        AsyncStream { continuation in
+            Self.continuation = continuation
+            for name in commands.keys {
+                CFNotificationCenterAddObserver(
+                    CFNotificationCenterGetDarwinNotifyCenter(),
+                    nil,
+                    { _, _, name, _, _ in
+                        guard let full = name?.rawValue as String? else { return }
+                        if let command = RemoteCommand.commands[String(full.dropFirst(RemoteCommand.prefix.count))] {
+                            RemoteCommand.continuation?.yield(command)
+                        }
+                    },
+                    (RemoteCommand.prefix + name) as CFString,
+                    nil,
+                    .deliverImmediately
+                )
+            }
         }
     }
 }
@@ -1133,10 +1258,9 @@ struct ExhibitPage: View {
                     .background(Capsule().fill(exhibit.status.color.opacity(0.16)))
             }
             Text(exhibit.summary).font(.system(size: 15)).foregroundStyle(Palette.textMedium)
-            // The stage is the Android gallery's size, so an exhibit stands over the same content on both.
             ExhibitStage(exhibit: exhibit)
                 .id(exhibit)
-                .frame(width: StageSize.width, height: StageSize.height)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .padding(.top, 6)
         }
@@ -1167,9 +1291,6 @@ struct BackdropContent: View {
         .padding(.bottom, 140)
     }
 }
-
-/// The size of an exhibit's stage, in points, the Android gallery's in density-independent pixels.
-let StageSize = CGSize(width: 400, height: 600)
 
 /// Content that is hard for glass to stand over, scrolling under the exhibit.
 struct StageBackdrop: View {
@@ -1300,9 +1421,12 @@ struct ExhibitStage: View {
 /// Still glass of several sizes, thin and thick, round and a capsule.
 struct MaterialStage: View {
     var body: some View {
-        HStack(spacing: 28) {
-            ForEach([36, 51, 70, 100] as [CGFloat], id: \.self) { side in
-                Color.clear.frame(width: side, height: side).glassEffect(.regular, in: Circle())
+        // The circles over the capsule, so the whole exhibit stands inside the stage, as the Android sample's does.
+        VStack(spacing: 28) {
+            HStack(spacing: 28) {
+                ForEach([36, 51, 70, 100] as [CGFloat], id: \.self) { side in
+                    Color.clear.frame(width: side, height: side).glassEffect(.regular, in: Circle())
+                }
             }
             Color.clear.frame(width: 240, height: 62).glassEffect(.regular, in: Capsule())
         }

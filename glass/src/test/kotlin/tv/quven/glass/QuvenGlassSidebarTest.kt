@@ -45,9 +45,9 @@ class QuvenGlassSidebarTest {
         compose.waitForIdle()
 
         val bounds = compose.onNodeWithText(Title).getUnclippedBoundsInRoot()
-        assertEquals(7f, bounds.left.value, 0.5f)
-        assertEquals(7f, bounds.top.value, 0.5f)
-        assertEquals(221f, (bounds.right - bounds.left).value, 0.5f)
+        assertEquals(10f, bounds.left.value, 0.5f)
+        assertEquals(10f, bounds.top.value, 0.5f)
+        assertEquals(320f, (bounds.right - bounds.left).value, 0.5f)
     }
 
     @Test
@@ -55,6 +55,35 @@ class QuvenGlassSidebarTest {
         assertEquals(228, sidebarAway(0f, 228))
         assertEquals(114, sidebarAway(0.5f, 228))
         assertEquals(0, sidebarAway(1f, 228))
+    }
+
+    @Test
+    fun aSplitViewsDetail_standsBesideTheSidebar_andTakesTheWholeWidthOnceItIsHidden() {
+        shown = true
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                QuvenGlassSplitView(shown, Modifier.fillMaxSize(), sidebar = { BasicText(Title) }, detail = { BasicText(Detail, Modifier.fillMaxSize()) })
+            }
+        }
+        compose.waitForIdle()
+
+        assertEquals(330f, compose.onNodeWithText(Detail).getUnclippedBoundsInRoot().left.value, 0.5f)
+        assertEquals(10f, compose.onNodeWithText(Title).getUnclippedBoundsInRoot().left.value, 0.5f)
+
+        compose.runOnIdle { shown = false }
+        compose.waitForIdle()
+
+        assertEquals(0f, compose.onNodeWithText(Detail).getUnclippedBoundsInRoot().left.value, 0.5f)
+        assertEquals(800f, compose.onNodeWithText(Detail).getUnclippedBoundsInRoot().right.value, 0.5f)
+        compose.onNodeWithText(Title).assertDoesNotExist()
+    }
+
+    @Test
+    fun aSplitViewsDetail_followsTheSidebarsEndEdge() {
+        assertEquals(330, detailStart(1f, 330))
+        assertEquals(165, detailStart(0.5f, 330))
+        assertEquals(0, detailStart(0f, 330))
+        assertEquals(330, detailStart(1.04f, 330))
     }
 
     @Test
@@ -81,5 +110,6 @@ class QuvenGlassSidebarTest {
 
     private companion object {
         const val Title = "Library"
+        const val Detail = "Detail"
     }
 }

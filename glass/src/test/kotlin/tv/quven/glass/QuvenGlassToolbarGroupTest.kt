@@ -36,8 +36,10 @@ class QuvenGlassToolbarGroupTest {
         val material = QuvenGlassStyle.Standard.forToolbarItems()
 
         assertEquals(16.dp, material.pressExpansion)
+        assertEquals(0f, material.pressGlow)
         assertEquals(0f, material.pressLighten)
-        assertEquals(0.41f, material.touchLight, 0.001f)
+        assertEquals(0.5f, material.touchLight, 0.001f)
+        assertEquals(0.11f, material.pressWhite, 0.001f)
         assertEquals(45.dp, material.touchLightSpread)
     }
 

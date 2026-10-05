@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
@@ -19,13 +21,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -39,6 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.QuvenGlassContainer
@@ -47,12 +50,31 @@ import tv.quven.glass.rememberQuvenGlassAppearance
 
 private class BarEntry(val label: String, val icon: ImageVector)
 
+/**
+ * How a bar draws its entries.
+ *
+ * @property accent The colour of the chosen entry.
+ * @property glyph The size a glyph is drawn at, so a stock icon stands as large as the reference's symbol.
+ * @property label The size of a label.
+ * @property labelDrop How far a label stands below its place under the glyph.
+ */
+internal class BarLook(val accent: Color, val glyph: Dp, val label: TextUnit, val labelDrop: Dp)
+
+/** The reference's own bar, its symbols at 24 pt and its labels at 13, marked in the sample's accent. */
+internal val ReferenceBarLook = BarLook(SampleColors.Accent, 34.dp, 12.sp, 2.5.dp)
+
+/** The system's tab bar on an iPad, its symbols and labels smaller, marked in the system's blue of the dark appearance. */
+internal val SystemBarLook = BarLook(Color(0xFF0A84FF), 25.dp, 10.sp, 1.dp)
+
+/** The look the bars below draw their entries in. */
+internal val LocalBarLook = staticCompositionLocalOf { ReferenceBarLook }
+
 private val Entries = listOf(
     BarEntry("Home", Icons.Filled.Home),
-    BarEntry("Watch", Icons.Filled.PlayArrow),
+    BarEntry("Watch", PlayFill),
     BarEntry("Favorites", Icons.Filled.Star),
     BarEntry("Explore", Icons.Filled.Info),
-    BarEntry("More", Icons.Filled.MoreVert),
+    BarEntry("More", MoreHorizontal),
 )
 private val SearchEntry = BarEntry("Search", Icons.Filled.Search)
 private val EntrySize = DpSize(96.dp, 62.dp)
@@ -114,7 +136,7 @@ internal fun SampleTabs(held: Int, onHold: (Int) -> Unit, tuning: SampleTuning, 
 
 @Composable
 private fun EntryFace(entry: BarEntry, held: Boolean, showsLabel: Boolean, showsIcon: Boolean = true, onClick: (() -> Unit)? = null) {
-    val colour by animateColorAsState(if (held) SampleColors.Accent else SampleColors.TextHigh, label = "entryColour")
+    val colour by animateColorAsState(if (held) LocalBarLook.current.accent else SampleColors.TextHigh, label = "entryColour")
     Column(
         Modifier
             .fillMaxSize()
@@ -128,15 +150,18 @@ private fun EntryFace(entry: BarEntry, held: Boolean, showsLabel: Boolean, shows
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(entry.icon, contentDescription = entry.label, tint = colour, modifier = Modifier.size(GlyphSize).alpha(if (showsIcon) 1f else 0f))
+        Box(Modifier.size(GlyphSize), contentAlignment = Alignment.Center) {
+            Icon(entry.icon, contentDescription = entry.label, tint = colour, modifier = Modifier.requiredSize(LocalBarLook.current.glyph).alpha(if (showsIcon) 1f else 0f))
+        }
         if (showsLabel) {
             Text(
                 entry.label,
                 color = colour,
-                fontSize = 12.sp,
+                fontSize = LocalBarLook.current.label,
                 lineHeight = LabelLine,
                 fontWeight = if (held) FontWeight.SemiBold else FontWeight.Medium,
                 maxLines = 1,
+                modifier = Modifier.offset(y = LocalBarLook.current.labelDrop),
             )
         }
     }
@@ -177,18 +202,30 @@ internal fun SampleDensityTrack(held: Int, onHold: (Int) -> Unit, tuning: Sample
                 },
             contentAlignment = Alignment.Center,
         ) {
-            Canvas(Modifier.size(20.dp)) {
-                val cell = size.width / columns
-                for (row in 0 until columns) {
-                    for (column in 0 until columns) {
-                        drawRoundRect(
-                            colour,
-                            topLeft = Offset(column * cell + cell * 0.1f, row * cell + cell * 0.1f),
-                            size = Size(cell * 0.8f, cell * 0.8f),
-                            cornerRadius = CornerRadius(cell * 0.18f),
-                        )
-                    }
-                }
+            DensityGlyph(columns, colour, Modifier.size(20.dp))
+        }
+    }
+}
+
+/**
+ * Draws a density option's glyph: [columns] by [columns] rounded squares.
+ *
+ * @param columns The squares in a row and in a column.
+ * @param colour The squares' colour.
+ * @param modifier Modifier applied to the glyph.
+ */
+@Composable
+internal fun DensityGlyph(columns: Int, colour: Color, modifier: Modifier) {
+    Canvas(modifier) {
+        val cell = size.width / columns
+        for (row in 0 until columns) {
+            for (column in 0 until columns) {
+                drawRoundRect(
+                    colour,
+                    topLeft = Offset(column * cell + cell * 0.1f, row * cell + cell * 0.1f),
+                    size = Size(cell * 0.8f, cell * 0.8f),
+                    cornerRadius = CornerRadius(cell * 0.18f),
+                )
             }
         }
     }
@@ -204,35 +241,43 @@ private const val SearchFadeMillis = 100
 private val LabelLine = 16.sp
 
 /**
- * Returns the width of a phone bar's capsule of [count] entries, as the reference's tab bar sizes it on an iPhone: 288 dp
- * for three entries beside Search, 354 for four alone.
+ * Returns the width of a phone bar's capsule of [count] entries, as the reference's tab bar sizes it: on an iPhone it fills
+ * the bar, 288 dp for three entries beside Search and 354 for four alone; on an iPad it hugs its entries, 257.5 and 336.
  *
  * @param count The number of entries, three or four.
+ * @param tablet Whether the bar stands on a tablet.
  * @return The width.
  */
-internal fun phoneTabsWidth(count: Int): Dp = if (count == 3) 288.dp else 354.dp
+internal fun phoneTabsWidth(count: Int, tablet: Boolean = false): Dp =
+    if (tablet) (if (count == 3) 257.5.dp else 336.dp) else (if (count == 3) 288.dp else 354.dp)
 
 /**
  * Returns the size of an entry in a phone bar's capsule of [count] entries.
  *
  * @param count The number of entries.
+ * @param tablet Whether the bar stands on a tablet.
  * @return The size.
  */
-internal fun phoneEntrySize(count: Int): DpSize =
-    DpSize((phoneTabsWidth(count) - TrackInset * 2 - TrackGap * (count - 1)) / count, PhoneBarHeight - TrackInset * 2)
+internal fun phoneEntrySize(count: Int, tablet: Boolean = false): DpSize =
+    DpSize((phoneTabsWidth(count, tablet) - TrackInset * 2 - TrackGap * (count - 1)) / count, PhoneBarHeight - TrackInset * 2)
 
 /** The height of a phone's bar, the side of its Search circle. */
 internal val PhoneBarHeight: Dp = 62.dp
+
+/** The room between a phone's bar and the start, end and bottom edges of the reference's stage on an iPad. */
+internal val PhoneBarMargin: Dp = 10.dp
+internal val PhoneBarBottom: Dp = 11.dp
 
 /**
  * Returns the centre of an entry's glyph in a phone bar's capsule, a glyph and a label stacked in the middle of the entry.
  *
  * @param index The index of the entry.
  * @param count The number of entries.
+ * @param tablet Whether the bar stands on a tablet.
  * @return The centre, from the capsule's top start corner.
  */
-internal fun phoneGlyphCentre(index: Int, count: Int): DpOffset {
-    val entry = phoneEntrySize(count)
+internal fun phoneGlyphCentre(index: Int, count: Int, tablet: Boolean = false): DpOffset {
+    val entry = phoneEntrySize(count, tablet)
     return DpOffset(
         TrackInset + (entry.width + TrackGap) * index + entry.width / 2,
         TrackInset + (entry.height - GlyphSize - LabelLine.value.dp) / 2 + GlyphSize / 2,
@@ -274,8 +319,8 @@ internal fun RowScope.SampleTabsFace(count: Int, held: Int, selected: Boolean, t
 @Composable
 internal fun SampleHeldGlyph(held: Int, selected: Boolean) {
     val entry = Entries[held]
-    val colour by animateColorAsState(if (selected) SampleColors.Accent else SampleColors.TextHigh, label = "heldColour")
-    Icon(entry.icon, contentDescription = entry.label, tint = colour, modifier = Modifier.size(GlyphSize))
+    val colour by animateColorAsState(if (selected) LocalBarLook.current.accent else SampleColors.TextHigh, label = "heldColour")
+    Icon(entry.icon, contentDescription = entry.label, tint = colour, modifier = Modifier.requiredSize(LocalBarLook.current.glyph))
 }
 
 /**
@@ -286,7 +331,7 @@ internal fun SampleHeldGlyph(held: Int, selected: Boolean) {
 @Composable
 internal fun SampleSearchGlyph(selected: Boolean) {
     val colour by animateColorAsState(
-        if (selected) SampleColors.Accent else SampleColors.TextHigh,
+        if (selected) LocalBarLook.current.accent else SampleColors.TextHigh,
         animationSpec = tween(SearchFadeMillis),
         label = "searchColour",
     )

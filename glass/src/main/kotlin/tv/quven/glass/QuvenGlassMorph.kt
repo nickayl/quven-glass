@@ -124,13 +124,33 @@ public fun interface QuvenGlassMorphPlacement {
         /**
          * Returns the placement that stands the opened glass above or below the anchor, [gap] away from it on the side
          * with more room, aligned with the anchor's side nearer the space's edge and kept at least [edge] inside the
-         * space, as a context menu opens beside the card it lifts.
+         * space.
          *
          * @param gap The room between the glass and the anchor.
          * @param edge The least room between the glass and the space's sides.
          * @return The placement.
          */
         public fun aboveOrBelow(gap: Dp, edge: Dp): QuvenGlassMorphPlacement = beside(gap, edge, ::alignedStart)
+
+        /**
+         * Returns the placement that stands the opened glass below the anchor, [gap] away from it, wherever it fits there,
+         * and above it otherwise, aligned with the anchor's side nearer the space's edge and kept at least [edge] inside
+         * the space, as a context menu opens beside the card it lifts.
+         *
+         * @param gap The room between the glass and the anchor.
+         * @param edge The least room between the glass and the space's sides.
+         * @return The placement.
+         */
+        public fun belowWhereItFits(gap: Dp, edge: Dp): QuvenGlassMorphPlacement =
+            QuvenGlassMorphPlacement { size, anchor, space, density ->
+                val inset = with(density) { edge.roundToPx() }
+                val apart = with(density) { gap.roundToPx() }
+                val fitsBelow = anchor.bottom + apart + size.height + inset <= space.height
+                val fitsAbove = anchor.top - apart - size.height - inset >= 0
+                val below = fitsBelow || (!fitsAbove && !opensAbove(anchor.top.toFloat(), anchor.bottom.toFloat(), space.height.toFloat()))
+                val top = if (below) anchor.bottom + apart else anchor.top - apart - size.height
+                IntOffset(alignedStart(size, anchor, space).keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
+            }
 
         /**
          * Returns the placement that stands the opened glass above or below the anchor, [gap] away from it on the side

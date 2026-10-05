@@ -30,7 +30,7 @@ internal class WindowRecorder(
 ) {
     private val width = (region.width() * scale).toInt()
     private val height = (region.height() * scale).toInt()
-    private val frames = mutableListOf<Pair<Long, ByteArray>>()
+    private val times = mutableListOf<Long>()
     private val thread = HandlerThread("WindowRecorder").apply { start() }
     private val handler = Handler(thread.looper)
     private var startNanos = 0L
@@ -52,9 +52,11 @@ internal class WindowRecorder(
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         PixelCopy.request(activity.window, region, bitmap, { result ->
             if (result == PixelCopy.SUCCESS) {
+                // Each frame goes to its file at once, so a long recording of a large region never fills the memory.
                 val pixels = ByteBuffer.allocate(bitmap.byteCount)
                 bitmap.copyPixelsToBuffer(pixels)
-                frames += elapsed to pixels.array()
+                File(folder, "frame-%03d.rgba".format(times.size)).writeBytes(pixels.array())
+                times += elapsed
             }
             bitmap.recycle()
         }, handler)
@@ -62,8 +64,7 @@ internal class WindowRecorder(
     }
 
     private fun finish() {
-        frames.forEachIndexed { index, (_, pixels) -> File(folder, "frame-%03d.rgba".format(index)).writeBytes(pixels) }
-        File(folder, "times.txt").writeText(frames.mapIndexed { index, (nanos, _) -> "$index ${nanos / NanosPerMilli}" }.joinToString("\n"))
+        File(folder, "times.txt").writeText(times.mapIndexed { index, nanos -> "$index ${nanos / NanosPerMilli}" }.joinToString("\n"))
         File(folder, "size.txt").writeText("${width}x$height")
         thread.quitSafely()
     }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -30,14 +31,13 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.ShoppingCart
@@ -48,7 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.ui.graphics.vector.PathParser
-import tv.quven.glass.QuvenGlassSidebar
+import tv.quven.glass.QuvenGlassSplitView
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import tv.quven.glass.QuvenGlassSubmenu
@@ -56,7 +56,6 @@ import tv.quven.glass.QuvenGlassToolbarJoin
 import tv.quven.glass.QuvenGlassToolbarGap
 import tv.quven.glass.QuvenGlassToolbarItem
 import tv.quven.glass.QuvenGlassToolbarGroup
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.DpSize
@@ -67,6 +66,7 @@ import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.quvenGlassScrollEdge
 import tv.quven.glass.QuvenGlassScrollEdgeStyle
+import tv.quven.glass.QuvenGlassSegmentedControl
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import tv.quven.glass.rememberQuvenGlassBarMinimizer
@@ -90,8 +90,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onPlaced
@@ -139,12 +144,11 @@ import tv.quven.glass.rememberQuvenGlassMorphState
  */
 @Composable
 internal fun BoxScope.MaterialExhibit(tuning: SampleTuning) {
-    Row(
-        Modifier.align(Alignment.Center),
-        horizontalArrangement = Arrangement.spacedBy(ExhibitGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MaterialSizes.forEach { side -> Glass(tuning, Modifier.size(side)) }
+    // The circles over the capsule, so the whole exhibit stands inside the stage, as the reference's does.
+    Column(Modifier.align(Alignment.Center), verticalArrangement = Arrangement.spacedBy(ExhibitGap), horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(horizontalArrangement = Arrangement.spacedBy(ExhibitGap), verticalAlignment = Alignment.CenterVertically) {
+            MaterialSizes.forEach { side -> Glass(tuning, Modifier.size(side)) }
+        }
         Glass(tuning, Modifier.size(width = CapsuleWidth, height = CapsuleHeight))
     }
 }
@@ -181,15 +185,32 @@ internal fun BoxScope.TabBarExhibit(tuning: SampleTuning) {
 }
 
 /**
- * Draws a segmented control of three options.
+ * Draws a track of glass of three options over the system's segmented control of the same three, as the reference stacks
+ * its density track over Apple's picker.
  *
  * @param tuning The live settings.
  */
 @Composable
 internal fun BoxScope.SegmentedExhibit(tuning: SampleTuning) {
     var held by remember { mutableIntStateOf(1) }
-    Box(Modifier.align(Alignment.Center)) { SampleDensityTrack(held = held, onHold = { held = it }, tuning = tuning) }
+    Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(ExhibitGap)) {
+        SampleDensityTrack(held = held, onHold = { held = it }, tuning = tuning)
+        QuvenGlassSegmentedControl(
+            options = DensityGlyphs,
+            selected = held,
+            onSelect = { held = DensityGlyphs.indexOf(it) },
+            optionWidth = PickerSegment,
+            style = tuning.style,
+            reduceMotion = tuning.reduceMotion,
+        ) { columns, _ -> DensityGlyph(columns, SampleColors.TextHigh, Modifier.size(16.dp)) }
+    }
 }
+
+/** The columns each option of the density picker lays its squares in. */
+private val DensityGlyphs = listOf(3, 2, 1)
+
+/** The width of each option of the density picker, a third of the reference's 300 less the pill's inset. */
+private val PickerSegment = 98.6.dp
 
 /**
  * Draws two circles of glass that move together until they join and apart again, over and over.
@@ -231,16 +252,16 @@ internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
     var order by remember { mutableIntStateOf(1) }
     var ascending by remember { mutableStateOf(true) }
     MenuButton(Icons.Filled.Settings, "Library", tuning, Modifier.align(Alignment.TopStart)) { LibraryMenuEntries() }
-    MenuButton(Icons.Filled.MoreVert, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
+    MenuButton(MoreHorizontal, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
         QuvenGlassMenuTitle("Sort by")
         QuvenGlassMenuChoices(SortOrders, SortOrders[order], label = { it }, onSelect = { order = SortOrders.indexOf(it) })
         QuvenGlassMenuChoice("Ascending", selected = ascending, onClick = { ascending = !ascending }, role = Role.Checkbox)
         QuvenGlassMenuDivider()
-        QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(Icons.Filled.Share))
+        QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(ShareUp))
         QuvenGlassMenuItem("Unavailable", {}, icon = rememberVectorPainter(Icons.Filled.Lock), enabled = false)
         QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Icons.Filled.Delete), destructive = true)
     }
-    MenuButton(Icons.Filled.DateRange, "Timer", tuning, Modifier.align(Alignment.CenterStart)) {
+    MenuButton(MoonZzz, "Timer", tuning, Modifier.align(Alignment.CenterStart)) {
         QuvenGlassMenuItem("15 minutes", {})
         QuvenGlassMenuItem("30 minutes", {})
         QuvenGlassMenuItem("End of chapter", {})
@@ -262,7 +283,7 @@ internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
 internal fun BoxScope.SubmenusExhibit(tuning: SampleTuning) {
     MenuButton(MoreHorizontal, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
         QuvenGlassMenuItem("Download", {}, icon = rememberVectorPainter(Icons.Filled.KeyboardArrowDown))
-        QuvenGlassSubmenu("Share", icon = rememberVectorPainter(Icons.Filled.Share)) {
+        QuvenGlassSubmenu("Share", icon = rememberVectorPainter(ShareUp)) {
             QuvenGlassMenuItem("Message", {}, icon = rememberVectorPainter(Icons.Filled.Email))
             QuvenGlassMenuItem("Mail", {}, icon = rememberVectorPainter(Icons.Filled.MailOutline))
         }
@@ -289,32 +310,29 @@ internal fun BoxScope.TextMenuExhibit(tuning: SampleTuning) {
         cursorBrush = SolidColor(SampleColors.Accent),
         modifier = Modifier
             .align(Alignment.Center)
-            .fillMaxWidth()
-            .height(200.dp)
+            .size(TextPanelWidth, 200.dp)
             .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, RoundedCornerShape(28.dp), reduceMotion = tuning.reduceMotion)
             .padding(16.dp),
     )
 }
 
 /**
- * Draws a sidebar of glass that slides in over the stage from its start and out again, as the reference's split view
- * shows and hides its sidebar.
+ * Draws a split view over the whole stage: a sidebar of glass beside the stage's content, which slides out past the start
+ * edge as the content widens, and back in, as the reference's split view shows and hides its sidebar.
  *
  * @param tuning The live settings.
  */
 @Composable
 internal fun BoxScope.AdaptiveSidebarExhibit(tuning: SampleTuning) {
-    var shown by remember { mutableStateOf(false) }
+    var shown by remember { mutableStateOf(true) }
     val toggle = rememberVectorPainter(SidebarSymbol)
-    Box(Modifier.matchParentSize().bleed(StageInset)) {
-        QuvenGlassIconButton(
-            onClick = { shown = true },
-            icon = toggle,
-            contentDescription = "Show sidebar",
-            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
-            reduceMotion = tuning.reduceMotion,
-        )
-        QuvenGlassSidebar(shown, style = tuning.style, reduceMotion = tuning.reduceMotion) {
+    QuvenGlassSplitView(
+        sidebarShown = shown,
+        modifier = Modifier.matchParentSize().bleed(StageInset),
+        ground = SampleColors.Ground,
+        style = tuning.style,
+        reduceMotion = tuning.reduceMotion,
+        sidebar = {
             Column {
                 Box(Modifier.fillMaxWidth().height(SidebarHeadHeight), contentAlignment = Alignment.Center) {
                     Text("Library", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
@@ -325,17 +343,36 @@ internal fun BoxScope.AdaptiveSidebarExhibit(tuning: SampleTuning) {
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
                             .padding(end = 12.dp)
-                            .size(22.dp)
+                            .size(24.dp)
                             .clickable(interactionSource = null, indication = null) { shown = false },
                     )
                 }
+                Spacer(Modifier.height(SidebarHeadGap))
                 SidebarEntries.forEach { (label, icon) ->
-                    Row(Modifier.fillMaxWidth().height(SidebarRowHeight).padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(icon, contentDescription = null, tint = SampleColors.TextHigh, modifier = Modifier.size(20.dp))
-                        Text(label, color = SampleColors.TextHigh, fontSize = 17.sp, modifier = Modifier.padding(start = 15.dp))
+                    Row(Modifier.fillMaxWidth().height(SidebarRowHeight), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.width(SidebarLabelStart), contentAlignment = Alignment.CenterEnd) {
+                            Icon(icon, contentDescription = null, tint = SampleColors.TextHigh, modifier = Modifier.padding(end = 13.dp).size(24.dp))
+                        }
+                        Text(label, color = SampleColors.TextHigh, fontSize = 17.sp)
                     }
                 }
             }
+        },
+    ) {
+        // The button over the detail reads the detail itself, as the reference's toolbar button stands over its page.
+        val detail = rememberQuvenGlassBackdrop()
+        Box(Modifier.fillMaxSize().background(SampleColors.Ground).quvenGlassSource(detail)) {
+            SampleBackdropContent(Modifier.fillMaxSize().padding(top = DetailBarHeight))
+        }
+        if (!shown) {
+            // The reference's toolbar holds the button as a circle of 44, 10 in from the detail's corner.
+            QuvenGlassToolbarGroup(
+                listOf(QuvenGlassToolbarItem(toggle, "Show sidebar") { shown = true }),
+                modifier = Modifier.align(Alignment.TopStart).padding(PageBarMargin),
+                style = tuning.style,
+                backdrop = detail.takeIf { tuning.liquid },
+                reduceMotion = tuning.reduceMotion,
+            )
         }
     }
 }
@@ -343,13 +380,20 @@ internal fun BoxScope.AdaptiveSidebarExhibit(tuning: SampleTuning) {
 /** The entries of the sidebar exhibit, as the reference lists them. */
 private val SidebarEntries: List<Pair<String, ImageVector>> get() = listOf(
     "Home" to Icons.Filled.Home,
-    "Watch" to Icons.Filled.PlayArrow,
+    "Watch" to PlayFill,
     "Favorites" to Icons.Filled.Star,
     "Explore" to Icons.Filled.Info,
     "More" to MoreHorizontal,
 )
-private val SidebarHeadHeight = 36.dp
-private val SidebarRowHeight = 36.dp
+
+// The reference's sidebar list on an iPad: a head of 44 over rows of 52, labels 67 from the sidebar's edge.
+private val SidebarHeadHeight = 44.dp
+private val SidebarHeadGap = 10.dp
+private val SidebarRowHeight = 52.dp
+private val SidebarLabelStart = 67.dp
+
+/** The height of the bar over the split view's detail, where its content starts. */
+private val DetailBarHeight = 64.dp
 
 /**
  * Draws a gear that opens into the panel tuning the material, as one piece of glass.
@@ -420,10 +464,24 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
+    SearchBarStage(tuning, accessory = null)
+}
+
+/**
+ * Draws a phone's bar with Search beside its tabs, minimizing as the stage scrolls, with [accessory] above it.
+ *
+ * @param tuning The live settings.
+ * @param accessory Draws the accessory's content, or `null` for none.
+ */
+@Composable
+private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composable RowScope.() -> Unit)?) {
     var held by remember { mutableIntStateOf(0) }
     var searching by remember { mutableStateOf(false) }
     var searchLit by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
+    // On a tablet Search is a tab of its own, which shows its page with the field at its top, as the reference's tab
+    // bar does on an iPad; on a phone it opens into a field along the bar.
+    var searchPage by remember { mutableStateOf(false) }
     // The stage's scrolling minimizes the bar, as Search beside the reference's tabs minimizes with them.
     val minimizer = rememberQuvenGlassBarMinimizer()
     val stage = LocalStageScroll.current
@@ -439,38 +497,107 @@ internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
             searchLit = false
         }
     }
-    QuvenGlassSearchMorph(
-        searching = searching,
-        onSearch = { if (!searching) searchLit = true },
-        onEndSearch = { searching = false },
-        minimized = minimizer.minimized,
-        onExpand = minimizer::expand,
-        tabsWidth = phoneTabsWidth(3),
-        height = PhoneBarHeight,
-        gap = tuning.barGap.dp,
-        heldCentre = phoneGlyphCentre(held, 3),
-        modifier = Modifier.align(Alignment.BottomCenter),
-        style = tuning.style,
-        reduceMotion = tuning.reduceMotion,
-        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 3, entrySize = phoneEntrySize(3)) },
-        tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching, tuning = tuning) },
-        heldGlyph = { SampleHeldGlyph(held, selected = !searching) },
-        searchGlyph = { SampleSearchGlyph(selected = searchLit) },
-        field = {
-            BasicTextField(
-                value = text,
-                onValueChange = { text = it },
-                singleLine = true,
-                textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 17.sp),
-                cursorBrush = SolidColor(SampleColors.Accent),
-                decorationBox = { inner ->
-                    if (text.isEmpty()) Text("Search", color = SampleColors.TextMedium, fontSize = 17.sp)
-                    inner()
+    // On a tablet the tabs stand at the stage's start and Search at its end, as the reference's compact tab bar lays them
+    // out on an iPad; on a phone the two fill the bar.
+    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp
+    val page = rememberQuvenGlassBackdrop()
+    CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
+        BoxWithConstraints(Modifier.matchParentSize().bleed(StageInset)) {
+            if (searchPage) SearchPage(Modifier.fillMaxSize().quvenGlassSource(page))
+            QuvenGlassSearchMorph(
+                searching = searching,
+                onSearch = { if (tablet) searchPage = true else if (!searching) searchLit = true },
+                onEndSearch = { searching = false },
+                minimized = minimizer.minimized,
+                onExpand = minimizer::expand,
+                tabsWidth = phoneTabsWidth(3, tablet),
+                height = PhoneBarHeight,
+                gap = if (tablet) maxWidth - PhoneBarMargin * 2 - phoneTabsWidth(3, tablet) - PhoneBarHeight else tuning.barGap.dp,
+                heldCentre = phoneGlyphCentre(held, 3, tablet),
+                modifier = if (tablet) {
+                    Modifier.align(Alignment.BottomStart).padding(start = PhoneBarMargin, bottom = PhoneBarBottom)
+                } else {
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = StageInset)
                 },
+                style = tuning.style,
+                backdrop = (if (searchPage) page else LocalQuvenGlassBackdrop.current).takeIf { tuning.liquid },
+                reduceMotion = tuning.reduceMotion,
+                tabs = {
+                    SampleTabs(
+                        if (searchPage) -1 else held,
+                        onHold = {
+                            held = it
+                            searchPage = false
+                        },
+                        tuning = tuning,
+                        count = 3,
+                        entrySize = phoneEntrySize(3, tablet),
+                    )
+                },
+                tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching, tuning = tuning) },
+                heldGlyph = { SampleHeldGlyph(held, selected = !searching) },
+                searchGlyph = { SampleSearchGlyph(selected = searchLit || searchPage) },
+                field = {
+                    BasicTextField(
+                        value = text,
+                        onValueChange = { text = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 17.sp),
+                        cursorBrush = SolidColor(SampleColors.Accent),
+                        decorationBox = { inner ->
+                            if (text.isEmpty()) Text("Search", color = SampleColors.TextMedium, fontSize = 17.sp)
+                            inner()
+                        },
+                    )
+                },
+                accessory = accessory,
             )
-        },
-    )
+        }
+    }
 }
+
+/**
+ * Draws the page a tablet's Search tab shows, as the reference's tab bar shows it on an iPad: a large title over a field,
+ * the stage's content under them.
+ *
+ * @param modifier Modifier applied to the page.
+ */
+@Composable
+private fun SearchPage(modifier: Modifier) {
+    Box(modifier.background(SampleColors.Ground)) {
+        SampleBackdropContent(Modifier.fillMaxSize(), top = SearchPageContentTop)
+        Text(
+            "Search",
+            color = SampleColors.TextHigh,
+            fontSize = 34.sp,
+            lineHeight = 41.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(top = SearchPageTitleTop),
+        )
+        Row(
+            Modifier
+                .padding(start = SearchFieldInset, end = SearchFieldInset, top = SearchFieldTop)
+                .fillMaxWidth()
+                .height(SearchFieldHeight)
+                .background(SearchFieldColour, CircleShape)
+                .padding(start = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+        ) {
+            Icon(Icons.Filled.Search, contentDescription = null, tint = SampleColors.TextMedium, modifier = Modifier.size(20.dp))
+            Text("Search", color = SampleColors.TextMedium, fontSize = 17.sp)
+        }
+    }
+}
+
+// The reference's Search page on an iPad: the title's line from 68 below the top, a field 44 tall from 117, 8 in from
+// the sides, filled with the system's dark grey, and the content from 175.6.
+private val SearchPageTitleTop = 68.dp
+private val SearchFieldTop = 117.dp
+private val SearchFieldHeight = 44.dp
+private val SearchFieldInset = 8.dp
+private val SearchPageContentTop = 175.6.dp
+private val SearchFieldColour = Color(0xFF242325)
 
 /** How long Search stands chosen before the bar opens into the field, as the reference's tab bar waits. */
 private const val SearchOpenDelayMillis = 215L
@@ -486,18 +613,18 @@ private const val SearchLitMillis = 50L
  */
 @Composable
 internal fun BoxScope.MinimizingTabBarExhibit(tuning: SampleTuning) {
-    MinimizingBarStage(tuning, accessory = null)
+    MinimizingBarStage(tuning)
 }
 
 /**
- * Draws the minimizing bar with a player's strip above it, which comes down beside the minimized bar, as the reference's
- * bottom accessory does.
+ * Draws the bar with Search beside its tabs and a player's strip above it, which comes down between the folded tabs and
+ * Search while the bar is minimized, as the reference's bottom accessory does.
  *
  * @param tuning The live settings.
  */
 @Composable
 internal fun BoxScope.BottomAccessoryExhibit(tuning: SampleTuning) {
-    MinimizingBarStage(tuning) {
+    SearchBarStage(tuning) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -505,20 +632,19 @@ internal fun BoxScope.BottomAccessoryExhibit(tuning: SampleTuning) {
         ) {
             Icon(rememberVectorPainter(MusicNote), contentDescription = null, tint = SampleColors.TextHigh, modifier = Modifier.size(20.dp))
             Text("Now playing", color = SampleColors.TextHigh, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = SampleColors.TextHigh, modifier = Modifier.size(22.dp))
+            Icon(PlayFill, contentDescription = "Play", tint = SampleColors.TextHigh, modifier = Modifier.size(22.dp))
             Icon(rememberVectorPainter(FastForward), contentDescription = "Next", tint = SampleColors.TextHigh, modifier = Modifier.size(22.dp))
         }
     }
 }
 
 /**
- * Draws a phone's bar of four entries that minimizes as the stage scrolls, with [accessory] above it.
+ * Draws a phone's bar of four entries that minimizes as the stage scrolls.
  *
  * @param tuning The live settings.
- * @param accessory Draws the accessory's content, or `null` for none.
  */
 @Composable
-private fun BoxScope.MinimizingBarStage(tuning: SampleTuning, accessory: (@Composable RowScope.() -> Unit)?) {
+private fun BoxScope.MinimizingBarStage(tuning: SampleTuning) {
     var held by remember { mutableIntStateOf(0) }
     val minimizer = rememberQuvenGlassBarMinimizer()
     val stage = LocalStageScroll.current
@@ -526,20 +652,30 @@ private fun BoxScope.MinimizingBarStage(tuning: SampleTuning, accessory: (@Compo
         stage.follower = minimizer.nestedScrollConnection
         onDispose { stage.follower = null }
     }
-    QuvenGlassMinimizingBar(
-        minimized = minimizer.minimized,
-        onExpand = minimizer::expand,
-        tabsWidth = phoneTabsWidth(4),
-        height = PhoneBarHeight,
-        heldCentre = phoneGlyphCentre(held, 4),
-        modifier = Modifier.align(Alignment.BottomCenter).wrapContentWidth(unbounded = true),
-        style = tuning.style,
-        reduceMotion = tuning.reduceMotion,
-        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 4, entrySize = phoneEntrySize(4)) },
-        tabsFace = { SampleTabsFace(count = 4, held = held, selected = true, tuning = tuning) },
-        heldGlyph = { SampleHeldGlyph(held, selected = true) },
-        accessory = accessory,
-    )
+    // On a tablet the bar hugs its entries in the stage's whole width, as near its foot as the reference's compact tab
+    // bar stands, centred at rest and minimized at its start.
+    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp
+    CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
+        Box(Modifier.matchParentSize().bleed(StageInset)) {
+            QuvenGlassMinimizingBar(
+                minimized = minimizer.minimized,
+                onExpand = minimizer::expand,
+                tabsWidth = phoneTabsWidth(4, tablet),
+                height = PhoneBarHeight,
+                heldCentre = phoneGlyphCentre(held, 4, tablet),
+                modifier = if (tablet) {
+                    Modifier.align(Alignment.BottomCenter).padding(start = PhoneBarMargin, end = PhoneBarMargin, bottom = PhoneBarBottom).fillMaxWidth()
+                } else {
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = StageInset).wrapContentWidth(unbounded = true)
+                },
+                style = tuning.style,
+                reduceMotion = tuning.reduceMotion,
+                tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 4, entrySize = phoneEntrySize(4, tablet)) },
+                tabsFace = { SampleTabsFace(count = 4, held = held, selected = true, tuning = tuning) },
+                heldGlyph = { SampleHeldGlyph(held, selected = true) },
+            )
+        }
+    }
 }
 
 /** Relays the scrolling of the stage's content to the exhibit that follows it, if any. */
@@ -573,7 +709,7 @@ internal fun BoxScope.ScrollEdgeExhibit(tuning: SampleTuning) {
         top = { EdgeStyleTrack(hard, onHard = { hard = it }, tuning = tuning) },
         bottom = {
             QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Shuffle), contentDescription = "Shuffle", reduceMotion = tuning.reduceMotion)
-            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.PlayArrow), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
+            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(PlayFill), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
         },
     )
 }
@@ -586,31 +722,39 @@ internal fun BoxScope.ScrollEdgeExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.ToolbarExhibit(tuning: SampleTuning) {
-    val share = rememberVectorPainter(Icons.Filled.Share)
+    val share = rememberVectorPainter(ShareUp)
     val heart = rememberVectorPainter(Icons.Outlined.FavoriteBorder)
     val more = rememberVectorPainter(MoreHorizontal)
-    val back = rememberVectorPainter(Icons.AutoMirrored.Filled.KeyboardArrowLeft)
+    val back = rememberVectorPainter(ChevronBack)
     PageStage(
         tuning,
         edge = QuvenGlassScrollEdgeStyle.Soft,
         top = {
-            QuvenGlassContainer(Modifier.fillMaxWidth().padding(horizontal = 16.dp), style = tuning.style, spacing = QuvenGlassToolbarJoin) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(back, "Back") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
-                    Text("Library", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 13.dp).weight(1f))
+            // The title stands in the middle of the bar, between the groups at its edges, as the reference's does.
+            QuvenGlassContainer(Modifier.fillMaxWidth().padding(horizontal = PageBarMargin), style = tuning.style, spacing = QuvenGlassToolbarJoin) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     QuvenGlassToolbarGroup(
-                        listOf(QuvenGlassToolbarItem(share, "Share") {}, QuvenGlassToolbarItem(heart, "Favorite") {}),
+                        listOf(QuvenGlassToolbarItem(back, "Back") {}),
+                        modifier = Modifier.align(Alignment.CenterStart),
                         style = tuning.style,
                         reduceMotion = tuning.reduceMotion,
                     )
-                    Spacer(Modifier.width(QuvenGlassToolbarGap))
-                    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(more, "More") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+                    Text("Library", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Row(Modifier.align(Alignment.CenterEnd), verticalAlignment = Alignment.CenterVertically) {
+                        QuvenGlassToolbarGroup(
+                            listOf(QuvenGlassToolbarItem(share, "Share") {}, QuvenGlassToolbarItem(heart, "Favorite") {}),
+                            style = tuning.style,
+                            reduceMotion = tuning.reduceMotion,
+                        )
+                        Spacer(Modifier.width(QuvenGlassToolbarGap))
+                        QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(more, "More") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+                    }
                 }
             }
         },
         bottom = {
             QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Shuffle), "Shuffle") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
-            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Icons.Filled.PlayArrow), "Play") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(PlayFill), "Play") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
         },
     )
 }
@@ -640,7 +784,7 @@ private fun BoxScope.PageStage(
         CompositionLocalProvider(LocalQuvenGlassBackdrop provides page.takeIf { tuning.liquid }) {
             Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(PageBarHeight), contentAlignment = Alignment.Center) { top() }
             Row(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(PageBarHeight).padding(horizontal = 28.dp),
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(PageBarHeight).padding(horizontal = PageBarMargin),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
                 content = bottom,
@@ -693,7 +837,10 @@ private fun Modifier.bleed(by: Dp): Modifier = layout { measurable, constraints 
 }
 
 /** The height of the bars over the scroll edge page's edges, as the reference's navigation bar and toolbar stand. */
-private val PageBarHeight = 56.dp
+private val PageBarHeight = 64.dp
+
+/** The room between a page's bars and the stage's start and end edges, as the reference's bars keep it on an iPad. */
+private val PageBarMargin = 10.dp
 
 /**
  * Draws a panel of interactive glass that lights under the finger, as the reference's interactive glass does.
@@ -705,8 +852,7 @@ internal fun BoxScope.TouchLightExhibit(tuning: SampleTuning) {
     Box(
         Modifier
             .align(Alignment.Center)
-            .fillMaxWidth()
-            .height(260.dp)
+            .size(TextPanelWidth, 260.dp)
             .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style.interactive(), RoundedCornerShape(32.dp), reduceMotion = tuning.reduceMotion),
         contentAlignment = Alignment.Center,
     ) {
@@ -731,10 +877,11 @@ internal fun BoxScope.PopoverExhibit(tuning: SampleTuning) {
         reduceMotion = tuning.reduceMotion,
     )
     QuvenGlassPopover(state, expanded = shown, onDismissRequest = { shown = false }, modifier = Modifier.width(280.dp)) {
-        Box(Modifier.fillMaxWidth().padding(20.dp)) {
+        // The reference's text keeps the system's 22 pt lines and stands centred in the panel, its frame wider than it.
+        Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Popover", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text("A panel that points at its control.", color = SampleColors.TextMedium, fontSize = 17.sp)
+                Text("Popover", color = SampleColors.TextHigh, fontSize = 17.sp, lineHeight = 22.sp, fontWeight = FontWeight.SemiBold)
+                Text("A panel that points at its control.", color = SampleColors.TextMedium, fontSize = 17.sp, lineHeight = 22.sp)
             }
             CaptureMark(Modifier.align(Alignment.TopEnd))
         }
@@ -805,7 +952,7 @@ internal fun BoxScope.AlertExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.CapsuleButtonsExhibit(tuning: SampleTuning) {
-    val play = rememberVectorPainter(Icons.Filled.PlayArrow)
+    val play = rememberVectorPainter(PlayFill)
     val heart = rememberVectorPainter(Icons.Filled.Favorite)
     val down = rememberVectorPainter(ArrowDownward)
     val star = rememberVectorPainter(Icons.Filled.Star)
@@ -882,7 +1029,7 @@ internal fun BoxScope.SliderExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.ContextMenuExhibit(tuning: SampleTuning) {
-    val play = rememberVectorPainter(Icons.Filled.PlayArrow)
+    val play = rememberVectorPainter(PlayFill)
     Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(32.dp)) {
         QuvenGlassContextMenuBox(
             menu = {
@@ -897,7 +1044,7 @@ internal fun BoxScope.ContextMenuExhibit(tuning: SampleTuning) {
         QuvenGlassContextMenuBox(
             menu = {
                 QuvenGlassMenuItem("Play", {}, icon = play)
-                QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(Icons.Filled.Share))
+                QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(ShareUp))
             },
             onClick = {},
             reduceMotion = tuning.reduceMotion,
@@ -1026,10 +1173,10 @@ private val CapsuleWidth = 240.dp
 private val CapsuleHeight = 62.dp
 private val SwitchColumnWidth = 280.dp
 private val SliderColumnWidth = 352.dp
-private val ButtonFaces: List<Pair<Dp, ImageVector>> = listOf(
-    46.dp to Icons.Filled.PlayArrow,
+private val ButtonFaces: List<Pair<Dp, ImageVector>> get() = listOf(
+    46.dp to PlayFill,
     56.dp to Icons.Filled.Favorite,
-    69.dp to Icons.Filled.Share,
+    69.dp to ShareUp,
 )
 private const val ButtonGlyphShare = 0.42f
 private const val JoiningMillis = 1800
@@ -1080,7 +1227,7 @@ private val FastForward: ImageVector = materialIcon(name = "Filled.FastForward")
 }
 
 /** Three dots in a row, as the system's `ellipsis` symbol draws them. */
-private val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz") {
+internal val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz") {
     for (x in listOf(6f, 12f, 18f)) {
         materialPath {
             moveTo(x, 10f)
@@ -1093,6 +1240,111 @@ private val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz"
     }
     this
 }
+
+/** A filled bookmark, as the system's `bookmark.fill` symbol draws it. */
+internal val BookmarkFill: ImageVector = ImageVector.Builder("BookmarkFill", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(7f, 3f)
+        horizontalLineTo(17f)
+        quadTo(18.5f, 3f, 18.5f, 4.5f)
+        verticalLineTo(21f)
+        lineTo(12f, 16.6f)
+        lineTo(5.5f, 21f)
+        verticalLineTo(4.5f)
+        quadTo(5.5f, 3f, 7f, 3f)
+        close()
+    }
+}.build()
+
+/** Three books standing side by side, the last leaning, as the system's `books.vertical.fill` symbol draws them. */
+internal val BooksVertical: ImageVector = ImageVector.Builder("BooksVertical", 24.dp, 24.dp, 24f, 24f).apply {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(3f, 4f); horizontalLineTo(7f); verticalLineTo(20f); horizontalLineTo(3f); close()
+        moveTo(8.5f, 6f); horizontalLineTo(12.5f); verticalLineTo(20f); horizontalLineTo(8.5f); close()
+        moveTo(14.2f, 5.6f); lineTo(17.9f, 4.6f); lineTo(21.6f, 18.4f); lineTo(17.9f, 19.4f); close()
+    }
+}.build()
+
+/** A filled frame with a play mark over the outline of a second behind it, as the system's
+ * `play.rectangle.on.rectangle.fill` symbol draws them. */
+internal val PlayStack: ImageVector = ImageVector.Builder("PlayStack", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.6f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(7f, 4f); horizontalLineTo(19f); quadTo(21f, 4f, 21f, 6f); verticalLineTo(14f)
+    }
+    path(fill = SolidColor(Color.Black), pathFillType = PathFillType.EvenOdd) {
+        moveTo(5f, 7.5f); horizontalLineTo(16f); quadTo(18f, 7.5f, 18f, 9.5f); verticalLineTo(18f); quadTo(18f, 20f, 16f, 20f)
+        horizontalLineTo(5f); quadTo(3f, 20f, 3f, 18f); verticalLineTo(9.5f); quadTo(3f, 7.5f, 5f, 7.5f); close()
+        moveTo(8.8f, 10.6f); lineTo(13.6f, 13.75f); lineTo(8.8f, 16.9f); close()
+    }
+}.build()
+
+/** Two frames with arrows turning between them, as the system's `rectangle.2.swap` symbol draws them. */
+internal val SwapFrames: ImageVector = ImageVector.Builder("SwapFrames", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.6f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(3.5f, 4f); horizontalLineTo(11f); verticalLineTo(10f); horizontalLineTo(3.5f); close()
+        moveTo(13f, 14f); horizontalLineTo(20.5f); verticalLineTo(20f); horizontalLineTo(13f); close()
+        moveTo(14.5f, 4.5f); quadTo(19.5f, 4.5f, 19.5f, 10f); moveTo(17.5f, 8.5f); lineTo(19.5f, 10.5f); lineTo(21.5f, 8.5f)
+        moveTo(9.5f, 19.5f); quadTo(4.5f, 19.5f, 4.5f, 14f); moveTo(6.5f, 15.5f); lineTo(4.5f, 13.5f); lineTo(2.5f, 15.5f)
+    }
+}.build()
+
+/** A crescent moon with small letters beside it, as the system's `moon.zzz` symbol draws it. */
+internal val MoonZzz: ImageVector = ImageVector.Builder("MoonZzz", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(11.5f, 6.5f)
+        arcTo(8f, 8f, 0f, isMoreThanHalf = true, isPositiveArc = false, x1 = 19.5f, y1 = 16f)
+        arcTo(6.6f, 6.6f, 0f, isMoreThanHalf = false, isPositiveArc = true, x1 = 11.5f, y1 = 6.5f)
+        close()
+        moveTo(15f, 3f)
+        horizontalLineTo(18f)
+        lineTo(15f, 6.4f)
+        horizontalLineTo(18f)
+        moveTo(19.4f, 7.6f)
+        horizontalLineTo(21.6f)
+        lineTo(19.4f, 10.2f)
+        horizontalLineTo(21.6f)
+    }
+}.build()
+
+/** A triangle pointing forward, as the system's `play.fill` symbol draws it. */
+internal val PlayFill: ImageVector = ImageVector.Builder("PlayFill", 24.dp, 24.dp, 24f, 24f, autoMirror = true).apply {
+    path(fill = SolidColor(Color.Black), stroke = SolidColor(Color.Black), strokeLineWidth = 1.6f, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(6.6f, 4.4f)
+        lineTo(19.2f, 12f)
+        lineTo(6.6f, 19.6f)
+        close()
+    }
+}.build()
+
+/** A chevron pointing back, as the system's `chevron.left` symbol draws it. */
+internal val ChevronBack: ImageVector = ImageVector.Builder("ChevronBack", 24.dp, 24.dp, 24f, 24f, autoMirror = true).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 2.4f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(15.5f, 3.2f)
+        lineTo(7f, 12f)
+        lineTo(15.5f, 20.8f)
+    }
+}.build()
+
+/** A tray with an arrow rising out of it, as the system's `square.and.arrow.up` symbol draws it. */
+internal val ShareUp: ImageVector = ImageVector.Builder("ShareUp", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(12f, 2.8f)
+        verticalLineTo(14.5f)
+        moveTo(8.2f, 6.6f)
+        lineTo(12f, 2.8f)
+        lineTo(15.8f, 6.6f)
+        moveTo(8.6f, 9.8f)
+        horizontalLineTo(7f)
+        quadTo(5.2f, 9.8f, 5.2f, 11.6f)
+        verticalLineTo(19.4f)
+        quadTo(5.2f, 21.2f, 7f, 21.2f)
+        horizontalLineTo(17f)
+        quadTo(18.8f, 21.2f, 18.8f, 19.4f)
+        verticalLineTo(11.6f)
+        quadTo(18.8f, 9.8f, 17f, 9.8f)
+        horizontalLineTo(15.4f)
+    }
+}.build()
 
 /** Two crossing arrows, as the system's `shuffle` symbol draws them. */
 private val Shuffle: ImageVector = materialIcon(name = "Filled.Shuffle") {
@@ -1171,3 +1423,5 @@ private fun CaptureMark(modifier: Modifier) {
     if (LocalCaptureMarks.current) Box(modifier.padding(8.dp).size(8.dp).background(Color(0xFF00FF00)))
 }
 
+/** The width of the panels of the text menu and the touch light, as the reference sizes them. */
+private val TextPanelWidth = 440.dp

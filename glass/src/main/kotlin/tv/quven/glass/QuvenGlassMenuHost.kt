@@ -147,9 +147,9 @@ public fun QuvenGlassMenuHost(
         val preview = request.preview
         // A lifted control places its menu beside the whole of it, and the glass grows from a capsule on its edge.
         val density = LocalDensity.current
-        val lifted = anchor.lifted(PreviewLift)
+        val lifted = anchor.lifted(metrics.previewLift)
         val shift = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
-        val seed = preview?.seed(lifted.translate(0f, shift), constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
+        val seed = preview?.seed(lifted.translate(0f, shift), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
         val point = if (request.popover) popoverPoint(anchor, constraints.maxHeight.toFloat(), density) else null
         val placement = when {
@@ -157,7 +157,7 @@ public fun QuvenGlassMenuHost(
             point != null -> request.placement.around(anchor)
             else -> request.placement
         }
-        if (preview != null) LiftedPreview(preview, anchor, shift) { request.morph.progress.value }
+        if (preview != null) LiftedPreview(preview, anchor, shift, metrics.previewLift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
@@ -507,16 +507,17 @@ internal fun popoverPoint(control: Rect, spaceHeight: Float, density: Density): 
 
 /**
  * Draws a control's [preview] lifted out of the screen, which dims behind it, as far as [progress] has opened its menu:
- * the control grows to [PreviewLift] about its centre and moves by [shift], over a veil of black at [ScreenDim], as a
+ * the control grows to [lift] about its centre and moves by [shift], over a veil of black at [ScreenDim], as a
  * system context menu lifts its preview.
  *
  * @param preview The control.
  * @param anchor The control's bounds, in the host's coordinates.
  * @param shift How far the control moves down once lifted, negative to move up, to keep its menu beside it.
+ * @param lift The share of its own size the control lifts to.
  * @param progress Reads how far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
  */
 @Composable
-private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float, progress: () -> Float) {
+private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float, lift: Float, progress: () -> Float) {
     Box(
         Modifier
             .fillMaxSize()
@@ -524,7 +525,7 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
                 val shown = progress().coerceIn(0f, 1f)
                 drawRect(Color.Black, alpha = ScreenDim * shown)
                 translate(anchor.left, anchor.top + shift * shown) {
-                    scale(preview.liftAt(progress()), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
+                    scale(preview.liftAt(progress(), lift), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
                 }
             },
     )
@@ -578,8 +579,5 @@ internal val PopoverGap = 14.dp
 
 /** The least room between a menu and the host's edges, which also caps a long menu's height. */
 internal val MenuEdge = 16.dp
-
-/** How much a context menu's control grows as it lifts out of the screen, as measured on the system's. */
-internal const val PreviewLift = 1.1f
 
 private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)

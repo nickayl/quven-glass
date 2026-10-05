@@ -2,6 +2,7 @@ package tv.quven.glass.sample
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +14,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -30,10 +30,15 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.graphicsLayer
 
 private class Poster(val title: String, val top: Color, val bottom: Color, val mark: Color, val text: Color)
 
@@ -56,13 +61,16 @@ private val Posters = listOf(
  * @param modifier Modifier applied to the list.
  * @param scroll The distance the list starts scrolled by, in density-independent pixels.
  * @param top The room above the first item, which a bar standing over the list's top edge takes at rest.
+ * @param shift The distance the content is drawn moved towards the start, so it lies under a surface as in a wider stage.
  */
 @Composable
-internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float = 0f, top: Dp = 0.dp) {
+internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float = 0f, top: Dp = 0.dp, shift: Dp = 0.dp) {
     val state = rememberLazyListState()
     val density = LocalDensity.current
     LaunchedEffect(scroll) { if (scroll > 0f) state.scrollBy(with(density) { scroll.dp.toPx() }) }
-    LazyColumn(modifier.background(SampleColors.Ground), state = state, contentPadding = PaddingValues(top = top, bottom = 140.dp)) {
+    LazyColumn(
+        modifier.background(SampleColors.Ground).graphicsLayer { translationX = -shift.toPx() },
+        state = state, contentPadding = PaddingValues(top = top, bottom = 140.dp)) {
         item { Header() }
         items(12) { block ->
             when (block % 4) {
@@ -114,8 +122,8 @@ private fun Header() {
         contentAlignment = Alignment.BottomStart,
     ) {
         Column(Modifier.statusBarsPadding().padding(24.dp)) {
-            Text("Quven Glass", color = Color.White, fontSize = 56.sp, fontWeight = FontWeight.Black)
-            Text("Liquid Glass for Compose", color = Color.White.copy(alpha = 0.85f), fontSize = 22.sp)
+            Text("Quven Glass", color = Color.White, fontSize = 48.sp, fontWeight = FontWeight.Black, fontFamily = BackdropFont)
+            Text("Liquid Glass for Compose", color = Color.White.copy(alpha = 0.85f), fontSize = 22.sp, fontFamily = BackdropFont)
         }
     }
 }
@@ -165,6 +173,7 @@ private fun PosterCard(poster: Poster, modifier: Modifier = Modifier) {
             color = poster.text,
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
+            fontFamily = BackdropFont,
             modifier = Modifier.align(Alignment.BottomStart).padding(12.dp),
         )
     }
@@ -179,6 +188,7 @@ private fun TextBlock() {
         color = SampleColors.TextHigh,
         fontSize = 20.sp,
         lineHeight = 28.sp,
+        fontFamily = BackdropFont,
         modifier = Modifier.fillMaxWidth().height(150.dp).padding(start = 24.dp, end = 24.dp, top = 20.dp),
     )
 }
@@ -187,7 +197,14 @@ private fun TextBlock() {
 private fun Bands() {
     Column {
         Box(Modifier.fillMaxWidth().height(90.dp).background(Color.White), contentAlignment = Alignment.CenterStart) {
-            Text("A WHITE BAND", color = Color.Black, fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 24.dp))
+            Text(
+                "A WHITE BAND",
+                color = Color.Black,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = BackdropFont,
+                modifier = Modifier.padding(start = 24.dp),
+            )
         }
         Canvas(Modifier.fillMaxWidth().height(120.dp)) {
             val stripe = 6.dp.toPx()
@@ -243,3 +260,17 @@ private fun CalibrationProbe(horizontal: Boolean, height: Dp) {
         drawRect(brush)
     }
 }
+
+/**
+ * Returns Inter at [weight], its weight axis pinned, as the iOS reference draws its backdrop, so the content under the
+ * glass is the same on both.
+ *
+ * @param weight The weight.
+ * @return The font.
+ */
+@OptIn(ExperimentalTextApi::class)
+private fun inter(weight: FontWeight): Font =
+    Font(R.font.inter_variable, weight = weight, variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)))
+
+/** The family the backdrop's text is drawn in, the iOS reference's. */
+private val BackdropFont = FontFamily(inter(FontWeight.Normal), inter(FontWeight.Bold), inter(FontWeight.ExtraBold), inter(FontWeight.Black))

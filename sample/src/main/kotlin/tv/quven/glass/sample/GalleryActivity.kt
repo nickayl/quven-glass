@@ -1,6 +1,7 @@
 package tv.quven.glass.sample
 
 import android.graphics.Color
+import android.content.Intent
 import android.graphics.RectF
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -32,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -57,32 +59,55 @@ import tv.quven.glass.QuvenGlassAlertHost
 import tv.quven.glass.QuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassMenuMetrics
 import tv.quven.glass.QuvenGlassSheetHost
+import tv.quven.glass.quvenGlassScrollEdge
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.rememberQuvenGlassAlertHostState
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMenuHostState
 import tv.quven.glass.rememberQuvenGlassSheetHostState
-import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.runtime.staticCompositionLocalOf
 
 /** Shows every Liquid Glass element Apple draws, the library's own where it draws one, each over hard content. */
 class GalleryActivity : ComponentActivity() {
+    // The exhibit and the backdrop offset the latest intent names; a later intent reaches the running gallery.
+    private var shown by mutableStateOf<Int?>(null)
+    private var backdropOffset by mutableStateOf(DpOffset.Zero)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // The gallery is dark whatever the system's theme, so its bars carry light glyphs.
         enableEdgeToEdge(SystemBarStyle.dark(Color.TRANSPARENT), SystemBarStyle.dark(Color.TRANSPARENT))
         super.onCreate(savedInstanceState)
         // A capture opens the gallery on the exhibit named and copies the region named on every frame.
-        val exhibit = intent.getStringExtra(ExtraExhibit)?.let { title -> Exhibits.indexOfFirst { it.title == title }.takeIf { it >= 0 } }
+        read(intent)
         val seconds = intent.getFloatExtra(ExtraWindow, 0f)
         setContent {
-            CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f)) {
-                MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(exhibit) }
+            CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f), LocalBackdropOffset provides backdropOffset) {
+                MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(shown) }
             }
         }
+        record(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        read(intent)
+        record(intent)
+    }
+
+    private fun record(intent: Intent) {
+        val seconds = intent.getFloatExtra(ExtraWindow, 0f)
         val region = intent.getStringExtra(ExtraRegion)?.split(',')?.mapNotNull(String::toFloatOrNull)
         if (seconds > 0f && region?.size == 4) {
-            recordWindowAfterLaunch(RectF(region[0], region[1], region[0] + region[2], region[1] + region[3]), CapturePixelsPerDp, seconds)
+            val scale = intent.getFloatExtra(ExtraScale, CapturePixelsPerDp)
+            recordWindowAfterLaunch(RectF(region[0], region[1], region[0] + region[2], region[1] + region[3]), scale, seconds)
         }
+    }
+
+    private fun read(intent: Intent) {
+        shown = intent.getStringExtra(ExtraExhibit)?.let { title -> Exhibits.indexOfFirst { it.title == title }.takeIf { it >= 0 } }
+        val offset = intent.getStringExtra(ExtraBackdropOffset)?.split(',')?.mapNotNull(String::toFloatOrNull)
+        backdropOffset = if (offset?.size == 2) DpOffset(offset[0].dp, offset[1].dp) else DpOffset.Zero
     }
 
     private companion object {
@@ -91,7 +116,13 @@ class GalleryActivity : ComponentActivity() {
         const val ExtraWindow = "window"
         const val ExtraRegion = "region"
 
-        // Two pixels per dp, as the iOS simulator's frames keep two per point.
+        // How far each stage's content is drawn moved, as x,y in dp, so an exhibit stands over the content it stands
+        // over in the iOS reference's larger stage.
+        const val ExtraBackdropOffset = "backdropOffset"
+
+        // The pixels a recorded frame keeps per dp: two, as the iPad's frames keep two per point, unless the capture
+        // names fewer, which a large region needs to stay within memory.
+        const val ExtraScale = "scale"
         const val CapturePixelsPerDp = 2f
     }
 }
@@ -100,7 +131,7 @@ class GalleryActivity : ComponentActivity() {
  * Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it. An
  * exhibit's sheets and alerts stand over the whole window, which they dim, as the system's do.
  *
- * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
+ * @param initial The index of the exhibit to show, or `null` to open on the first and, in a narrow window, the list.
  */
 @Composable
 private fun GalleryScreen(initial: Int?) {
@@ -108,12 +139,26 @@ private fun GalleryScreen(initial: Int?) {
     val screen = rememberQuvenGlassBackdrop()
     val alerts = rememberQuvenGlassAlertHostState()
     val sheets = rememberQuvenGlassSheetHostState()
+    // Menus stand over the whole window, past the stage's edges, as the system's do.
+    val menus = rememberQuvenGlassMenuHostState()
+    val metrics = if (LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp) QuvenGlassMenuMetrics.Tablet else QuvenGlassMenuMetrics.Phone
     // The menu of cut, copy and paste stands over everything, as the system's does.
     ProvideQuvenGlassTextToolbar(style = tuning.style, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion) {
         Box(Modifier.fillMaxSize()) {
-            CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts, LocalQuvenGlassSheetHost provides sheets) {
+            CompositionLocalProvider(
+                LocalQuvenGlassAlertHost provides alerts,
+                LocalQuvenGlassSheetHost provides sheets,
+                LocalQuvenGlassMenuHost provides menus,
+            ) {
                 GalleryPanes(initial, tuning, Modifier.fillMaxSize().quvenGlassSource(screen))
             }
+            QuvenGlassMenuHost(
+                state = menus,
+                style = tuning.style.forMenus(),
+                metrics = metrics,
+                backdrop = screen.takeIf { tuning.liquid },
+                reduceMotion = tuning.reduceMotion,
+            )
             QuvenGlassSheetHost(sheets, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
             QuvenGlassAlertHost(alerts, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
         }
@@ -123,7 +168,7 @@ private fun GalleryScreen(initial: Int?) {
 /**
  * Draws the list of exhibits beside the one chosen, or one of the two in a narrow window.
  *
- * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
+ * @param initial The index of the exhibit to show, or `null` to open on the first and, in a narrow window, the list.
  * @param tuning The live settings.
  * @param modifier Modifier applied to the panes.
  */
@@ -131,6 +176,12 @@ private fun GalleryScreen(initial: Int?) {
 private fun GalleryPanes(initial: Int?, tuning: SampleTuning, modifier: Modifier) {
     var chosen by rememberSaveable { mutableIntStateOf(initial ?: 0) }
     var opened by rememberSaveable { mutableStateOf(initial != null) }
+    LaunchedEffect(initial) {
+        if (initial != null) {
+            chosen = initial
+            opened = true
+        }
+    }
     BoxWithConstraints(
         modifier
             .background(SampleColors.Ground)
@@ -234,8 +285,7 @@ private fun ExhibitPage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifi
             )
         }
         Text(exhibit.summary, color = SampleColors.TextMedium, fontSize = 15.sp)
-        // The stage is the iOS reference's size, so an exhibit stands over the same content on both.
-        key(exhibit) { ExhibitStage(exhibit, tuning, Modifier.padding(top = 6.dp).size(StageSize)) }
+        key(exhibit) { ExhibitStage(exhibit, tuning, Modifier.padding(top = 6.dp).weight(1f).fillMaxWidth()) }
     }
 }
 
@@ -250,28 +300,31 @@ private fun ExhibitPage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifi
 private fun ExhibitStage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modifier) {
     val backdrop = rememberQuvenGlassBackdrop()
     val scroll = remember { StageScroll() }
-    val menus = rememberQuvenGlassMenuHostState()
-    val metrics = if (LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp) QuvenGlassMenuMetrics.Tablet else QuvenGlassMenuMetrics.Phone
     Box(modifier.clip(StageShape)) {
-        SampleBackdropContent(Modifier.fillMaxSize().nestedScroll(scroll).quvenGlassSource(backdrop))
+        val offset = LocalBackdropOffset.current
+        SampleBackdropContent(
+            Modifier
+                .fillMaxSize()
+                .nestedScroll(scroll)
+                .quvenGlassSource(backdrop)
+                .then(if (exhibit.bottomEdge > 0.dp) Modifier.quvenGlassScrollEdge(bottom = exhibit.bottomEdge) else Modifier),
+            scroll = offset.y.value,
+            shift = offset.x,
+        )
         CompositionLocalProvider(
             LocalQuvenGlassBackdrop provides backdrop.takeIf { tuning.liquid },
             LocalStageScroll provides scroll,
-            LocalQuvenGlassMenuHost provides menus,
         ) {
             Box(Modifier.fillMaxSize().padding(StageInset)) {
                 val stage = exhibit.stage
                 if (stage != null) stage(tuning) else PendingExhibitCard(exhibit, tuning, Modifier.align(Alignment.Center))
             }
-            QuvenGlassMenuHost(
-                state = menus,
-                style = tuning.style.forMenus(),
-                metrics = metrics,
-                reduceMotion = tuning.reduceMotion,
-            )
         }
     }
 }
+
+/** How far each stage's content is drawn moved towards the start and the top. */
+private val LocalBackdropOffset = staticCompositionLocalOf { DpOffset.Zero }
 
 private val TwoPaneWidth = 700.dp
 private val ListWidth = 300.dp
@@ -282,7 +335,6 @@ private val ChosenRow = SampleColors.TextHigh.copy(alpha = 0.12f)
 private val Ground = SampleColors.Ground
 private val PagePadding = 16.dp
 private val StageShape = RoundedCornerShape(24.dp)
-private val StageSize = DpSize(400.dp, 600.dp)
 /** The room between the stage's edge and its exhibit. */
 internal val StageInset = 24.dp
-private const val TabletWidthDp = 600
+internal const val TabletWidthDp = 600

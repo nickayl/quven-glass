@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * How far along the library is with one of Apple's Liquid Glass elements.
@@ -30,6 +32,8 @@ internal enum class ExhibitStatus(val label: String, val color: Color) {
  * @property summary What the element is and does.
  * @property status How far along the library is with the element.
  * @property stage Draws the library's element over the stage, given the live material; only a ready exhibit has one.
+ * @property bottomEdge The reach of the soft scroll edge along the foot of the stage, where the reference's system bar
+ * fades the content under it; none where no system bar stands there.
  * @throws IllegalArgumentException A ready exhibit has no stage, or another one has a stage.
  */
 @Immutable
@@ -37,12 +41,19 @@ internal class Exhibit(
     val title: String,
     val summary: String,
     val status: ExhibitStatus,
+    val bottomEdge: Dp = 0.dp,
     val stage: (@Composable BoxScope.(SampleTuning) -> Unit)? = null,
 ) {
     init {
         require((stage != null) == (status == ExhibitStatus.Ready)) { "Exactly the ready exhibits have a stage." }
     }
 }
+
+/** The room a system tab bar keeps at the stage's foot, the bar and the room under it, which its soft edge reaches over. */
+private val SystemBarEdge = 73.dp
+
+/** The room a bottom accessory adds above the bar, itself and the room under it. */
+private val AccessoryEdge = 56.dp
 
 /** The exhibits, in the order the gallery lists them. */
 internal val Exhibits: List<Exhibit> = listOf(
@@ -139,16 +150,19 @@ internal val Exhibits: List<Exhibit> = listOf(
         "Search",
         "The Search circle opens into a field of glass along the bar, and sinks with the tabs as the bar minimizes.",
         ExhibitStatus.Ready,
+        bottomEdge = SystemBarEdge,
     ) { SearchExhibit(it) },
     Exhibit(
         "Minimizing tab bar",
         "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back at the top or when pressed.",
         ExhibitStatus.Ready,
+        bottomEdge = SystemBarEdge,
     ) { MinimizingTabBarExhibit(it) },
     Exhibit(
         "Bottom accessory",
         "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar.",
         ExhibitStatus.Ready,
+        bottomEdge = SystemBarEdge + AccessoryEdge,
     ) { BottomAccessoryExhibit(it) },
     Exhibit(
         "Scroll edge",

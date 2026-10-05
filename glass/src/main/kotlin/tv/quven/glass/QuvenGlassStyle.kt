@@ -75,6 +75,14 @@ import androidx.compose.ui.unit.dp
  * white over bright content; 0 leaves it to [pressGlow].
  * @property pressWhite The share of white a pressed surface turns towards at least, whatever lies under it, from 0 to 1, as
  * the items of Apple's tab bar light under the finger even over black; 0 leaves it to [pressLighten].
+ * @property pressSaturation How saturated a pressed surface shows its backdrop as [pressGlow] lights it: 1 keeps its
+ * colours, more deepens them, as Apple's glass buttons deepen what lies under them while they light.
+ * @property pressZoom How much further from its centre a pressed surface reads its backdrop, as Apple's glass buttons
+ * show more of what lies around them while they swell; 1 reads it where it lies.
+ * @property pressBlur How much further a pressed surface blurs its backdrop as [pressGlow] lights it, as the radius it
+ * softens it over, as Apple's glass buttons soften what lies under them while they light.
+ * @property pressBrighten How much light a pressed surface adds to its backdrop as [pressGlow] lights it, from 0 to 1, all
+ * of it over black and less the brighter the backdrop, so it lights even over black, as Apple's glass buttons do.
  * @property touchLight How much white light gathers under the finger on interactive glass and follows it, at its middle,
  * from 0 to 1; 0 for glass that does not light where it is touched.
  * @property touchLightSpread How far the light under the finger spreads, as a Gaussian's standard deviation.
@@ -125,6 +133,10 @@ public data class QuvenGlassStyle(
     val rimLight: Float = 0f,
     val pressLighten: Float = 0f,
     val pressWhite: Float = 0f,
+    val pressSaturation: Float = 1f,
+    val pressZoom: Float = 1f,
+    val pressBlur: Dp = 0.dp,
+    val pressBrighten: Float = 0f,
     val touchLight: Float = 0f,
     val touchLightSpread: Dp = 95.dp,
 ) {
@@ -148,8 +160,8 @@ public data class QuvenGlassStyle(
 
     /**
      * Returns this material as a glass button draws it, as Apple's glass buttons answer the finger: the button grows,
-     * plain glass turns towards white, the more over brighter content, and a prominent button, given a [tint], lightens
-     * its tint.
+     * plain glass lights what lies under and around it, deepening its colours, and a prominent button, given a [tint],
+     * lightens its tint.
      *
      * @param tint The tint of a prominent button, or [Color.Unspecified] for plain glass.
      * @return The button's material.
@@ -166,7 +178,16 @@ public data class QuvenGlassStyle(
             )
         } else {
             // Plain glass shows at its rim what lies just outside it, as it is.
-            copy(pressLighten = ButtonPressLighten, pressGrowth = 0f, pressExpansion = ButtonPressExpansion, rimGlow = ButtonRimGlow)
+            copy(
+                pressGlow = ButtonPressGlow,
+                pressSaturation = ButtonPressSaturation,
+                pressZoom = ButtonPressZoom,
+                pressBlur = ButtonPressBlur,
+                pressBrighten = ButtonPressBrighten,
+                pressGrowth = 0f,
+                pressExpansion = ButtonPressExpansion,
+                rimGlow = ButtonRimGlow,
+            )
         }
 
     /**
@@ -192,7 +213,7 @@ public data class QuvenGlassStyle(
      * @return The group's material.
      */
     internal fun forToolbarItems(): QuvenGlassStyle =
-        forButtons().copy(pressLighten = 0f, touchLight = ToolbarTouchLight, touchLightSpread = ToolbarTouchSpread)
+        forButtons().copy(pressGlow = 0f, pressWhite = ToolbarPressWhite, touchLight = ToolbarTouchLight, touchLightSpread = ToolbarTouchSpread)
 
     /**
      * Returns this material as a pressable item of a tab bar draws it, such as its Search circle: it grows under the finger
@@ -223,12 +244,17 @@ public data class QuvenGlassStyle(
 
         private const val BarItemPressWhite = 0.41f
         private const val InteractiveTouchLight = 0.057f
-        private const val ToolbarTouchLight = 0.41f
+        private const val ToolbarTouchLight = 0.5f
+        private const val ToolbarPressWhite = 0.11f
         private val ToolbarTouchSpread = 45.dp
         private val BarItemPressExpansion = 9.dp
         private const val MenuPressGlow = 3.6f
-        private const val ButtonTintGlow = 1.65f
-        private const val ButtonPressLighten = 1.05f
+        private const val ButtonTintGlow = 1.15f
+        private const val ButtonPressGlow = 1.45f
+        private const val ButtonPressSaturation = 1.8f
+        private const val ButtonPressZoom = 1.6f
+        private val ButtonPressBlur = 16.dp
+        private const val ButtonPressBrighten = 0.3f
         private const val ButtonRimGlow = 1f
         private const val ButtonRimLight = 0.3f
         private val ButtonPressExpansion = 16.dp

@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.constrainHeight
@@ -45,7 +46,9 @@ import kotlin.math.roundToInt
  * down: the tabs fold into the same circle and the Search circle sinks where it stands; a press on the folded tabs then
  * asks the bar to grow back. Drive it from a [QuvenGlassBarMinimizer].
  *
- * The morph is as wide as the resting bar, the tabs, [gap] and the Search circle, and [height] tall.
+ * The morph is as wide as the resting bar, the tabs, [gap] and the Search circle, and [height] tall. An [accessory], such
+ * as a player's controls, stands on its own glass above the whole bar, as wide as it, and comes down between the folded
+ * tabs and the sunken Search circle while the bar is minimized, narrowing before it falls and rising before it widens.
  *
  * @param searching Whether the bar stands as a search field.
  * @param onSearch Invoked when the Search circle, or the field it opens into, is pressed.
@@ -67,6 +70,7 @@ import kotlin.math.roundToInt
  * @param minimized Whether the bar stands minimized; searching takes precedence.
  * @param onExpand Invoked when the folded tabs are pressed while the bar stands minimized.
  * @param searchModifier Modifier applied to the Search circle, the field it opens into.
+ * @param accessory Draws the accessory's content in a row filling its capsule, or `null` for none.
  */
 @Composable
 public fun QuvenGlassSearchMorph(
@@ -89,6 +93,7 @@ public fun QuvenGlassSearchMorph(
     minimized: Boolean = false,
     onExpand: () -> Unit = {},
     searchModifier: Modifier = Modifier,
+    accessory: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val spec = if (reduceMotion) tween<Float>(ReducedMotionFadeMillis) else BarMorphSpring
     val progress = remember { Animatable(if (searching) 1f else 0f) }
@@ -112,31 +117,58 @@ public fun QuvenGlassSearchMorph(
         }
     }
     val item = remember(style) { style.forBarItems() }
-    QuvenGlassContainer(modifier, style = style, spacing = JoinSpacing, backdrop = backdrop) {
-        SearchMorphLayout(frame) {
-            FoldingTabs(
-                atRest = progress.value == 0f && !searching && shrink.value == 0f && !shrinking,
-                onPress = if (searching || progress.value > 0f) onEndSearch else onExpand,
-                material = item,
-                backdrop = backdrop,
-                reduceMotion = reduceMotion,
-                fold = { frame().fold },
-                progress = { if (foldedAtStart) 1f else max(progress.value, shrink.value) },
-                heldCentre = heldCentre,
-                tabs = tabs,
-                tabsFace = tabsFace,
-                heldGlyph = heldGlyph,
-            )
-            BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier) {
-                Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
-                    Row(
-                        Modifier.padding(start = GlyphGap).graphicsLayer { alpha = frame().fieldAlpha },
-                        verticalAlignment = Alignment.CenterVertically,
-                        content = field,
+    val gaps = with(density) { AccessoryGaps(AccessoryGap.toPx(), AccessoryInlineGap.toPx()) }
+    Layout(
+        {
+            QuvenGlassContainer(style = style, spacing = JoinSpacing, backdrop = backdrop) {
+                SearchMorphLayout(frame) {
+                    FoldingTabs(
+                        atRest = progress.value == 0f && !searching && shrink.value == 0f && !shrinking,
+                        onPress = if (searching || progress.value > 0f) onEndSearch else onExpand,
+                        material = item,
+                        backdrop = backdrop,
+                        reduceMotion = reduceMotion,
+                        fold = { frame().fold },
+                        progress = { if (foldedAtStart) 1f else max(progress.value, shrink.value) },
+                        heldCentre = heldCentre,
+                        tabs = tabs,
+                        tabsFace = tabsFace,
+                        heldGlyph = heldGlyph,
                     )
+                    BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier) {
+                        Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
+                            Row(
+                                Modifier.padding(start = GlyphGap).graphicsLayer { alpha = frame().fieldAlpha },
+                                verticalAlignment = Alignment.CenterVertically,
+                                content = field,
+                            )
+                        }
+                    }
                 }
             }
+            if (accessory != null) {
+                Row(
+                    Modifier.liquidGlass(backdrop, style, CircleShape, null, reduceMotion, lift = null, pill = null),
+                    verticalAlignment = Alignment.CenterVertically,
+                    content = accessory,
+                )
+            }
+        },
+        modifier,
+    ) { measurables, constraints ->
+        val bar = measurables[0].measure(Constraints())
+        val inset = BarSinkInset.toPx()
+        val tall = height.toPx() - inset * 2f
+        val above = if (measurables.size > 1) tall + gaps.above else 0f
+        // The accessory comes down only while the bar minimizes; a search keeps it above the bar.
+        val strip = measurables.getOrNull(1)?.let { child ->
+            val rect = accessoryRect(shrink.value, bar.width.toFloat(), height.toPx(), inset, gaps, endReserve = tall + gaps.inline)
+            child.measure(fixed(rect.width, rect.height)) to rect
+        }
+        layout(constraints.constrainWidth(bar.width), constraints.constrainHeight((above + bar.height).roundToInt())) {
+            bar.placeRelative(0, above.roundToInt())
+            strip?.let { (placeable, rect) -> placeable.placeRelative(rect.left.roundToInt(), rect.top.roundToInt()) }
         }
     }
 }

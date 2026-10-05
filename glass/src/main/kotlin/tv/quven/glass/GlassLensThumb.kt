@@ -43,8 +43,15 @@ import androidx.compose.ui.util.lerp
  *
  * @property thumb The size of the thumb at rest.
  * @property lens The size of the lens it lifts into.
+ * @property colour The colour of the thumb at rest.
+ * @property glass The clear glass of the lens once lifted.
  */
-internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
+internal class GlassLensThumb(
+    val thumb: DpSize,
+    val lens: DpSize,
+    val colour: Color = Color.White,
+    val glass: QuvenGlassStyle = LensMaterial,
+) {
 
     /**
      * Returns the thumb's frame, centred on [centre], [lift] of the way into the lens: the thumb grows only once it has
@@ -72,15 +79,15 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
      */
     fun material(lift: Float): QuvenGlassStyle {
         val shown = smoothstep(0f, ThumbGone, lift)
-        return LensMaterial.copy(
+        return glass.copy(
             blur = lerp(LensFrost, 0.dp, smoothstep(FrostClearStart, 1f, lift)),
-            shadow = LensMaterial.shadow.copy(alpha = LensMaterial.shadow.alpha * shown),
-            specular = LensMaterial.specular * shown,
+            shadow = glass.shadow.copy(alpha = glass.shadow.alpha * shown),
+            specular = glass.specular * shown,
         )
     }
 
     /**
-     * Returns how much of the white thumb shows [lift] of the way into the lens: all of it at rest, none past halfway.
+     * Returns how much of the thumb shows [lift] of the way into the lens: all of it at rest, none past halfway.
      *
      * @param lift How far the thumb has lifted into the lens, from 0 to 1.
      * @return The thumb's opacity, from 0 to 1.
@@ -88,7 +95,7 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
     fun thumbOpacity(lift: Float): Float = 1f - smoothstep(0f, ThumbGone, lift)
 
     /**
-     * Returns how far the white thumb is blurred [lift] of the way into the lens: crisp at rest, blurring as it fades.
+     * Returns how far the thumb is blurred [lift] of the way into the lens: crisp at rest, blurring as it fades.
      *
      * @param lift How far the thumb has lifted into the lens, from 0 to 1.
      * @return The blur radius.
@@ -96,16 +103,13 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
     fun thumbBlur(lift: Float): Dp = ThumbFrost * smoothstep(0f, ThumbGone, lift)
 
     companion object {
-        /** Gets the thumb of a switch and of a slider, and the lens it lifts into, as measured on Apple's. */
-        val Control: GlassLensThumb = GlassLensThumb(thumb = DpSize(36.dp, 24.dp), lens = DpSize(57.dp, 37.5.dp))
-
         /** How far the frosted lens blurs the track while the thumb turns into it. */
         val LensFrost: Dp = 6.dp
 
-        /** How far the white thumb blurs as it fades into the lens. */
+        /** How far the thumb blurs as it fades into the lens. */
         val ThumbFrost: Dp = 5.dp
 
-        /** The share of the lift by which the white thumb has gone. */
+        /** The share of the lift by which the thumb has gone. */
         const val ThumbGone: Float = 0.55f
 
         /** The share of the lift from which the thumb grows into the lens. */
@@ -132,6 +136,9 @@ internal class GlassLensThumb(val thumb: DpSize, val lens: DpSize) {
             shadow = Color(0x1F000000),
             shadowRadius = 8.dp,
         )
+
+        /** Gets the thumb of a switch and of a slider, and the lens it lifts into, as measured on Apple's. */
+        val Control: GlassLensThumb = GlassLensThumb(thumb = DpSize(36.dp, 24.dp), lens = DpSize(57.dp, 37.5.dp))
     }
 }
 
@@ -150,12 +157,14 @@ private fun Modifier.lensHole(frame: () -> Rect?): Modifier = drawWithContent {
 
 /**
  * Draws a control's track with a [GlassLensThumb] over it: the track records into a backdrop of its own, which the lens
- * bends, and shows through a hole where the lens stands; the white thumb blurs away into the lens as it lifts.
+ * bends, and shows through a hole where the lens stands; the thumb blurs away into the lens as it lifts.
  *
  * @param thumb The thumb's sizes and materials.
  * @param lift Reads how far the thumb has lifted into the lens, from 0 to 1.
  * @param centre Reads the thumb's centre, in pixels, in the parent's coordinates, given the parent's size.
- * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays a white thumb.
+ * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays its thumb.
+ * @param content Lays out what stands on the track under the thumb, such as a control's options, which the lens bends
+ * with it.
  * @param track Draws the track over the parent's bounds.
  */
 @Composable
@@ -164,6 +173,7 @@ internal fun BoxScope.LensTrack(
     lift: () -> Float,
     centre: Density.(size: IntSize) -> Offset,
     liquid: Boolean,
+    content: @Composable BoxScope.() -> Unit = {},
     track: DrawScope.() -> Unit,
 ) {
     val density = LocalDensity.current
@@ -177,6 +187,7 @@ internal fun BoxScope.LensTrack(
             .then(if (liquid) Modifier.lensHole { frame().takeIf { lift() > 0f } } else Modifier)
             .quvenGlassSource(backdrop)
             .drawBehind(track),
+        content = content,
     )
     LensThumb(thumb, backdrop, lift, frame, liquid)
 }
@@ -188,7 +199,7 @@ internal fun BoxScope.LensTrack(
  * @param backdrop The backdrop the track records into.
  * @param lift Reads how far the thumb has lifted into the lens, from 0 to 1.
  * @param frame Reads the thumb's frame in the parent's coordinates, given its lift.
- * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays a white thumb as it grows.
+ * @param liquid Whether the lens is drawn: without Liquid Glass the thumb stays its thumb as it grows.
  */
 @Composable
 private fun BoxScope.LensThumb(
@@ -225,7 +236,7 @@ private fun BoxScope.LensThumb(
                 .fillMaxSize()
                 .graphicsLayer { alpha = if (liquid) thumb.thumbOpacity(lift()) else 1f }
                 .blur(if (liquid) thumb.thumbBlur(shown) else 0.dp, BlurredEdgeTreatment.Unbounded)
-                .background(Color.White, CircleShape),
+                .background(thumb.colour, CircleShape),
         )
     }
 }

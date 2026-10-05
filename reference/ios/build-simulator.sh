@@ -8,4 +8,5 @@ plutil -replace CFBundleSupportedPlatforms -json '["iPhoneSimulator"]' -o build/
 xcrun --sdk iphonesimulator swiftc -parse-as-library -O \
     -target "$(uname -m)-apple-ios26.0-simulator" \
     GlassReference.swift -o build/GlassReference.app/GlassReference
+cp ../../fonts/res/font/inter_variable.ttf build/GlassReference.app/
 codesign --force --sign - build/GlassReference.app

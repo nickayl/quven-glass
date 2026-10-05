@@ -27,6 +27,8 @@ android {
     buildFeatures {
         compose = true
     }
+    // Inter, shared with the iOS reference, draws the backdrop's text on both.
+    sourceSets["main"].res.srcDir("../fonts/res")
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

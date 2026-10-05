@@ -35,7 +35,9 @@ import kotlin.math.roundToInt
  * Draws a phone's tab bar that minimizes while its content scrolls down, as Apple's tab bar does on a phone: the capsule
  * of tabs folds into a circle at its start, carrying the held tab's glyph to its middle, and sinks a little into the bar;
  * the tabs' faces shrink and fade with it. Pressing the circle, or the content returning to its top, unfolds it again.
- * The bar keeps its resting place, so what stands beside it does not move. An [accessory], such as a player's controls,
+ * Given more room than the bar's width, as on a tablet, the resting bar stands centred in it and the minimized circle
+ * travels to its start, as Apple's tab bar does on an iPad; given the bar's own width it keeps its place, as on a phone,
+ * so what stands beside it does not move. An [accessory], such as a player's controls,
  * stands on its own glass above the bar, as wide as it, and comes down beside the circle while the bar is minimized,
  * narrowing before it falls and rising before it widens again.
  *
@@ -129,9 +131,11 @@ public fun QuvenGlassMinimizingBar(
             val rect = accessoryRect(progress.value, barWidth, barHeight, inset, gaps)
             child.measure(fixed(rect.width, rect.height)) to rect
         }
-        layout(constraints.constrainWidth(barWidth.roundToInt()), constraints.constrainHeight((above + barHeight).roundToInt())) {
-            bar.placeRelative(0, above.roundToInt())
-            strip?.let { (placeable, rect) -> placeable.placeRelative(rect.left.roundToInt(), rect.top.roundToInt()) }
+        val width = if (constraints.hasBoundedWidth) max(constraints.maxWidth.toFloat(), barWidth) else barWidth
+        val start = minimizedBarStart(progress.value, width, barWidth).roundToInt()
+        layout(constraints.constrainWidth(width.roundToInt()), constraints.constrainHeight((above + barHeight).roundToInt())) {
+            bar.placeRelative(start, above.roundToInt())
+            strip?.let { (placeable, rect) -> placeable.placeRelative(start + rect.left.roundToInt(), rect.top.roundToInt()) }
         }
     }
 }
@@ -153,6 +157,18 @@ internal fun minimizingBarFold(progress: Float, minimizing: Boolean, tabsWidth: 
 }
 
 /**
+ * Returns where a bar [progress] of the way to minimized starts in a room [width] wide: centred while it rests, at the
+ * room's start once minimized, as Apple's tab bar moves its minimized circle to the start of a tablet's window.
+ *
+ * @param progress How far the bar has minimized, from 0 to 1, past either while its spring overshoots.
+ * @param width The width of the room the bar stands in.
+ * @param barWidth The width of the resting bar.
+ * @return The distance of the bar's start from the room's, in pixels.
+ */
+internal fun minimizedBarStart(progress: Float, width: Float, barWidth: Float): Float =
+    lerp(max(0f, (width - barWidth) / 2f), 0f, progress.coerceIn(0f, 1f))
+
+/**
  * The room about a [QuvenGlassMinimizingBar]'s accessory, in pixels.
  *
  * @property above The room between the accessory and the resting bar under it.
@@ -171,15 +187,17 @@ internal class AccessoryGaps(val above: Float, val inline: Float)
  * @param height The bar's height.
  * @param inset How far the minimized circle sinks into the bar from every side.
  * @param gaps The room about the accessory.
+ * @param endReserve The room the minimized bar keeps at its end past the accessory, such as a sunken Search circle and
+ * the room beside it; none for a bar of tabs alone.
  * @return The accessory's capsule.
  */
-internal fun accessoryRect(progress: Float, tabsWidth: Float, height: Float, inset: Float, gaps: AccessoryGaps): Rect {
+internal fun accessoryRect(progress: Float, tabsWidth: Float, height: Float, inset: Float, gaps: AccessoryGaps, endReserve: Float = 0f): Rect {
     val tall = height - inset * 2f
     val down = smoothstep(AccessoryDropStart, 1f, progress)
     val along = smoothstep(AccessoryShiftStart, AccessoryShiftEnd, progress)
     val top = lerp(0f, tall + gaps.above + inset, down)
     val start = lerp(0f, inset + tall + gaps.inline, along)
-    val end = lerp(tabsWidth, tabsWidth - inset, along)
+    val end = lerp(tabsWidth, tabsWidth - inset - endReserve, along)
     return Rect(start, top, end, top + tall)
 }
 
@@ -250,8 +268,8 @@ public fun rememberQuvenGlassBarMinimizer(): QuvenGlassBarMinimizer {
 
 // Measured on the system's tab bar on an iPhone.
 private val MinimizeTravel = 20.dp
-private val AccessoryGap = 9.5.dp
-private val AccessoryInlineGap = 8.dp
+internal val AccessoryGap = 9.5.dp
+internal val AccessoryInlineGap = 8.dp
 private const val AccessoryDropStart = 0.55f
 private const val AccessoryShiftStart = 0.1f
 private const val AccessoryShiftEnd = 0.7f

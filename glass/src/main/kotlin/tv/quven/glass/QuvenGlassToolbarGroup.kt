@@ -108,10 +108,15 @@ internal fun groupWidth(count: Int): Dp = ToolbarItemHeight + ToolbarItemStep * 
 /** The room between two toolbar groups standing side by side, as Apple's toolbars part them. */
 public val QuvenGlassToolbarGap: Dp = 13.dp
 
-/** The spacing a container of toolbar groups joins them at, so that only a swollen group reaches its neighbour. */
-public val QuvenGlassToolbarJoin: Dp = 8.dp
+/**
+ * The spacing a container of toolbar groups joins them at, so that only a swollen group reaches its neighbour: a
+ * container's surfaces flow into one another once less than half its spacing apart, which the 13 between two groups at
+ * rest never are and a group swollen by a press is.
+ */
+public val QuvenGlassToolbarJoin: Dp = 16.dp
 
-// Measured on the system's toolbar on an iPhone.
+// Measured on the system's toolbar on an iPhone and an iPad; a stock icon's glyph fills 20 of its 24, so a 26 dp icon
+// stands as large as the system's symbols.
 private val ToolbarItemHeight = 44.dp
 private val ToolbarItemStep = 59.dp
-private val ToolbarGlyph = 22.dp
+private val ToolbarGlyph = 26.dp

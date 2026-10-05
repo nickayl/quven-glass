@@ -51,6 +51,10 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     PressTintGlow("pressTintGlow", 1),
     RimLight("rimLight", 1),
     PressLighten("pressLighten", 1),
+    PressSaturation("pressSaturation", 1),
+    PressZoom("pressZoom", 1),
+    PressBlur("pressBlur", 1),
+    PressBrighten("pressBrighten", 1),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -70,7 +74,9 @@ internal const val LiquidGlassContent = "content"
  * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
- * `pressGlow` times, and where `pressLighten` is, it turns towards white by `pressLighten` times the mean luminance of the
+ * `pressGlow` times, its saturation scaled by `pressSaturation` and up to `pressBrighten` added, the more the darker it is,
+ * blurred `pressBlur` further, while it
+ * reads the backdrop `pressZoom` times further from its centre, and where `pressLighten` is, it turns towards white by `pressLighten` times the mean luminance of the
  * backdrop under it, or by its own `shapeWhite` where that is more, the whole surface alike, in place of the light a lifted surface otherwise gains;
  * where `rimGlow` is, the rim shows the backdrop just outside it lit `rimGlow` times.
  *
@@ -115,6 +121,10 @@ uniform float backdropDim;
 uniform float pressTintGlow;
 uniform float rimLight;
 uniform float pressLighten;
+uniform float pressSaturation;
+uniform float pressZoom;
+uniform float pressBlur;
+uniform float pressBrighten;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -126,7 +136,7 @@ const float LIFT_REACH_GAIN = 0.3;
 const float PILL_MAGNIFY = 0.25;
 const float PILL_FOLD = 0.8;
 const float MIN_SPREAD_PX = 0.5;
-const float PLATTER_CLEARING = 0.7;
+const float PLATTER_CLEARING = 1.0;
 const float RIM_WIDTH_DP = 1.5;
 const float RIM_AWAY_SHARE = 0.15;
 const float RIM_GAIN = 0.4;
@@ -257,6 +267,16 @@ float2 boxNormal(float2 p, float4 rect, float4 radii) {
     return len > EPSILON ? g / len : float2(0.0, -1.0);
 }
 
+// The backdrop about p blurred over a ring of radius r, its middle weighed twice, as a pressed surface softens it.
+float3 softBackdropAt(float2 p, float r) {
+    float3 sum = backdropAt(p) * 2.0;
+    for (int i = 0; i < 8; i++) {
+        float a = float(i) * 0.785398;
+        sum += backdropAt(p + float2(cos(a), sin(a)) * r);
+    }
+    return sum / 10.0;
+}
+
 // The mean luminance of the backdrop under the surface holding p, read on a grid of three by three inside it.
 float surfaceLuma(float2 p) {
     for (int i = 0; i < 4; i++) {
@@ -301,11 +321,12 @@ half4 main(float2 coord) {
     }
     float shift = reach * bend * (1.0 + LIFT_REACH_GAIN * lift);
     float2 at = coord - n * shift;
-    if (zoom != 1.0) {
+    float zoomed = mix(zoom, zoom * pressZoom, glow);
+    if (zoomed != 1.0) {
         for (int i = 0; i < 4; i++) {
             if (i < shapeCount && roundBox(coord, shapeRect[i], shapeRadii[i]) < 0.0) {
                 float2 centre = (shapeRect[i].xy + shapeRect[i].zw) * 0.5;
-                at = centre + (at - centre) * zoom;
+                at = centre + (at - centre) * zoomed;
             }
         }
     }
@@ -365,7 +386,9 @@ half4 main(float2 coord) {
     }
 
     if (pressGlow > 0.0) {
-        rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), glow);
+        float3 soft = pressBlur > 0.0 && glow > 0.0 ? softBackdropAt(at, pressBlur * glow) : seen;
+        float3 vivid = mix(float3(luma(soft)), soft, pressSaturation);
+        rgb = mix(rgb, clamp(vivid * pressGlow + pressBrighten * (1.0 - luma(soft)), 0.0, 1.0), glow);
     }
     if ((pressLighten > 0.0 || white > 0.0) && glow > 0.0) {
         float lighten = pressLighten > 0.0 ? clamp(pressLighten * surfaceLuma(coord), 0.0, 1.0) * glow : 0.0;
@@ -571,6 +594,10 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.PressTintGlow.uniform, style.pressTintGlow)
             setFloatUniform(LiquidGlassUniform.RimLight.uniform, style.rimLight)
             setFloatUniform(LiquidGlassUniform.PressLighten.uniform, style.pressLighten)
+            setFloatUniform(LiquidGlassUniform.PressSaturation.uniform, style.pressSaturation)
+            setFloatUniform(LiquidGlassUniform.PressZoom.uniform, style.pressZoom)
+            setFloatUniform(LiquidGlassUniform.PressBlur.uniform, style.pressBlur.value * density)
+            setFloatUniform(LiquidGlassUniform.PressBrighten.uniform, style.pressBrighten)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

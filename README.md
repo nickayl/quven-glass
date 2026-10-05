@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.23.2")
+    implementation("tv.quven.glass:glass:2.24.0")
 }
 ```
 
@@ -118,6 +118,16 @@ QuvenGlassContainer(spacing = 8.dp) {
 
 Each option draws its own face and answers its own press; the track only reads where the finger is.
 
+But inside a page Apple's segmented control isn't glass. It's a flat grey track with a lighter pill, and that's what
+`QuvenGlassSegmentedControl` draws. It answers presses and drags on its own. So the options shouldn't carry a click
+handler of their own.
+
+```kotlin
+QuvenGlassSegmentedControl(options = densities, selected = densities.indexOf(density), onSelect = { density = it }) { option, _ ->
+    DensityGlyph(option)
+}
+```
+
 ## Searching from the tab bar
 
 `QuvenGlassSearchMorph` turns a phone's tab bar into a search field and back, the way iOS does when its Search tab is
@@ -158,12 +168,15 @@ scrolling down, and it hands the screen back to the content without hiding which
 folds into a circle at its start that keeps the held tab's glyph, and the other faces shrink and fade as it goes.
 Scrolling up a little won't bring it back. The content has to scroll back by as far as it scrolled down, or be drawn against its top, or you press the circle. Who decides when
 it folds? `rememberQuvenGlassBarMinimizer()` does, once you hand its `nestedScrollConnection` to the scrolling content,
-and you can call `expand()` yourself when a screen should open with the whole bar, or `reset()` when it starts again at its top, which also forgets how far the content has scrolled. The bar stays put.
+and you can call `expand()` yourself when a screen should open with the whole bar, or `reset()` when it starts again at its top, which also forgets how far the content has scrolled. Given only the bar's width, it stays put. Give it
+a whole tablet's width instead and it rests centred, then folds into a circle at the start, as an iPad's tab bar does.
 
 Pass an `accessory`, such as a player's controls or a download that's still running, and it gets a capsule of glass of
 its own above the bar, as wide as the bar and as tall as the folded circle. When the bar minimizes, the accessory
 narrows first and then drops into the bar's line beside the circle. Growing back, it rises before it widens, as a bottom
 accessory does on iOS. Will it merge with the bar where the two pass over each other? No, each keeps its own glass.
+`QuvenGlassSearchMorph` takes an `accessory` too, the way Music lays one out over its tabs and Search; there it comes
+down between the folded tabs and the sunken Search circle.
 
 ```kotlin
 val minimizer = rememberQuvenGlassBarMinimizer()
@@ -247,18 +260,22 @@ ProvideQuvenGlassTextToolbar(backdrop = screen) {
 
 ## Sidebar
 
-`QuvenGlassSidebar` floats a sidebar of thick glass over the content at the start of its parent, the way a split view
-shows its sidebar on an iPad. It stands a few dp inside the parent's edges, 221 dp wide by default, and slides in from
-the start edge on a spring that doesn't overshoot, then back out when you hide it. Nothing reflows. What goes inside?
-Whatever you put there, such as a title, the entries and the button that hides it again. A narrow window should show a
-tab bar instead.
+`QuvenGlassSplitView` lays a sidebar of glass beside its detail, the way a split view does on an iPad. The sidebar is
+320 dp wide by default and floats 10 dp inside the parent's edges, and the detail starts at its end edge. Hide it, and
+the sidebar slides out past the start edge while the detail opens up on the same spring, which doesn't overshoot. And
+when you show it again it'll slide back in. Although the sidebar floats, it never covers the detail. What goes inside? Whatever you put there, such as a title, the entries and the button that hides it again, which
+you can draw however you like.
 
 ```kotlin
-Box(Modifier.fillMaxSize()) {
+QuvenGlassSplitView(
+    sidebarShown = sidebarShown,
+    sidebar = { SidebarEntries(onHide = { sidebarShown = false }) },
+) {
     Library(Modifier.fillMaxSize())
-    QuvenGlassSidebar(shown = sidebarShown) { SidebarEntries(onHide = { sidebarShown = false }) }
 }
 ```
+
+Still, sometimes the sidebar should float over content that stays put, and `QuvenGlassSidebar` is that sidebar alone.
 
 ## Text on light glass
 
@@ -409,7 +426,8 @@ QuvenGlassSubmenu("Share", icon = sharePainter) {
 
 `QuvenGlassContextMenuBox` turns a card into one with a context menu, as a long press on iOS does. The card grows a
 little while it's held, then lifts out of the screen as everything behind it darkens, and the menu's glass flows out
-of its edge to stand beside it on the side with more room. A press still runs the card's own action. It opens in the
+of its edge to stand below it, or above it where there's no room below. How far does the card lift? About a tenth on a
+phone and more than half again on a tablet, which `QuvenGlassMenuMetrics` holds. A press still runs the card's own action. It opens in the
 same `QuvenGlassMenuHost` as every other menu.
 
 ```kotlin
@@ -523,16 +541,16 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 3.5 pt |
 | Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light |
-| Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving |
-| Drag | The lens follows the finger and settles on the nearest option |
+| Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving; the platter clears completely under it, and the held entry's colour travels with it |
+| Drag | The lens follows the finger, the entry under it in the held entry's colour, and settles on the nearest option |
 | Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
-| Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |
+| Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; on an iPad the resting bar stands centred and the circle travels to the window's start as it folds; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |
 | Bottom accessory | On an iPhone: a capsule as tall as the minimized circle (47.5 pt), 9.5 pt above the resting bar and as wide; minimizing, it narrows to start 8 pt past the circle and end 7.25 pt in, then falls into the bar's line; growing back, it rises before it widens; it keeps its own glass over the bar's |
 | Scroll edge | Under a 56 pt bar on an iPhone: soft, the content blurs about 3.5 pt at the edge, gone by 80% of the reach, and darkens 0.29 toward black over 1.78 times the bar's height, with a lip of about 0.66 along the first 10% that ends by 17%; hard, an opaque band of `#212121` as tall as the bar, 0.45 darker at its very top, ends on a sharp line |
 | Touch light | Interactive glass on an iPhone: white added under the finger, 14.5 levels (0.057) at its centre and falling as a Gaussian with σ about 95 pt, in within about 35 ms, following the finger, gone about 400 ms after it lifts on an ease out |
-| Toolbar | On an iPhone: groups 44 pt tall, a circle for one button and 59 pt wider for each further one, 13 pt apart; a press swells the whole group 16 pt along its longer side and lights it toward white, 0.41 at the finger and falling as a Gaussian of about 45 pt, so a swollen group joins its neighbour |
+| Toolbar | On an iPhone: groups 44 pt tall, a circle for one button and 59 pt wider for each further one, 13 pt apart, their symbols about 22 pt across, which a 26 dp stock icon matches; a press swells the whole group 16 pt along its longer side and lights it toward white, 11% all over and 0.5 more at the finger, falling as a Gaussian of about 45 pt, so a swollen group joins its neighbour |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
-| Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass turns towards white, the whole button alike, by about 1.05 times the mean luminance of what lies under it, within about 70 ms, and dies away over about 450 ms after release; a prominent button's tint lightens 1.65 times |
+| Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass shows what lies under and around it untoned, read 1.6 times further from its middle, softened over about 16 pt, its saturation raised 1.8 times and lit 1.45 times, with up to 0.3 added over black, within about 70 ms, and dies away over about 450 ms after release; a tap lights it all the way before it fades; a prominent button's tint lightens 1.15 times |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
 | Menu choices | Check centred at 21 or 24 pt, name from 32 or 36 pt; a menu holding one widens by 12 or 14 pt and moves its glyphs as far |
 | Menu placement | Over its button, hanging when the room below suffices, otherwise rising with untitled rows reversed |
@@ -542,7 +560,8 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
 | Submenu | On an iPhone: the second menu grows out of its entry's row, as wide as the first, its head (the entry in bold, the chevron turned down, then a hairline) centred on the row; the first menu's rows fade to about 0.4 behind it; it folds back into the row |
 | Edit menu | On an iPhone: a capsule 41 pt tall of the actions in 17 pt, each 17 pt in from its hairline, the hairlines 20 pt tall; 14 pt above the selection, or below it without room; paged with arrows where wider than the window |
-| Sidebar | On an iPad: thick glass 221 pt wide, about 7 pt inside its parent's edges, corners of 24; it slides in from the start edge on a critically damped spring of stiffness about 480, there in about 250 ms |
+| Sidebar | On an iPad: thick glass 320 pt wide, 10 pt inside its parent's edges, corners of 24, the detail beside it from its end edge; it slides in from the start edge on a critically damped spring of stiffness about 480, there in about 250 ms |
+| Segmented control | In a page's content on an iPad: a flat track 32 pt tall, (118, 118, 128) at 24%, not glass; the pill 2 pt inside it, white at about 27%; pressed or sent to another option it lifts into a lens of clear glass 18 pt wider and 12 taller, which bends the options under it as it crosses in about 240 ms on a spring with damping 0.85 and stiffness 230, and settles back once it rests |
 | Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
 | Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far |
 | Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |
@@ -551,7 +570,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
 | Clear glass | No tone, lightened by about 0.086; blurred about 2 pt and shown 1.25 times larger, its rim lit nearly white |
-| Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110%, and the menu's glass flows out of the card's edge to stand 22 pt beyond it, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
+| Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110% on an iPhone and 160% on an iPad, and the menu's glass flows out of the card's edge to stand 22 pt below it wherever it fits there and above it otherwise, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a
@@ -573,8 +592,11 @@ tuned on). With `--ez menu true` the gear opens the reference's system menu inst
 
 The gallery records too. `--es exhibit Switch --ef window 3 --es region 270,400,110,140` opens straight on an
 exhibit and records that region, given in dp, at two pixels per dp, so a capture can be laid frame by frame beside the
-reference's. Judge motion on the release build, never on a debuggable one, which runs Compose interpreted and drops
-frames the release build doesn't. `./gradlew :sample:installRelease` builds it.
+reference's. A large region takes `--ef scale 1` so its frames fit in memory. The gallery runs once: a later intent
+reaches the running gallery, which shows the exhibit it names, and `--es backdropOffset dx,dy` draws every stage's
+content moved by that many dp, so an exhibit stands over what it stands over in the iPad's larger stage. Judge motion on
+the release build, never on a debuggable one, which runs Compose interpreted and drops frames the release build
+doesn't. `./gradlew :sample:installRelease` builds it.
 
 ## Reference launch environment
 
@@ -594,8 +616,10 @@ Launched from the Home Screen the reference shows the gallery; any `GLASS_` vari
 | `GLASS_CONTROLS` | The system's tab bar and segmented control instead of the screen. |
 | `GLASS_CONTROLS_WHITE` | Those controls over a white page. |
 | `GLASS_MENUS` | A pull-down with every kind of entry, a plain menu and a card's context menu over the screen. |
+| `GLASS_REMOTE` | With `GLASS_EXHIBIT`, the gallery records itself from that one launch, so ReplayKit asks once, and follows the Darwin notifications `tv.quven.glass.remote.show.<exhibit>`, `.save` and `.record.<seconds>` (`devicectl device notification post`); `remote-last.txt` in Documents names the latest frames, and `remote-region.txt` the region a recording keeps. A Mac can also take the screen over the cable as a capture device, with no prompt at all. |
 
 ## Licence
 
 MIT No Attribution, copyright Quven Technologies S.R.L. Use it, change it and ship it in anything you like; you don't
-need to credit us.
+need to credit us. The sample and the reference draw their backdrop's text in Inter, which keeps its own licence, the
+SIL Open Font License in `fonts/OFL.txt`; the library itself carries no font.

@@ -90,6 +90,19 @@ class QuvenGlassContextMenuTest {
     }
 
     @Test
+    fun theMenu_standsBelowTheLiftedCardWhereItFits_andAboveWhereItDoesNot_asTheSystemsDoes() {
+        val place = QuvenGlassMorphPlacement.belowWhereItFits(gap = 22.dp, edge = 16.dp)
+        val space = IntSize(1180, 820)
+        val menu = IntSize(223, 90)
+
+        // Measured on an iPad: a card lifted to 247..655 of an 820 window keeps its menu below, with less room there.
+        // Right of the window's middle, its end stands with the card's.
+        assertEquals(IntOffset(976 - 223, 655 + 22), place.place(menu, IntRect(706, 247, 976, 655), space, Density(1f)))
+        // Where the menu does not fit below, it stands above, its start with the card's.
+        assertEquals(IntOffset(100, 600 - 22 - 90), place.place(menu, IntRect(100, 600, 287, 760), space, Density(1f)))
+    }
+
+    @Test
     fun theMenu_standsBesideTheLiftedCard_alignedWithItsSideNearerTheEdge() {
         val place = QuvenGlassMorphPlacement.aboveOrBelow(gap = 22.dp, edge = 16.dp)
         val space = IntSize(1180, 820)

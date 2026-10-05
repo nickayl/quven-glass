@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
  * @property titleSize The size of a section's title.
  * @property highlightInset The room between the menu's sides and a held row's highlight, a capsule as tall as the row
  * less a sliver above and below.
+ * @property previewLift How much larger a context menu lifts its control, as a share of its own size.
  */
 @Immutable
 public data class QuvenGlassMenuMetrics(
@@ -57,6 +58,7 @@ public data class QuvenGlassMenuMetrics(
     val labelSize: TextUnit,
     val titleSize: TextUnit,
     val highlightInset: Dp,
+    val previewLift: Float = PhonePreviewLift,
 ) {
     public companion object {
         /** Gets the layout of a menu on a tablet, as iPadOS lays out its system menus. */
@@ -81,6 +83,7 @@ public data class QuvenGlassMenuMetrics(
             labelSize = 15.sp,
             titleSize = 12.sp,
             highlightInset = 13.dp,
+            previewLift = TabletPreviewLift,
         )
 
         /** Gets the layout of a menu on a phone, as iOS lays out its system menus. */
@@ -106,6 +109,10 @@ public data class QuvenGlassMenuMetrics(
             titleSize = 13.sp,
             highlightInset = 14.dp,
         )
+
+        // Measured on the system's context menus: an iPhone lifts the card a tenth larger, an iPad more than half again.
+        private const val PhonePreviewLift = 1.1f
+        private const val TabletPreviewLift = 1.6f
     }
 }
 

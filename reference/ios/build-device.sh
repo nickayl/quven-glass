@@ -10,6 +10,7 @@ mkdir -p build/device/GlassReference.app
 plutil -replace CFBundleSupportedPlatforms -json '["iPhoneOS"]' -o build/device/GlassReference.app/Info.plist Info.plist
 xcrun --sdk iphoneos swiftc -parse-as-library -O -target arm64-apple-ios26.0 \
     GlassReference.swift -o build/device/GlassReference.app/GlassReference
+cp ../../fonts/res/font/inter_variable.ttf build/device/GlassReference.app/
 cp "$profile" build/device/GlassReference.app/embedded.mobileprovision
 team=$(security cms -D -i "$profile" | plutil -extract TeamIdentifier.0 raw -)
 cat > build/device/entitlements.plist <<PLIST

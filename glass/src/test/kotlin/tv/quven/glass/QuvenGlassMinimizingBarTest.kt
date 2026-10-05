@@ -43,6 +43,15 @@ class QuvenGlassMinimizingBarTest {
     private var minimized by mutableStateOf(false)
 
     @Test
+    fun aBarInAWiderRoom_restsCentred_andMinimizesToTheRoomsStart_whileOneAsWideAsTheRoomKeepsItsPlace() {
+        assertEquals(200f, minimizedBarStart(0f, 800f, 400f), 0.01f)
+        assertEquals(100f, minimizedBarStart(0.5f, 800f, 400f), 0.01f)
+        assertEquals(0f, minimizedBarStart(1f, 800f, 400f), 0.01f)
+        assertEquals(0f, minimizedBarStart(1.05f, 800f, 400f), 0.01f)
+        assertEquals(0f, minimizedBarStart(0f, 400f, 400f), 0.01f)
+    }
+
+    @Test
     fun contentScrollingDownPastTheThreshold_minimizesTheBar_andLessDoesNot() {
         val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
 

@@ -135,9 +135,10 @@ internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> 
      * Returns how large the control draws, as a share of its own size, [progress] of the way to its menu standing open.
      *
      * @param progress How far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
+     * @param lift The share the control lifts to once its menu stands open.
      * @return The share.
      */
-    fun liftAt(progress: Float): Float = lerp(liftedFrom(), PreviewLift, progress)
+    fun liftAt(progress: Float, lift: Float): Float = lerp(liftedFrom(), lift, progress)
 
     /**
      * Returns how far the lifted control moves so its menu, held inside the screen, stands [gap] beyond it: down from a
@@ -157,14 +158,16 @@ internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> 
      * menu stands beyond, as the system's menu flows out of the card it lifts.
      *
      * @param lifted The lifted control's bounds.
+     * @param menu The open menu's bounds, or `null` until they are known.
      * @param spaceHeight The height of the space the menu stands in.
      * @param seedHeight The height of the capsule.
      * @return The capsule's bounds.
      */
-    fun seed(lifted: Rect, spaceHeight: Float, seedHeight: Float): Rect {
+    fun seed(lifted: Rect, menu: Rect?, spaceHeight: Float, seedHeight: Float): Rect {
         val width = lifted.width * SeedShare
         val left = lifted.center.x - width / 2f
-        val top = if (opensAbove(lifted.top, lifted.bottom, spaceHeight)) lifted.top else lifted.bottom - seedHeight
+        val above = if (menu != null) menu.center.y < lifted.center.y else opensAbove(lifted.top, lifted.bottom, spaceHeight)
+        val top = if (above) lifted.top else lifted.bottom - seedHeight
         return Rect(left, top, left + width, top + seedHeight)
     }
 }
@@ -181,5 +184,5 @@ internal val SeedHeight = 44.dp
 /** How much a card grows while it is held, before its context menu opens, as measured on the system's. */
 private const val HeldGrowth = 1.06f
 
-/** Where a context menu stands: beside its lifted card, on the side with more room, as the system's does. */
-private val ContextMenuPlacement = QuvenGlassMorphPlacement.aboveOrBelow(gap = ContextMenuGap, edge = MenuEdge)
+/** Where a context menu stands: below its lifted card wherever it fits there, as the system's does, and above otherwise. */
+private val ContextMenuPlacement = QuvenGlassMorphPlacement.belowWhereItFits(gap = ContextMenuGap, edge = MenuEdge)
