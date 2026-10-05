@@ -112,9 +112,9 @@ internal val Exhibits: List<Exhibit> = listOf(
     ) { ContextMenuExhibit(it) },
     Exhibit(
         "Submenus",
-        "An entry that opens a second menu at the first one's side, and entries that carry a second line.",
-        ExhibitStatus.InDevelopment,
-    ),
+        "An entry that opens a second menu over the first, grown out of its row.",
+        ExhibitStatus.Ready,
+    ) { SubmenusExhibit(it) },
     Exhibit(
         "Toolbar",
         "Glass buttons along the top of a page, grouped into capsules that join and part.",

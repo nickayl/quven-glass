@@ -46,6 +46,9 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import tv.quven.glass.QuvenGlassSubmenu
 import tv.quven.glass.QuvenGlassToolbarJoin
 import tv.quven.glass.QuvenGlassToolbarGap
 import tv.quven.glass.QuvenGlassToolbarItem
@@ -244,6 +247,26 @@ internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
         QuvenGlassMenuItem("Collection", {}, icon = rememberVectorPainter(Icons.AutoMirrored.Filled.List))
         QuvenGlassMenuItem("Message", {}, icon = rememberVectorPainter(Icons.Filled.Email))
         QuvenGlassMenuItem("Order", {}, icon = rememberVectorPainter(Icons.Filled.ShoppingCart))
+    }
+}
+
+/**
+ * Draws a button whose menu holds entries that open second menus, as the reference's menu holding submenus does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SubmenusExhibit(tuning: SampleTuning) {
+    MenuButton(MoreHorizontal, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
+        QuvenGlassMenuItem("Download", {}, icon = rememberVectorPainter(Icons.Filled.KeyboardArrowDown))
+        QuvenGlassSubmenu("Share", icon = rememberVectorPainter(Icons.Filled.Share)) {
+            QuvenGlassMenuItem("Message", {}, icon = rememberVectorPainter(Icons.Filled.Email))
+            QuvenGlassMenuItem("Mail", {}, icon = rememberVectorPainter(Icons.Filled.MailOutline))
+        }
+        QuvenGlassSubmenu("More", icon = rememberVectorPainter(MoreHorizontal)) {
+            QuvenGlassMenuItem("First", {})
+            QuvenGlassMenuItem("Second", {})
+        }
     }
 }
 

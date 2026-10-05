@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.18.0")
+    implementation("tv.quven.glass:glass:2.19.0")
 }
 ```
 
@@ -355,6 +355,21 @@ A system menu doesn't dim what's behind it, and neither does the host. Its rim i
 the first part of its growth. A finger can also slide along an open menu: the row under it
 lights at once with a light tick, and the row it lifts over is the one chosen.
 
+## Submenus
+
+`QuvenGlassSubmenu` adds an entry that opens a second menu, the way a system menu nests one. Its row carries a chevron,
+and when it's pressed the second menu grows out of the row itself, just as wide as the first one, headed by the entry's
+own name in bold with the chevron now turned down, while the first menu fades behind it. Want to go back? Press the head
+and the second menu folds into its row. A choice in it will close both, and Back closes the second one alone. It won't
+open anywhere but in a menu a `QuvenGlassMenuHost` draws.
+
+```kotlin
+QuvenGlassSubmenu("Share", icon = sharePainter) {
+    QuvenGlassMenuItem("Message", ::sendMessage, icon = messagePainter)
+    QuvenGlassMenuItem("Mail", ::sendMail, icon = mailPainter)
+}
+```
+
 ## Context menus
 
 `QuvenGlassContextMenuBox` turns a card into one with a context menu, as a long press on iOS does. The card grows a
@@ -490,6 +505,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
 | Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
+| Submenu | On an iPhone: the second menu grows out of its entry's row, as wide as the first, its head (the entry in bold, the chevron turned down, then a hairline) centred on the row; the first menu's rows fade to about 0.4 behind it; it folds back into the row |
 | Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
 | Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far |
 | Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |

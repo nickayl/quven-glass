@@ -30,9 +30,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +50,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.input.pointer.pointerInput
@@ -58,11 +63,13 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import kotlin.math.roundToInt
 import kotlin.reflect.KMutableProperty0
 import kotlinx.coroutines.awaitCancellation
@@ -104,9 +111,11 @@ public fun QuvenGlassMenu(
         tween(if (touch.isTouched) WashInMillis else WashOutMillis),
         label = "wash",
     )
+    val submenus = LocalSubmenuSlot.current
     CompositionLocalProvider(LocalOpenMenu provides menu) {
         Column(
             modifier
+                .graphicsLayer { alpha = lerp(1f, CoveredAlpha, submenus?.coverage() ?: 0f) }
                 .widthIn(min = metrics.width + menu.choiceShift, max = metrics.maxWidth)
                 .width(IntrinsicSize.Max)
                 .onPlaced { touch.menu = it }
@@ -171,14 +180,130 @@ public fun QuvenGlassMenuItem(
     trailingIcon: Painter? = null,
 ) {
     val menu = LocalOpenMenu.current
-    val metrics = menu.metrics
     val ink = menu.inkOf(enabled, color.takeOrElse { if (destructive) menu.colors.destructive else menu.colors.label })
+    MenuItemRow(label, onClick, modifier, icon, enabled, ink, trailing = trailingIcon?.let { { tint -> MenuGlyph(it, tint, Modifier) } })
+}
+
+/**
+ * Draws an entry of a [QuvenGlassMenu] that opens a second menu over this one, as a system menu's submenu does: its row
+ * carries a chevron, and the second menu grows out of it, as wide as this one and headed by the entry's own name, its
+ * chevron turned down, while this menu fades behind it. A press on the head closes the second menu; a choice in it closes
+ * both. Opens only in a menu a [QuvenGlassMenuHost] draws.
+ *
+ * @param label The entry's name.
+ * @param modifier Modifier applied to the row.
+ * @param icon The entry's glyph, or `null` for none.
+ * @param enabled Whether the entry can open its menu.
+ * @param content The second menu's entries.
+ * @throws IllegalStateException The menu does not stand in a [QuvenGlassMenuHost].
+ */
+@Composable
+public fun QuvenGlassSubmenu(
+    label: String,
+    modifier: Modifier = Modifier,
+    icon: Painter? = null,
+    enabled: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val slot = checkNotNull(LocalSubmenuSlot.current) { "A submenu opens in a menu a QuvenGlassMenuHost draws." }
+    val menu = LocalOpenMenu.current
+    val morph = rememberQuvenGlassMorphState()
+    val request = remember(morph) { SubmenuRequest(morph) }
+    SideEffect {
+        request.label = label
+        request.icon = icon
+        request.content = content
+    }
+    MenuItemRow(
+        label = label,
+        onClick = { slot.open(request) },
+        modifier = modifier.quvenGlassAnchor(morph, stretches = false),
+        icon = icon,
+        enabled = enabled,
+        ink = menu.inkOf(enabled, menu.colors.label),
+        closes = false,
+        trailing = { tint -> MenuChevron(tint, turn = { 0f }) },
+    )
+}
+
+/**
+ * Draws the head of an open submenu: its entry's glyph and name, in bold, and the chevron turning down as it opens; a
+ * press on it closes the submenu.
+ *
+ * @param request The submenu.
+ * @param onClose Invoked when the head is pressed.
+ */
+@Composable
+internal fun SubmenuHead(request: SubmenuRequest, onClose: () -> Unit) {
+    val menu = LocalOpenMenu.current
+    MenuItemRow(
+        label = request.label,
+        onClick = onClose,
+        modifier = Modifier,
+        icon = request.icon,
+        enabled = true,
+        ink = menu.colors.label,
+        closes = false,
+        bold = true,
+        trailing = { tint -> MenuChevron(tint, turn = { request.morph.progress.value }) },
+    )
+}
+
+/**
+ * Draws a row of a [QuvenGlassMenu]: its glyph, its name and a trailing mark, lit while pressed.
+ *
+ * @param label The row's name.
+ * @param onClick Invoked when the row is chosen.
+ * @param modifier Modifier applied to the row.
+ * @param icon The row's glyph, or `null` for none.
+ * @param enabled Whether the row can be chosen.
+ * @param ink The colour of the row's name and glyphs.
+ * @param closes Whether choosing the row closes the menu.
+ * @param bold Whether the name is drawn in bold, as a submenu's head is.
+ * @param trailing Draws the mark at the row's end in the given colour, or `null` for none.
+ */
+@Composable
+private fun MenuItemRow(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    icon: Painter?,
+    enabled: Boolean,
+    ink: Color,
+    closes: Boolean = true,
+    bold: Boolean = false,
+    trailing: (@Composable (Color) -> Unit)? = null,
+) {
+    val menu = LocalOpenMenu.current
+    val metrics = menu.metrics
     if (icon != null) menu.counts(menu.contents::glyphs)
-    MenuRowBody(onClick, enabled, Role.Button, modifier) {
+    MenuRowBody(onClick, enabled, Role.Button, modifier, closes) {
         if (icon != null) MenuGlyph(icon, ink, Modifier.padding(start = metrics.iconCentre + menu.choiceShift - metrics.iconSize / 2))
-        val trailingRoom = if (trailingIcon != null) metrics.iconSize + TrailingGap else 0.dp
-        MenuLabel(label, ink, start = menu.labelStart, end = metrics.sideInset + trailingRoom)
-        if (trailingIcon != null) MenuGlyph(trailingIcon, ink, Modifier.align(Alignment.CenterEnd).padding(end = metrics.sideInset))
+        val trailingRoom = if (trailing != null) metrics.iconSize + TrailingGap else 0.dp
+        MenuLabel(label, ink, start = menu.labelStart, end = metrics.sideInset + trailingRoom, bold = bold)
+        if (trailing != null) {
+            Box(Modifier.align(Alignment.CenterEnd).padding(end = metrics.sideInset).size(metrics.iconSize), contentAlignment = Alignment.Center) {
+                trailing(ink)
+            }
+        }
+    }
+}
+
+/**
+ * Draws a submenu's chevron, pointing to the end and turning down as [turn] goes from 0 to 1.
+ *
+ * @param color The chevron's colour.
+ * @param turn Reads how far the chevron has turned down.
+ */
+@Composable
+private fun MenuChevron(color: Color, turn: () -> Float) {
+    Canvas(Modifier.size(ChevronSize).graphicsLayer { rotationZ = QuarterTurn * turn() }) {
+        val path = Path().apply {
+            moveTo(size.width * ChevronStart.x, size.height * ChevronStart.y)
+            lineTo(size.width * ChevronTip.x, size.height * ChevronTip.y)
+            lineTo(size.width * ChevronStart.x, size.height * (1f - ChevronStart.y))
+        }
+        drawPath(path, color, style = Stroke(width = size.width * ChevronStroke, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 }
 
@@ -275,6 +400,7 @@ private fun MenuRowBody(
     enabled: Boolean,
     role: Role,
     modifier: Modifier,
+    closes: Boolean = true,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val menu = LocalOpenMenu.current
@@ -284,10 +410,10 @@ private fun MenuRowBody(
     val pressed by interactionSource.collectIsPressedAsState()
     val focused by interactionSource.collectIsFocusedAsState()
     val currentClick by rememberUpdatedState(onClick)
-    val choose = remember(menu) {
+    val choose = remember(menu, closes) {
         {
             currentClick()
-            menu.onChosen()
+            if (closes) menu.onChosen()
         }
     }
     val row = remember(touch, choose) { MenuRow(choose) }
@@ -361,11 +487,12 @@ private fun MenuGlyph(painter: Painter, ink: Color, modifier: Modifier) {
  * @param color The name's colour.
  * @param start The distance from the menu's start to the name.
  * @param end The least room after the name.
+ * @param bold Whether the name is drawn in bold.
  */
 @Composable
-private fun MenuLabel(text: String, color: Color, start: Dp, end: Dp) {
+private fun MenuLabel(text: String, color: Color, start: Dp, end: Dp, bold: Boolean = false) {
     val menu = LocalOpenMenu.current
-    Box(Modifier.padding(start = start, end = end)) { MenuText(text, color, menu.metrics.labelSize, menu) }
+    Box(Modifier.padding(start = start, end = end)) { MenuText(text, color, menu.metrics.labelSize, menu, if (bold) FontWeight.SemiBold else null) }
 }
 
 /**
@@ -375,12 +502,13 @@ private fun MenuLabel(text: String, color: Color, start: Dp, end: Dp) {
  * @param color The text's colour.
  * @param size The text's size.
  * @param menu The menu the text stands in.
+ * @param weight The text's weight, or `null` for the typeface's own.
  */
 @Composable
-private fun MenuText(text: String, color: Color, size: TextUnit, menu: OpenMenu) {
+private fun MenuText(text: String, color: Color, size: TextUnit, menu: OpenMenu, weight: FontWeight? = null) {
     BasicText(
         text = text,
-        style = menu.textStyle.merge(TextStyle(color = color, fontSize = size)),
+        style = menu.textStyle.merge(TextStyle(color = color, fontSize = size, fontWeight = weight)),
         maxLines = 1,
         overflow = TextOverflow.Ellipsis,
     )
@@ -482,3 +610,74 @@ private val CheckStart = Offset(0.06f, 0.53f)
 private val CheckTurn = Offset(0.37f, 0.86f)
 private val CheckEnd = Offset(0.94f, 0.12f)
 private const val CheckStroke = 0.17f
+private val ChevronSize = 13.dp
+private val ChevronStart = Offset(0.32f, 0.12f)
+private val ChevronTip = Offset(0.7f, 0.5f)
+private const val ChevronStroke = 0.17f
+private const val QuarterTurn = 90f
+
+// Measured on a system menu holding a submenu open on an iPhone.
+private const val CoveredAlpha = 0.4f
+
+/**
+ * A submenu a [QuvenGlassSubmenu] opens over its menu, kept in step with the entry's parameters.
+ *
+ * @property morph The opening, which grows from the entry's row.
+ */
+internal class SubmenuRequest(val morph: QuvenGlassMorphState) {
+
+    /** Gets or sets the entry's name, which heads the submenu. */
+    var label: String by mutableStateOf("")
+
+    /** Gets or sets the entry's glyph, or `null` for none. */
+    var icon: Painter? by mutableStateOf(null)
+
+    /** Gets or sets the submenu's entries. */
+    var content: @Composable ColumnScope.() -> Unit by mutableStateOf({})
+}
+
+/** The submenu a menu holds open over it, at most one at a time. */
+@Stable
+internal class SubmenuSlot {
+
+    /** Gets the submenu standing open or closing, or `null` for none. */
+    var shown: SubmenuRequest? by mutableStateOf(null)
+        private set
+
+    /** Gets or sets a value indicating whether the submenu shown is open rather than closing. */
+    var expanded: Boolean by mutableStateOf(false)
+
+    /**
+     * Opens [request] over the menu.
+     *
+     * @param request The submenu to open.
+     */
+    fun open(request: SubmenuRequest) {
+        shown = request
+        expanded = true
+    }
+
+    /** Closes the submenu standing open, which stays shown until its glass has returned to its row. */
+    fun close() {
+        expanded = false
+    }
+
+    /**
+     * Forgets [request] once its glass has returned to its row.
+     *
+     * @param request The submenu to forget.
+     */
+    fun release(request: SubmenuRequest) {
+        if (shown === request && !expanded) shown = null
+    }
+
+    /**
+     * Returns how far the menu stands covered by its submenu, from 0 to 1.
+     *
+     * @return The coverage.
+     */
+    fun coverage(): Float = shown?.morph?.progress?.value?.coerceIn(0f, 1f) ?: 0f
+}
+
+/** Provides the submenu slot of the menu a [QuvenGlassMenuHost] draws, `null` inside a submenu. */
+internal val LocalSubmenuSlot = staticCompositionLocalOf<SubmenuSlot?> { null }

@@ -10,7 +10,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -44,6 +46,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -121,6 +125,7 @@ public fun QuvenGlassMenuHost(
     var origin by remember { mutableStateOf<Offset?>(null) }
     val inputMode = LocalInputModeManager.current
     val menuFocus = remember(request) { FocusRequester() }
+    val submenus = remember(request) { SubmenuSlot() }
     var holdsFocus by remember(request) { mutableStateOf(false) }
     LaunchedEffect(request) {
         snapshotFlow { request.expanded || request.morph.isShown }.first { !it }
@@ -189,18 +194,104 @@ public fun QuvenGlassMenuHost(
             if (request.popover) {
                 Column(panel, content = request.content)
             } else {
-                QuvenGlassMenu(
-                    panel,
-                    metrics = metrics,
-                    colors = colors,
-                    textStyle = textStyle,
-                    onChosen = request.onDismissRequest,
-                    rising = request.morph.rises,
-                    content = request.content,
-                )
+                CompositionLocalProvider(LocalSubmenuSlot provides submenus) {
+                    QuvenGlassMenu(
+                        panel,
+                        metrics = metrics,
+                        colors = colors,
+                        textStyle = textStyle,
+                        onChosen = request.onDismissRequest,
+                        rising = request.morph.rises,
+                        content = request.content,
+                    )
+                }
+            }
+        }
+        submenus.shown?.let { submenu ->
+            OpenSubmenu(submenu, submenus, request, placed, style, metrics, colors, textStyle, backdrop, reduceMotion, maxHeight)
+        }
+    }
+}
+
+/**
+ * Draws [submenu] growing out of its entry's row over the menu [parent] holds open, as wide as that menu and headed by
+ * the entry, its head centred on the row; Back or a press on the head closes it, and it closes with its menu.
+ *
+ * @param submenu The submenu.
+ * @param slot The slot holding it.
+ * @param parent The menu it opens over.
+ * @param placed Where the host stands in the window.
+ * @param style The material of the glass.
+ * @param metrics The layout of the rows.
+ * @param colors The colours of the rows.
+ * @param textStyle The typeface of the names.
+ * @param backdrop The backdrop the glass stands over.
+ * @param reduceMotion Whether motion is reduced.
+ * @param maxHeight The height of the host.
+ */
+@Composable
+private fun OpenSubmenu(
+    submenu: SubmenuRequest,
+    slot: SubmenuSlot,
+    parent: DropdownRequest,
+    placed: Offset,
+    style: QuvenGlassStyle,
+    metrics: QuvenGlassMenuMetrics,
+    colors: QuvenGlassMenuColors,
+    textStyle: TextStyle,
+    backdrop: QuvenGlassBackdrop?,
+    reduceMotion: Boolean,
+    maxHeight: Dp,
+) {
+    val expanded = slot.expanded && parent.expanded
+    LaunchedEffect(submenu) {
+        snapshotFlow { slot.expanded || submenu.morph.isShown }.first { !it }
+        slot.release(submenu)
+    }
+    if (expanded) BackHandler(onBack = slot::close)
+    val row = (submenu.morph.anchorInWindow ?: Rect.Zero).translate(-placed)
+    // A morph's glass is born from its anchor's middle down, so an anchor reaching a row above has it born as the row.
+    val grown = Rect(row.left, row.top - row.height, row.right, row.bottom)
+    val headCentre = metrics.verticalInset + metrics.rowHeight / 2
+    QuvenGlassMorph(
+        state = submenu.morph,
+        expanded = expanded,
+        anchor = grown,
+        placement = remember(headCentre) { headedOn(headCentre) },
+        modifier = Modifier.fillMaxSize(),
+        style = style,
+        cornerRadius = metrics.cornerRadius,
+        backdrop = backdrop,
+        reduceMotion = reduceMotion,
+        fromControl = false,
+    ) {
+        val width = with(LocalDensity.current) { row.width.toDp() }
+        CompositionLocalProvider(LocalSubmenuSlot provides null) {
+            QuvenGlassMenu(
+                Modifier.width(width).heightIn(max = maxHeight - MenuEdge * 2),
+                metrics = metrics,
+                colors = colors,
+                textStyle = textStyle,
+                onChosen = parent.onDismissRequest,
+            ) {
+                SubmenuHead(submenu, onClose = slot::close)
+                QuvenGlassMenuDivider()
+                submenu.content(this)
             }
         }
     }
+}
+
+/**
+ * Returns the placement that stands a submenu over its entry's row, the lower half of its anchor, aligned with the row's
+ * start and its head, [headCentre] below its top, centred on the row, inside the space.
+ *
+ * @param headCentre The distance from the submenu's top to its head's middle.
+ * @return The placement.
+ */
+private fun headedOn(headCentre: Dp): QuvenGlassMorphPlacement = QuvenGlassMorphPlacement { size, anchor, space, density ->
+    val top = anchor.bottom - anchor.height / 4 - with(density) { headCentre.roundToPx() }
+    IntOffset(anchor.left, top.coerceIn(0, (space.height - size.height).coerceAtLeast(0)))
 }
 
 /**

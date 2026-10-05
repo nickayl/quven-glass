@@ -986,7 +986,7 @@ enum Exhibit: CaseIterable, Identifiable {
             "A control opens into a panel of any content as one piece of glass and closes back into it. This panel tunes "
                 + "the material of every exhibit."
         case .contextMenu: "A long press lifts the card out of the page, dims the rest and opens the card's menu beside it."
-        case .submenus: "An entry that opens a second menu at the first one's side, and entries that carry a second line."
+        case .submenus: "An entry that opens a second menu over the first, grown out of its row."
         case .capsuleButtons: "Buttons of clear glass and of prominent, tinted glass, holding a name, a glyph or both."
         case .toolbar: "Glass buttons along the top of a page, grouped into capsules that join and part."
         case .toggle: "A switch whose thumb lifts into a lens of glass while it is held or dragged."
@@ -1011,7 +1011,7 @@ enum Exhibit: CaseIterable, Identifiable {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
              .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover, .search,
-             .minimizingTabBar, .bottomAccessory, .scrollEdge, .touchLight, .toolbar: .ready
+             .minimizingTabBar, .bottomAccessory, .scrollEdge, .touchLight, .toolbar, .submenus: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
