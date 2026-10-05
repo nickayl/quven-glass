@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -178,12 +179,17 @@ internal class LiquidGlassNode(
     private var appearance: QuvenGlassAppearance?,
     private var adapts: Boolean,
     private var glowSource: GlassLiftSource?,
-) : GlassPaintingNode(), CompositionLocalConsumerModifierNode, PointerInputModifierNode {
+) : GlassPaintingNode(), CompositionLocalConsumerModifierNode {
 
     private val press = GlassPress()
     private val touchGlow = Animatable(0f)
     private var touchAt by mutableStateOf(Offset.Zero)
     private var touches: Job? = null
+    private var finger: FingerNode? = null
+
+    init {
+        followFinger()
+    }
     private val ownAppearance = QuvenGlassAppearance()
     private val tracker = GlassAppearanceTracker(::backdropBrightness, ::isWindowShown)
     private var probe: GlassBrightnessProbe? = null
@@ -236,6 +242,7 @@ internal class LiquidGlassNode(
             this.interactionSource = interactionSource
             followPresses()
         }
+        followFinger()
         invalidateGlass()
     }
 
@@ -245,9 +252,21 @@ internal class LiquidGlassNode(
         if (adapts) followBrightness()
     }
 
-    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
-        if (pass != PointerEventPass.Initial || style.touchLight <= 0f) return
-        val change = pointerEvent.changes.firstOrNull() ?: return
+    // Only glass that lights under the finger takes the pointer, and then as a surface does: what stands on it still
+    // takes the press, and nothing under it does. Plain glass is no target at all, so a press passes through it.
+    private fun followFinger() {
+        val wanted = style.touchLight > 0f
+        val held = finger
+        if (wanted && held == null) {
+            finger = delegate(FingerNode(::onFinger, onCancel = { light(on = false) }))
+        } else if (!wanted && held != null) {
+            undelegate(held)
+            finger = null
+            light(on = false)
+        }
+    }
+
+    private fun onFinger(change: PointerInputChange) {
         when {
             change.changedToDownIgnoreConsumed() -> {
                 touchAt = change.position
@@ -257,13 +276,6 @@ internal class LiquidGlassNode(
             change.pressed -> touchAt = change.position
         }
     }
-
-    override fun onCancelPointerInput() {
-        light(on = false)
-    }
-
-    // Glass only watches the finger: what stands under it, beside its content, still takes the press.
-    override fun sharePointerInputWithSiblings(): Boolean = true
 
     // The light gathers at once under the finger and dies away once it lifts, as on Apple's interactive glass.
     private fun light(on: Boolean) {
@@ -361,3 +373,22 @@ internal class LiquidGlassNode(
 // Measured on Apple's interactive glass on an iPhone.
 private val TouchLightRise = tween<Float>(35)
 private val TouchLightFade = tween<Float>(450, easing = FastOutSlowInEasing)
+
+/**
+ * Follows the first finger on a glass surface without consuming it, for the light that gathers under it.
+ *
+ * @param onChange Invoked with the finger's change in the initial pass of every pointer event.
+ * @param onCancel Invoked when the pointer input is cancelled.
+ */
+private class FingerNode(
+    private val onChange: (PointerInputChange) -> Unit,
+    private val onCancel: () -> Unit,
+) : Modifier.Node(), PointerInputModifierNode {
+
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (pass != PointerEventPass.Initial) return
+        pointerEvent.changes.firstOrNull()?.let(onChange)
+    }
+
+    override fun onCancelPointerInput() = onCancel()
+}

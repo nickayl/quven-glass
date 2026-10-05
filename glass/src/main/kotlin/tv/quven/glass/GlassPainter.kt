@@ -9,6 +9,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.DelegatableNode
+import androidx.compose.ui.node.DelegatingNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.invalidateDraw
@@ -90,7 +91,7 @@ internal class GlassPainter(private val node: DelegatableNode) {
  * changes or the node moves.
  */
 @RequiresApi(33)
-internal abstract class GlassPaintingNode : Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, BackdropReader {
+internal abstract class GlassPaintingNode : DelegatingNode(), DrawModifierNode, GlobalPositionAwareModifierNode, BackdropReader {
 
     /** Gets the painter that draws the node's glass. */
     protected val painter: GlassPainter = GlassPainter(this)
