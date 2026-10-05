@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.24.0")
+    implementation("tv.quven.glass:glass:2.25.0")
 }
 ```
 
@@ -536,12 +536,12 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 |---|---|
 | Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt; interactive or still alike |
 | Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB |
-| Thin tone | Lean 0.42 + 0.23 × luminance towards `0x2C`, saturation 1.22 |
+| Thin tone | Lean 0.68 towards `0x17`, saturation 2.2, measured on a physical iPad against the same backdrop; darker and richer than thick glass |
 | Platter | White at 11%; black at 7% on light glass |
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 3.5 pt |
-| Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light |
-| Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving; the platter clears completely under it, and the held entry's colour travels with it |
+| Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light; still glass shows what lies just outside it there, as it is |
+| Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving; on an iPad it is glass of its own over the bar, 24 pt wider and 22 pt taller than the entry, toned as the bar but unblurred, the entries under it 1.15 times larger in the held colour, its rim lit and parting its colours; a finger held on an entry takes the held colour from the entry held until then |
 | Drag | The lens follows the finger, the entry under it in the held entry's colour, and settles on the nearest option |
 | Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
 | Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; on an iPad the resting bar stands centred and the circle travels to the window's start as it folds; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |

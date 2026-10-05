@@ -5,13 +5,16 @@ import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -25,9 +28,11 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.ClipOp
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -107,9 +112,11 @@ public fun <T> QuvenGlassSegmentedTrack(
         GlassTrackPill(motion, optionSize, pillTag, drawsStaticPill = !liquid, style, shape)
         // The held look travels with the pill, as the selection's colour travels with the lens of Apple's tab bar: the
         // options stand as they are outside the pill, and as held inside it.
+        // A finger held on an option takes the held look from the option held until then, as Apple's tab bar hands it over.
+        val shownHeld = if (presses.pressed in options.indices) presses.pressed else held
         Row(Modifier.pillClip(motion, optionSize, inside = false), horizontalArrangement = Arrangement.spacedBy(gap)) {
             options.forEachIndexed { index, item ->
-                Box(Modifier.size(optionSize)) { option(item, index == held) }
+                Box(Modifier.size(optionSize)) { option(item, index == shownHeld) }
             }
         }
         Row(Modifier.pillClip(motion, optionSize, inside = true).clearAndSetSemantics {}, horizontalArrangement = Arrangement.spacedBy(gap)) {
@@ -117,8 +124,115 @@ public fun <T> QuvenGlassSegmentedTrack(
                 Box(Modifier.size(optionSize)) { option(item, true) }
             }
         }
+        if (liquid && !reduceMotion && options.size > 1) {
+            TrackLens(motion, optionSize, backdrop, style) {
+                Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                    options.forEach { item ->
+                        Box(Modifier.size(optionSize)) { option(item, true) }
+                    }
+                }
+            }
+        }
     }
 }
+
+/**
+ * Draws the lens the pill lifts into while it is pressed, dragged or sent to another option, as Apple's tab bar lifts
+ * its selection: clear glass taller than the track, which shows what lies under the track sharp at its own size and the
+ * options under it a little magnified, in their held look, and fades back into the pill as it settles.
+ *
+ * @param motion The pill's motion.
+ * @param optionSize The size every option takes.
+ * @param backdrop The backdrop the track stands over.
+ * @param style The track's material, whose tone the lens keeps.
+ * @param faces Draws the row of options in their held look, laid out as the track lays them out.
+ */
+@Composable
+private fun BoxScope.TrackLens(
+    motion: GlassPillMotion,
+    optionSize: DpSize,
+    backdrop: QuvenGlassBackdrop,
+    style: QuvenGlassStyle,
+    faces: @Composable () -> Unit,
+) {
+    val material = remember(style) { trackLensMaterial(style) }
+    val lift = { maxOf(motion.press.value, motion.travel.value) }
+    val shown by remember(motion) { derivedStateOf { lift() > 0f } }
+    if (!shown) return
+    val frame: Density.() -> Rect = {
+        val pill = motion.frame(optionSize, this)
+        val grown = lift().coerceIn(0f, 1f)
+        val wide = TrackLensGrowth.width.toPx() * grown / 2f
+        val tall = TrackLensGrowth.height.toPx() * grown / 2f
+        // The lens keeps the option's full height while the pill thins as it stretches.
+        val half = pill.restHeight / 2f
+        val middle = optionSize.height.toPx() / 2f
+        Rect(pill.left - wide, middle - half - tall, pill.right + wide, middle + half + tall)
+    }
+    val density = LocalDensity.current
+    // The lens stands over the track, apart from any container its glass would otherwise join.
+    CompositionLocalProvider(LocalGlassContainer provides null) {
+        Box(
+            Modifier
+                .standingAt(frame)
+                .graphicsLayer { alpha = smoothstep(0f, TrackLensShown, lift()) }
+                .liquidGlass(backdrop, material, CircleShape, null, reduceMotion = false, lift = null, pill = null, adapts = false),
+        )
+    }
+    Box(
+        Modifier
+            .matchParentSize()
+            .clearAndSetSemantics {}
+            .graphicsLayer { alpha = smoothstep(0f, TrackLensShown, lift()) }
+            .drawWithContent {
+                val lens = density.frame()
+                val outline = Path().apply { addRoundRect(RoundRect(lens, CornerRadius(lens.height / 2f))) }
+                clipPath(outline) {
+                    scale(TrackLensMagnify, pivot = lens.center) { this@drawWithContent.drawContent() }
+                }
+            },
+    ) { faces() }
+}
+
+/** How much larger the lens is than the pill it lifts from, as measured on the system's tab bar on an iPad. */
+private val TrackLensGrowth = DpSize(24.dp, 22.dp)
+
+/** How much larger the lens shows the options under it; what lies under the track it shows at its own size. */
+private const val TrackLensMagnify = 1.15f
+
+/** The share of the lift by which the lens has fully appeared. */
+private const val TrackLensShown = 0.3f
+
+/**
+ * Returns the glass of the lens over a track of [style]: toned as the track is, but unblurred, so what lies under it reads
+ * sharp, with a thumb's lens rim, bright and parting its colours.
+ *
+ * @param style The track's material.
+ * @return The lens's material.
+ */
+internal fun trackLensMaterial(style: QuvenGlassStyle): QuvenGlassStyle {
+    val lens = GlassLensThumb.LensMaterial
+    return style.copy(
+        blur = 0.dp,
+        backdropScale = 1f,
+        refraction = lens.refraction,
+        edgeWidth = lens.edgeWidth,
+        cornerRefraction = lens.cornerRefraction,
+        cornerWidth = lens.cornerWidth,
+        specular = lens.specular,
+        dispersion = TrackLensDispersion,
+        shadow = lens.shadow,
+        shadowRadius = lens.shadowRadius,
+        tint = Color.Transparent,
+        rimLight = TrackLensRimLight,
+    )
+}
+
+/** The share of white the lens's rim turns all the way round, as the tab bar's lens catches the light. */
+private const val TrackLensRimLight = 0.35f
+
+/** How far the lens's rim parts red from blue, more than a control's thumb, as the tab bar's lens shows a rainbow. */
+private const val TrackLensDispersion = 0.12f
 
 /**
  * Remembers a drag answer that maps an option's index to [onDraggedTo]; it stays the same across recompositions, so a

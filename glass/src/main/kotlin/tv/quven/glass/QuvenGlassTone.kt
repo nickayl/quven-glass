@@ -22,7 +22,7 @@ public data class QuvenGlassTone(
 
     public companion object {
         /** Gets the tone of thin glass, as on a small button or control. */
-        public val Thin: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFF2C2C2C), lean = 0.42f, leanSlope = 0.23f, saturation = 1.22f)
+        public val Thin: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFF171717), lean = 0.68f, saturation = 2.2f)
 
         /** Gets the tone of thick glass, as on a bar, a large button or a panel. */
         public val Thick: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFF272727), lean = 0.77f, saturation = 2.49f)

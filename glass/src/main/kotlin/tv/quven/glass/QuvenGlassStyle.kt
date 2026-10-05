@@ -225,7 +225,7 @@ public data class QuvenGlassStyle(
 
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
-        public val Standard: QuvenGlassStyle = QuvenGlassStyle()
+        public val Standard: QuvenGlassStyle = QuvenGlassStyle(rimGlow = StandardRimGlow)
 
         /**
          * Gets Apple's clear glass: the fold of [Standard] without its tone, lightening what it stands over, which it
@@ -248,6 +248,8 @@ public data class QuvenGlassStyle(
         private const val ToolbarPressWhite = 0.11f
         private val ToolbarTouchSpread = 45.dp
         private val BarItemPressExpansion = 9.dp
+        // Measured on a physical iPad: the rim of still glass shows what lies just outside it, as it is.
+        private const val StandardRimGlow = 1f
         private const val MenuPressGlow = 3.6f
         private const val ButtonTintGlow = 1.15f
         private const val ButtonPressGlow = 1.45f
