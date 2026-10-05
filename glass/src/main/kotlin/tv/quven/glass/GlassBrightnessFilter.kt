@@ -44,6 +44,27 @@ internal class GlassBrightnessFilter {
 }
 
 /**
+ * What a glass surface reads of the backdrop under and around it.
+ *
+ * @property brightness The mean of the colour channels, from 0 to 1, which turns thin glass light.
+ * @property luminance The mean luminance, from 0 to 1, which the glass's tone follows.
+ */
+internal data class GlassBackdropReading(val brightness: Float, val luminance: Float)
+
+/**
+ * Returns the mean luminance of ARGB pixels, weighing their channels as the program does, from 0 to 1.
+ *
+ * @param pixels The pixels, as packed ARGB integers.
+ * @return The mean, or 0 for no pixels.
+ */
+internal fun meanLuminance(pixels: IntArray): Float {
+    if (pixels.isEmpty()) return 0f
+    var sum = 0.0
+    for (pixel in pixels) sum += 0.2126 * (pixel shr 16 and 0xFF) + 0.7152 * (pixel shr 8 and 0xFF) + 0.0722 * (pixel and 0xFF)
+    return (sum / (pixels.size * 255.0)).toFloat()
+}
+
+/**
  * Returns the mean of the colour channels of ARGB pixels, from 0 to 1.
  *
  * @param pixels The pixels, as packed ARGB integers.

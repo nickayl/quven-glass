@@ -70,4 +70,11 @@ class GlassBrightnessFilterTest {
         assertEquals(Color.White, appearance.contentColor(onDark = Color.White, onLight = Color.Black))
         assertEquals("dark", appearance.pick(onDark = "dark", onLight = "light"))
     }
+
+    @Test
+    fun theLuminance_weighsTheChannelsAsTheProgramDoes() {
+        assertEquals(1f, meanLuminance(IntArray(4) { 0xFFFFFFFF.toInt() }), 1e-6f)
+        assertEquals(0.0722f, meanLuminance(intArrayOf(0xFF0000FF.toInt())), 1e-4f)
+        assertEquals((0.2126f + 0.7152f) / 2f, meanLuminance(intArrayOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt())), 1e-4f)
+    }
 }

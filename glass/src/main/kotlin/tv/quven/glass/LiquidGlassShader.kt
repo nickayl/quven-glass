@@ -23,6 +23,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeRadii("shapeRadii", 4 * MaxGlassSurfaces),
     ShapeLift("shapeLift", MaxGlassSurfaces),
     ShapeLight("shapeLight", MaxGlassSurfaces),
+    ShapeVeil("shapeVeil", MaxGlassSurfaces),
     ShapeGlow("shapeGlow", MaxGlassSurfaces),
     ShapeWhite("shapeWhite", MaxGlassSurfaces),
     ShapeTouch("shapeTouch", 4 * MaxGlassSurfaces),
@@ -37,6 +38,10 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ThickTone("thickTone", 4),
     Leans("leans", 4),
     ToneSizes("toneSizes", 2),
+    LargeTone("largeTone", 4),
+    LargeLean("largeLean", 2),
+    LargeSizes("largeSizes", 2),
+    Adapts("adapts", 4),
     LightTone("lightTone", 4),
     LightLean("lightLean", 2),
     Tint("tint", 4),
@@ -70,8 +75,12 @@ internal const val LiquidGlassContent = "content"
  *
  * The thickness of the nearest surface runs from thin to thick as its shorter side runs from `toneSizes.x` to
  * `toneSizes.y`; thin glass leans towards `thinTone.rgb` by `leans.z + leans.w × luminance`, thick glass towards
- * `thickTone.rgb` by `leans.x + leans.y × luminance`, and the saturation scales by the tone's alpha; thin glass turned
- * light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
+ * `thickTone.rgb` by `leans.x + leans.y × luminance`, and as the shorter side runs on from `largeSizes.x` to
+ * `largeSizes.y` thick glass turns into large glass, leaning towards `largeTone.rgb` by `largeLean.x + largeLean.y ×
+ * luminance`; the saturation scales by the tone's alpha. Each shade lightens by `adapts` (thin, thick, large, light) times
+ * the nearest surface's `shapeVeil`, the mean luminance of the backdrop under and around it. Thin glass turned light by
+ * `shapeLight` takes `lightTone`,
+ * `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
  * `pressGlow` times, its saturation scaled by `pressSaturation` and up to `pressBrighten` added, the more the darker it is,
@@ -93,6 +102,7 @@ uniform float4 shapeRect[4];
 uniform float4 shapeRadii[4];
 uniform float shapeLift[4];
 uniform float shapeLight[4];
+uniform float shapeVeil[4];
 uniform float shapeGlow[4];
 uniform float shapeWhite[4];
 uniform float4 shapeTouch[4];
@@ -107,6 +117,10 @@ uniform float4 thinTone;
 uniform float4 thickTone;
 uniform float4 leans;
 uniform float2 toneSizes;
+uniform float4 largeTone;
+uniform float2 largeLean;
+uniform float2 largeSizes;
+uniform float4 adapts;
 uniform float4 lightTone;
 uniform float2 lightLean;
 uniform float4 tint;
@@ -277,6 +291,22 @@ float3 softBackdropAt(float2 p, float r) {
     return sum / 10.0;
 }
 
+// The mean luminance of the backdrop under and around the surface nearest p.
+float veilAt(float2 p) {
+    float veil = 0.0;
+    float closest = FAR;
+    for (int i = 0; i < 4; i++) {
+        if (i < shapeCount) {
+            float d = roundBox(p, shapeRect[i], shapeRadii[i]);
+            if (d < closest) {
+                closest = d;
+                veil = shapeVeil[i];
+            }
+        }
+    }
+    return veil;
+}
+
 // The mean luminance of the backdrop under the surface holding p, read on a grid of three by three inside it.
 float surfaceLuma(float2 p) {
     for (int i = 0; i < 4; i++) {
@@ -357,9 +387,14 @@ half4 main(float2 coord) {
     float3 seen = rgb;
     float lit = luma(rgb);
     float thickness = smoothstep(toneSizes.x, toneSizes.y, size);
+    float largeness = smoothstep(largeSizes.x, largeSizes.y, size);
     float lightShare = light * (1.0 - thickness);
-    float4 tone = mix(mix(thinTone, thickTone, thickness), lightTone, lightShare);
-    float darkLean = mix(leans.z + leans.w * lit, leans.x + leans.y * lit, thickness);
+    float4 tone = mix(mix(mix(thinTone, thickTone, thickness), largeTone, largeness), lightTone, lightShare);
+    float adapt = mix(mix(mix(adapts.x, adapts.y, thickness), adapts.z, largeness), adapts.w, lightShare);
+    if (adapt != 0.0) {
+        tone.rgb = clamp(tone.rgb + adapt * veilAt(coord), 0.0, 1.0);
+    }
+    float darkLean = mix(mix(leans.z + leans.w * lit, leans.x + leans.y * lit, thickness), largeLean.x + largeLean.y * lit, largeness);
     float lean = clamp(mix(darkLean, lightLean.x + lightLean.y * lit, lightShare), 0.0, 1.0);
     rgb = mix(rgb, tone.rgb, lean);
     float own = luma(rgb);
@@ -443,6 +478,7 @@ internal data class GlassPill(val rect: Rect, val radius: Float, val alpha: Floa
  * @property lift How far the surface is pressed, from 0 to 1.
  * @property pill The pill inside the surface, or `null` for none.
  * @property light How light the surface has turned, from 0 to 1.
+ * @property veil The mean luminance of the backdrop under and around the surface, from 0 to 1, which its tone follows.
  * @property glow How brightly the surface lights under the finger, from 0 to 1; as far as it is pressed unless a press
  * lights it on a timing of its own.
  * @property white The share of white the surface turns towards at least while lit, its material's
@@ -454,6 +490,7 @@ internal data class GlassSurface(
     val lift: Float,
     val pill: GlassPill?,
     val light: Float = 0f,
+    val veil: Float = QuvenGlassAppearance.DefaultVeil,
     val glow: Float = lift,
     val white: Float = 0f,
     val touch: TouchLight = TouchLight.None,
@@ -491,6 +528,7 @@ internal class LiquidGlassShader private constructor() {
     private val radii = FloatArray(LiquidGlassUniform.ShapeRadii.floats)
     private val lifts = FloatArray(LiquidGlassUniform.ShapeLift.floats)
     private val lights = FloatArray(LiquidGlassUniform.ShapeLight.floats)
+    private val veils = FloatArray(LiquidGlassUniform.ShapeVeil.floats)
     private val glows = FloatArray(LiquidGlassUniform.ShapeGlow.floats)
     private val whites = FloatArray(LiquidGlassUniform.ShapeWhite.floats)
     private val touches = FloatArray(LiquidGlassUniform.ShapeTouch.floats)
@@ -514,6 +552,7 @@ internal class LiquidGlassShader private constructor() {
         radii.fill(0f)
         lifts.fill(0f)
         lights.fill(0f)
+        veils.fill(0f)
         glows.fill(0f)
         whites.fill(0f)
         touches.fill(0f)
@@ -533,6 +572,7 @@ internal class LiquidGlassShader private constructor() {
             radii[at + 3] = form.bottomLeft
             lifts[index] = surface.lift
             lights[index] = surface.light
+            veils[index] = surface.veil
             glows[index] = surface.glow
             whites[index] = surface.white
             touches[at] = surface.touch.at.x
@@ -556,6 +596,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.ShapeRadii.uniform, radii)
             setFloatUniform(LiquidGlassUniform.ShapeLift.uniform, lifts)
             setFloatUniform(LiquidGlassUniform.ShapeLight.uniform, lights)
+            setFloatUniform(LiquidGlassUniform.ShapeVeil.uniform, veils)
             setFloatUniform(LiquidGlassUniform.ShapeGlow.uniform, glows)
             setFloatUniform(LiquidGlassUniform.ShapeWhite.uniform, whites)
             setFloatUniform(LiquidGlassUniform.ShapeTouch.uniform, touches)
@@ -580,6 +621,16 @@ internal class LiquidGlassShader private constructor() {
             setTone(LiquidGlassUniform.ThickTone, style.thickTone)
             setFloatUniform(LiquidGlassUniform.Leans.uniform, style.thickTone.lean, style.thickTone.leanSlope, style.thinTone.lean, style.thinTone.leanSlope)
             setFloatUniform(LiquidGlassUniform.ToneSizes.uniform, style.thinSize.value * density, style.thickSize.value * density)
+            setTone(LiquidGlassUniform.LargeTone, style.largeTone)
+            setFloatUniform(LiquidGlassUniform.LargeLean.uniform, style.largeTone.lean, style.largeTone.leanSlope)
+            setFloatUniform(LiquidGlassUniform.LargeSizes.uniform, style.largeFromSize.value * density, style.largeSize.value * density)
+            setFloatUniform(
+                LiquidGlassUniform.Adapts.uniform,
+                style.thinTone.adaptation,
+                style.thickTone.adaptation,
+                style.largeTone.adaptation,
+                style.lightTone.adaptation,
+            )
             setTone(LiquidGlassUniform.LightTone, style.lightTone)
             setFloatUniform(LiquidGlassUniform.LightLean.uniform, style.lightTone.lean, style.lightTone.leanSlope)
             setColor(LiquidGlassUniform.Tint, style.tint)

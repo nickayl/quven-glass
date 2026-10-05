@@ -79,8 +79,7 @@ internal class GlassLensThumb(
      */
     fun material(lift: Float): QuvenGlassStyle {
         val shown = smoothstep(0f, ThumbGone, lift)
-        return glass.copy(
-            blur = lerp(LensFrost, 0.dp, smoothstep(FrostClearStart, 1f, lift)),
+        return glass.withBlur(lerp(LensFrost, 0.dp, smoothstep(FrostClearStart, 1f, lift))).copy(
             shadow = glass.shadow.copy(alpha = glass.shadow.alpha * shown),
             specular = glass.specular * shown,
         )
@@ -124,6 +123,7 @@ internal class GlassLensThumb(
         /** The clear glass of the lens, measured on Apple's switch. */
         val LensMaterial: QuvenGlassStyle = QuvenGlassStyle.Clear.copy(
             blur = 0.dp,
+            thickBlur = 0.dp,
             backdropScale = 1f,
             zoom = LensZoom,
             brighten = 0.03f,

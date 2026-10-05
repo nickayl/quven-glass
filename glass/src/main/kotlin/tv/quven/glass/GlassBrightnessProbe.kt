@@ -52,20 +52,20 @@ internal class GlassBrightnessProbe {
     }
 
     /**
-     * Returns the brightness of [source] under [area], the mean of its channels.
+     * Returns what [source] shows under [area]: the mean of its channels and its mean luminance.
      *
      * @param source The layer the backdrop records into.
      * @param area The area, in the source's coordinates.
      * @param density The density the area is drawn at.
-     * @return The brightness, from 0 to 1; the previous one while the renderer draws nothing.
+     * @return The reading; the previous one while the renderer draws nothing.
      */
-    suspend fun sample(source: GraphicsLayer, area: Rect, density: Density): Float {
-        if (area.width <= 0f || area.height <= 0f) return 0f
+    suspend fun sample(source: GraphicsLayer, area: Rect, density: Density): GlassBackdropReading {
+        if (area.width <= 0f || area.height <= 0f) return GlassBackdropReading(0f, 0f)
         record(source, area, density)
         val frame = CompletableDeferred<Unit>().also { drawn = it }
         if (renderer.createRenderRequest().syncAndDraw() and NoFrame == 0) withTimeoutOrNull(ImageWaitMillis) { frame.await() }
         drawn = null
-        return synchronized(pixels) { meanChannels(pixels) }
+        return synchronized(pixels) { GlassBackdropReading(meanChannels(pixels), meanLuminance(pixels)) }
     }
 
     /** Releases the renderer and its buffer; the probe reads nothing afterwards. */
@@ -106,7 +106,7 @@ internal class GlassBrightnessProbe {
     }
 
     private companion object {
-        const val Side = 8
+        const val Side = 16
         const val MaxImages = 2
         const val ImageWaitMillis = 500L
         const val Name = "QuvenGlassBrightness"

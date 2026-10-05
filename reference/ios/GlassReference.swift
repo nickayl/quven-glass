@@ -13,13 +13,15 @@ struct GlassReferenceApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if ReferenceLaunch.probe {
+            if ReferenceLaunch.blurProbe {
+                BlurProbe()
+            } else if ReferenceLaunch.probe {
                 MaterialProbe()
             } else if ReferenceLaunch.controls {
                 ControlsProbe()
             } else if ReferenceLaunch.menus {
                 MenusProbe()
-            } else if let exhibit = ReferenceLaunch.exhibit {
+            } else if let exhibit = ReferenceLaunch.exhibit ?? (ReferenceLaunch.remote ? .material : nil) {
                 GalleryScreen(showing: exhibit, opened: true)
             } else if ReferenceLaunch.measuring {
                 ReferenceScreen()
@@ -63,8 +65,9 @@ enum ReferenceLaunch {
     static let gap = CGFloat(value("GLASS_GAP") ?? 8)
     /// The name of the capture to save into Documents once the screen settles, or `nil` for none.
     static let capture = ProcessInfo.processInfo.environment["GLASS_CAPTURE"]
-    /// Whether the gallery records itself for the whole launch and follows the `RemoteCommand`s the Mac or a UI test
-    /// posts (`GLASS_REMOTE`), so one consent to record serves a whole session.
+    /// Whether the gallery follows the `RemoteCommand`s the Mac or a UI test posts (`GLASS_REMOTE`), recording itself
+    /// from the first command that asks for a frame, so one consent to record serves a whole session and a session
+    /// the Mac records over the cable is never asked for one.
     static let remote = ProcessInfo.processInfo.environment["GLASS_REMOTE"] != nil
     /// The seconds to record every frame for, while someone presses the bar, or `nil` for none.
     static let record = value("GLASS_RECORD")
@@ -76,6 +79,20 @@ enum ReferenceLaunch {
     }()
     /// Whether the app shows the material probe, glass of several sizes over flat colours, instead of the screen.
     static let probe = ProcessInfo.processInfo.environment["GLASS_PROBE"] != nil
+    /// Whether the app shows the blur probe, glass of several sizes and shapes over a checkerboard
+    /// (`GLASS_BLUR_PROBE`), the checkerboard alone with `GLASS_PROBE_BARE`.
+    static let blurProbe = ProcessInfo.processInfo.environment["GLASS_BLUR_PROBE"] != nil
+    /// Whether the blur probe leaves its glass out, so the checkerboard under each shape is captured bare.
+    static let probeBare = ProcessInfo.processInfo.environment["GLASS_PROBE_BARE"] != nil
+    /// Whether the blur probe draws its cells in `BlurProbe.palette`, each piece centred on a cell, so the tone the
+    /// glass gives every colour is read at the cells' centres (`GLASS_PROBE_PALETTE`).
+    static let probePalette = ProcessInfo.processInfo.environment["GLASS_PROBE_PALETTE"] != nil
+    /// The factor the palette's colours are scaled by, 1 unless `GLASS_PROBE_SCALE` names another, so the tone is read
+    /// over a darker backdrop as well.
+    static let probeScale = value("GLASS_PROBE_SCALE") ?? 1
+    /// Whether the blur probe draws `BlurProbe.thinPieces`, capsules of thin glass along the palette's rows, in place of
+    /// its pieces of every size (`GLASS_PROBE_SET=thin`).
+    static let probeThin = ProcessInfo.processInfo.environment["GLASS_PROBE_SET"] == "thin"
     /// The circle sizes the probe draws, in points (`GLASS_PROBE_SIZES=36,51,...`).
     static let probeSizes: [CGFloat] = (ProcessInfo.processInfo.environment["GLASS_PROBE_SIZES"] ?? "36,51,70,100")
         .split(separator: ",")
@@ -735,6 +752,78 @@ struct MaterialProbe: View {
     }
 }
 
+/// Glass of several sizes and shapes over a checkerboard of 40-point cells, each centred on a corner of the cells at a
+/// fixed place in the window, so the blur under each is read against the checkerboard captured bare.
+struct BlurProbe: View {
+    /// A shape of the probe: its frame in the window, in points, and its corner radius, half its height for a capsule.
+    struct Piece: Hashable {
+        let x, y, width, height, radius: CGFloat
+    }
+
+    /// The colours of the palette's cells, as sRGB components from 0 to 255: five greys, then red, green and blue.
+    static let palette: [(Double, Double, Double)] = [
+        (0, 0, 0), (64, 64, 64), (128, 128, 128), (192, 192, 192), (255, 255, 255), (255, 59, 48), (52, 199, 89), (0, 122, 255),
+    ]
+
+    /// Capsules of thin glass, each along a row of the palette's cells, three to a row over six rows.
+    static let thinPieces: [Piece] = [80, 200, 320, 440, 560, 680].flatMap { y in
+        [200, 600, 960].map { x in Piece(x: CGFloat(x - 150), y: CGFloat(y - 28), width: 300, height: 56, radius: 28) }
+    }
+
+    static let pieces: [Piece] = [
+        Piece(x: 58, y: 98, width: 44, height: 44, radius: 22),
+        Piece(x: 132, y: 92, width: 56, height: 56, radius: 28),
+        Piece(x: 244, y: 84, width: 72, height: 72, radius: 36),
+        Piece(x: 350, y: 70, width: 100, height: 100, radius: 50),
+        Piece(x: 490, y: 50, width: 140, height: 140, radius: 70),
+        Piece(x: 700, y: 20, width: 200, height: 200, radius: 100),
+        Piece(x: 30, y: 288, width: 340, height: 224, radius: 28),
+        Piece(x: 410, y: 300, width: 300, height: 120, radius: 28),
+        Piece(x: 410, y: 452, width: 300, height: 56, radius: 28),
+        Piece(x: 755, y: 240, width: 250, height: 400, radius: 28),
+        Piece(x: 60, y: 580, width: 120, height: 200, radius: 28),
+        Piece(x: 400, y: 600, width: 160, height: 160, radius: 28),
+        Piece(x: 1060, y: 60, width: 80, height: 120, radius: 28),
+    ]
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            Canvas { context, size in
+                let cell: CGFloat = 40
+                if ReferenceLaunch.probePalette {
+                    // Cells centred on the pieces' centres; along a row the colour steps by one, down a column by three.
+                    for row in 0..<Int(size.height / cell) + 2 {
+                        for column in 0..<Int(size.width / cell) + 2 {
+                            let rgb = Self.palette[(row * 3 + column) % Self.palette.count]
+                            let k = ReferenceLaunch.probeScale / 255
+                            let colour = Color(red: rgb.0 * k, green: rgb.1 * k, blue: rgb.2 * k)
+                            context.fill(Path(CGRect(x: CGFloat(column) * cell - cell / 2, y: CGFloat(row) * cell - cell / 2, width: cell, height: cell)), with: .color(colour))
+                        }
+                    }
+                } else {
+                    for row in 0..<Int(size.height / cell) + 1 {
+                        for column in 0..<Int(size.width / cell) + 1 where (row + column) % 2 == 0 {
+                            context.fill(Path(CGRect(x: CGFloat(column) * cell, y: CGFloat(row) * cell, width: cell, height: cell)), with: .color(.white))
+                        }
+                    }
+                }
+            }
+            .background(Color.black)
+            if !ReferenceLaunch.probeBare {
+                ForEach(ReferenceLaunch.probeThin ? Self.thinPieces : Self.pieces, id: \.self) { piece in
+                    Color.clear
+                        .frame(width: piece.width, height: piece.height)
+                        .glassEffect(.regular, in: RoundedRectangle(cornerRadius: piece.radius, style: .continuous))
+                        .offset(x: piece.x, y: piece.y)
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .preferredColorScheme(.dark)
+        .statusBarHidden()
+    }
+}
+
 /// Red where the content's colour scheme is light, blue where it is dark.
 struct SchemeProbe: ShapeStyle {
     func resolve(in environment: EnvironmentValues) -> Color {
@@ -1085,10 +1174,9 @@ struct GalleryScreen: View {
         .background(Palette.ground)
         .preferredColorScheme(.dark)
         .task {
-            guard ReferenceLaunch.exhibit != nil else { return }
             if ReferenceLaunch.remote {
                 await followRemote()
-            } else if let name = ReferenceLaunch.capture {
+            } else if ReferenceLaunch.exhibit != nil, let name = ReferenceLaunch.capture {
                 let screen = ScreenCapture()
                 guard await screen.start() else { return }
                 if let seconds = ReferenceLaunch.window {
@@ -1102,17 +1190,26 @@ struct GalleryScreen: View {
         }
     }
 
-    /// Records the screen for as long as the gallery stands and follows each `RemoteCommand`; a capture is saved as
-    /// `remote-<n>.png`, a recording as `remote-<n>-window-000.png` onwards, and `remote-last.txt` names the latest.
+    /// Follows each `RemoteCommand` for as long as the gallery stands, recording the screen from the first command that
+    /// asks for a frame; a capture is saved as `remote-<n>.png`, a recording as `remote-<n>-window-000.png` onwards, and
+    /// `remote-last.txt` names the latest.
     private func followRemote() async {
-        let screen = ScreenCapture()
-        guard await screen.start() else { return }
+        var recorder: ScreenCapture?
         var count = 0
         for await command in RemoteCommand.stream() {
             let name = "remote-\(count)"
-            switch command {
-            case .show(let exhibit):
+            if case .show(let exhibit) = command {
                 chosen = exhibit
+                continue
+            }
+            if recorder == nil {
+                let started = ScreenCapture()
+                guard await started.start() else { continue }
+                recorder = started
+            }
+            guard let screen = recorder else { continue }
+            switch command {
+            case .show:
                 continue
             case .save:
                 screen.save(named: name)

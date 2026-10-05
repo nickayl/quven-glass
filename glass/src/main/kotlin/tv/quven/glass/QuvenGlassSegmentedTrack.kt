@@ -214,6 +214,7 @@ internal fun trackLensMaterial(style: QuvenGlassStyle): QuvenGlassStyle {
     val lens = GlassLensThumb.LensMaterial
     return style.copy(
         blur = 0.dp,
+        thickBlur = 0.dp,
         backdropScale = 1f,
         refraction = lens.refraction,
         edgeWidth = lens.edgeWidth,

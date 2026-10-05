@@ -5,6 +5,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.isSpecified
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -37,7 +38,8 @@ import androidx.compose.ui.unit.dp
  * @property tint The colour laid over the toned backdrop, by its alpha; [tinted] sets it at the material's own strength.
  * @property tintStrength How much of a tint [tinted] lays over the glass, from 0 to 1.
  * @property brighten The share of white added to everything the glass shows, as clear glass lightens what it stands over.
- * @property blur The radius of the blur applied to the backdrop.
+ * @property blur The radius of the blur applied to the backdrop under a surface whose shorter side is no longer than
+ * [thinSize].
  * @property backdropScale The resolution the backdrop is recorded and blurred at, as a share of the screen's, from 0.25
  * to 1; the outline, the fold and the rim are always drawn at full resolution.
  * @property refraction The least distance in from the rim from which the lens takes what the rim shows: the bevel folds
@@ -86,6 +88,14 @@ import androidx.compose.ui.unit.dp
  * @property touchLight How much white light gathers under the finger on interactive glass and follows it, at its middle,
  * from 0 to 1; 0 for glass that does not light where it is touched.
  * @property touchLightSpread How far the light under the finger spreads, as a Gaussian's standard deviation.
+ * @property thickBlur The radius of the blur under a surface whose shorter side is at least [thickBlurSize]; between
+ * [thinSize] and [thickBlurSize] the blur grows from [blur] in proportion, as Apple's glass frosts more deeply the larger
+ * it stands.
+ * @property thickBlurSize The shorter side from which a surface takes [thickBlur].
+ * @property largeTone The tone of a surface whose shorter side is no shorter than [largeSize], as a panel, a sheet or a
+ * sidebar, which Apple's glass veils more deeply than a bar.
+ * @property largeFromSize The shorter side from which thick glass begins to turn into large glass.
+ * @property largeSize The shorter side at and above which a surface is large glass.
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -109,7 +119,7 @@ public data class QuvenGlassStyle(
     val tint: Color = Color.Transparent,
     val tintStrength: Float = 0.95f,
     val brighten: Float = 0f,
-    val blur: Dp = 4.5.dp,
+    val blur: Dp = 3.6.dp,
     val backdropScale: Float = 0.5f,
     val refraction: Dp = 22.dp,
     val edgeWidth: Dp = 12.dp,
@@ -139,7 +149,39 @@ public data class QuvenGlassStyle(
     val pressBrighten: Float = 0f,
     val touchLight: Float = 0f,
     val touchLightSpread: Dp = 95.dp,
+    val thickBlur: Dp = 8.4.dp,
+    val thickBlurSize: Dp = 136.dp,
+    val largeTone: QuvenGlassTone = QuvenGlassTone.Large,
+    val largeFromSize: Dp = 100.dp,
+    val largeSize: Dp = 124.dp,
 ) {
+
+    /**
+     * Returns the radius of the blur under a surface whose shorter side is [shorterSide]: [blur] up to [thinSize],
+     * [thickBlur] from [thickBlurSize], in proportion between.
+     *
+     * @param shorterSide The surface's shorter side, in pixels.
+     * @param density The density the sizes are read at.
+     * @return The radius, in pixels.
+     */
+    internal fun blurFor(shorterSide: Float, density: Density): Float = with(density) {
+        val start = thinSize.toPx()
+        val end = thickBlurSize.toPx()
+        val share = if (end > start) ((shorterSide - start) / (end - start)).coerceIn(0f, 1f) else if (shorterSide >= end) 1f else 0f
+        blur.toPx() + (thickBlur.toPx() - blur.toPx()) * share
+    }
+
+    /** Gets whether any of the tones lightens with the brightness of the backdrop around its surface. */
+    internal val followsBrightness: Boolean
+        get() = thinTone.adaptation != 0f || thickTone.adaptation != 0f || largeTone.adaptation != 0f || lightTone.adaptation != 0f
+
+    /**
+     * Returns this material blurring the backdrop by [radius] whatever its size.
+     *
+     * @param radius The radius of the blur.
+     * @return The material.
+     */
+    internal fun withBlur(radius: Dp): QuvenGlassStyle = copy(blur = radius, thickBlur = radius)
 
     /**
      * Returns the spring the pill slides on between options: quick, passing its place a little before it settles.
@@ -196,7 +238,8 @@ public data class QuvenGlassStyle(
      *
      * @return The menu's material.
      */
-    public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
+    public fun forMenus(): QuvenGlassStyle =
+        copy(blur = MenuBlur, thickBlur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
     /**
      * Returns this material as interactive glass draws it: a light gathers under the finger and follows it, as on Apple's
@@ -234,10 +277,12 @@ public data class QuvenGlassStyle(
         public val Clear: QuvenGlassStyle = QuvenGlassStyle(
             thinTone = QuvenGlassTone.Clear,
             thickTone = QuvenGlassTone.Clear,
+            largeTone = QuvenGlassTone.Clear,
             lightTone = QuvenGlassTone.Clear,
             tintStrength = 0.8f,
             brighten = 0.086f,
             blur = 2.dp,
+            thickBlur = 2.dp,
             zoom = 0.8f,
             specular = 0.75f,
         )

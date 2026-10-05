@@ -87,7 +87,9 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
         seeThrough: Boolean = false,
     ) {
         val forms = surfaces.map(GlassSurface::form)
-        val region = glassRegion(forms, glassMargin(forms, style.blur.toPx(), style.zoom))
+        // One blur serves the whole layer, so the largest surface sets it, as a panel morphing from a control frosts over.
+        val radius = style.blurFor(forms.maxOf { it.rect.minDimension }, this)
+        val region = glassRegion(forms, glassMargin(forms, radius, style.zoom))
         val regionOrigin = Offset(region.left.toFloat(), region.top.toFloat())
         val share = style.backdropScale.coerceIn(MinBackdropScale, 1f)
         backdrop.record(IntSize(ceil(region.width * share).toInt(), ceil(region.height * share).toInt())) {
@@ -95,7 +97,7 @@ internal class LiquidGlassRenderer(private val graphics: GraphicsContext) {
                 translate(-(sourceOffset.x + regionOrigin.x), -(sourceOffset.y + regionOrigin.y)) { drawLayer(source) }
             }
         }
-        val blur = style.blur.toPx() * share
+        val blur = radius * share
         backdrop.renderEffect = if (blur < MinBlur) null else BlurEffect(blur, blur, TileMode.Clamp)
         backdrop.clip = true
         layer.record(IntSize(region.width, region.height)) {

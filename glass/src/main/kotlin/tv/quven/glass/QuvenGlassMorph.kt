@@ -38,7 +38,6 @@ import androidx.compose.ui.graphics.addOutline
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -545,13 +544,10 @@ internal fun morphGeometry(
  * @return The material.
  */
 private fun QuvenGlassStyle.frosted(frost: Float): QuvenGlassStyle = if (frost >= 1f) this else copy(
-    thickTone = QuvenGlassTone(
-        shade = lerpColor(thinTone.shade, thickTone.shade, frost),
-        lean = lerp(thinTone.lean, thickTone.lean, frost),
-        leanSlope = lerp(thinTone.leanSlope, thickTone.leanSlope, frost),
-        saturation = lerp(thinTone.saturation, thickTone.saturation, frost),
-    ),
+    thickTone = lerpTone(thinTone, thickTone, frost),
+    largeTone = lerpTone(thinTone, largeTone, frost),
     blur = lerp(ClearBlur.value, blur.value, frost).dp,
+    thickBlur = lerp(ClearBlur.value, thickBlur.value, frost).dp,
     tint = tint.copy(alpha = tint.alpha * frost),
     backdropDim = backdropDim * frost,
 )

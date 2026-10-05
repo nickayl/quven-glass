@@ -38,6 +38,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -73,6 +74,8 @@ class GalleryActivity : ComponentActivity() {
     // The exhibit and the backdrop offset the latest intent names; a later intent reaches the running gallery.
     private var shown by mutableStateOf<Int?>(null)
     private var backdropOffset by mutableStateOf(DpOffset.Zero)
+    private var probe by mutableStateOf<String?>(null)
+    private var probeScale by mutableFloatStateOf(1f)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // The gallery is dark whatever the system's theme, so its bars carry light glyphs.
@@ -83,7 +86,10 @@ class GalleryActivity : ComponentActivity() {
         val seconds = intent.getFloatExtra(ExtraWindow, 0f)
         setContent {
             CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f), LocalBackdropOffset provides backdropOffset) {
-                MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(shown) }
+                MaterialTheme(colorScheme = darkColorScheme()) {
+                    probe?.let { BlurProbe(it.endsWith(ProbeBare), it.startsWith(ProbePalette), probeScale, it.contains(ProbeThin)) }
+                        ?: GalleryScreen(shown)
+                }
             }
         }
         record(intent)
@@ -108,6 +114,8 @@ class GalleryActivity : ComponentActivity() {
         shown = intent.getStringExtra(ExtraExhibit)?.let { title -> Exhibits.indexOfFirst { it.title == title }.takeIf { it >= 0 } }
         val offset = intent.getStringExtra(ExtraBackdropOffset)?.split(',')?.mapNotNull(String::toFloatOrNull)
         backdropOffset = if (offset?.size == 2) DpOffset(offset[0].dp, offset[1].dp) else DpOffset.Zero
+        probe = intent.getStringExtra(ExtraProbe)
+        probeScale = intent.getFloatExtra(ExtraProbeScale, 1f)
     }
 
     private companion object {
@@ -124,6 +132,16 @@ class GalleryActivity : ComponentActivity() {
         // names fewer, which a large region needs to stay within memory.
         const val ExtraScale = "scale"
         const val CapturePixelsPerDp = 2f
+
+        // The blur probe in place of the gallery: "blur" with its glass, "bare" without, "palette" and "palette-bare"
+        // with its cells in colours, "palette-thin" with capsules of thin glass along them.
+        const val ExtraProbe = "probe"
+        const val ProbeBare = "bare"
+        const val ProbePalette = "palette"
+        const val ProbeThin = "thin"
+
+        // The factor the probe's palette is scaled by, 1 unless named.
+        const val ExtraProbeScale = "probeScale"
     }
 }
 

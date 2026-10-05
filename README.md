@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.25.0")
+    implementation("tv.quven.glass:glass:2.26.0")
 }
 ```
 
@@ -507,9 +507,10 @@ if (removing) {
 
 | Parameter | What it changes |
 |---|---|
-| `thinTone`, `thickTone`, `lightTone` | The colour each kind of glass leans towards, how far, and its saturation |
-| `thinSize`, `thickSize` | The shorter sides where glass stops being thin and becomes thick |
-| `blur`, `refraction`, `edgeWidth` | The blur and the fold along the rim |
+| `thinTone`, `thickTone`, `largeTone`, `lightTone` | The colour each kind of glass leans towards, how far, how much lighter it turns over brighter content, and its saturation |
+| `thinSize`, `thickSize`, `largeFromSize`, `largeSize` | The shorter sides where glass stops being thin and becomes thick, then large |
+| `blur`, `thickBlur`, `thickBlurSize` | The blur under small glass, and how it deepens as the glass grows |
+| `refraction`, `edgeWidth` | The fold along the rim |
 | `specular`, `lightAngle` | The light caught by the rim and where it comes from |
 | `platter`, `lightPlatter` | The pill under a held option, on dark and on light glass |
 | `adaptation` | When thin glass turns light and how quickly |
@@ -524,22 +525,24 @@ You should pass `reduceMotion` from the system setting to every surface. Springs
 ## Cost
 
 Although each surface redraws a blurred copy of the backdrop on every frame, it does so at half resolution in one
-shader pass. And thin glass samples its
-backdrop twice a second into 8×8 pixels on a renderer of its own; it doesn't touch the main thread, and it pauses while
-the window is out of view.
+shader pass. And thin and large glass sample the backdrop under and around them twice a second into 16×16 pixels, on
+a renderer of their own, to follow how bright it is; that work stays off the main thread, and it pauses while the window
+is out of view.
 
 ## Measured model
 
-Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames through ReplayKit.
+Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames through ReplayKit, the screen taken over
+the cable, and the blur probe's still screenshots.
 
 | Property | Value |
 |---|---|
-| Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt; interactive or still alike |
-| Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB |
-| Thin tone | Lean 0.68 towards `0x17`, saturation 2.2, measured on a physical iPad against the same backdrop; darker and richer than thick glass |
+| Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt, turning large from 100 pt to 124 pt; interactive or still alike |
+| Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB; the same over dark and bright content |
+| Thin tone | Lean 0.66, plus 0.05 per unit of luminance, towards `0x03`, which picks up 0.55 times the mean luminance of what lies under and around the surface, saturation 1.78; read over a palette at two brightnesses |
+| Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.18 times the mean luminance under and around it, saturation 2.6; a panel, a sheet or a sidebar veils more than a bar |
 | Platter | White at 11%; black at 7% on light glass |
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
-| Blur | Gaussian, σ 3.5 pt |
+| Blur | Gaussian, σ 2.5 pt up to a shorter side of 63 pt, building up in proportion to σ 5.3 pt at 136 pt and levelling off there |
 | Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light; still glass shows what lies just outside it there, as it is |
 | Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving; on an iPad it is glass of its own over the bar, 24 pt wider and 22 pt taller than the entry, toned as the bar but unblurred, the entries under it 1.15 times larger in the held colour, its rim lit and parting its colours; a finger held on an entry takes the held colour from the entry held until then |
 | Drag | The lens follows the finger, the entry under it in the held entry's colour, and settles on the nearest option |
@@ -613,10 +616,11 @@ Launched from the Home Screen the reference shows the gallery; any `GLASS_` vari
 | `GLASS_WINDOW` | Keep every frame of the region for this many seconds, a second after launch, whatever is pressed: the way to record the gear's menu opening. |
 | `GLASS_PROBE`, `GLASS_PROBE_SIZES` | Glass circles of these sizes over flat colours instead of the screen. |
 | `GLASS_PROBE_INK` | Each probe circle carries a glyph in the primary style, one in explicit white and one telling its colour scheme. |
+| `GLASS_BLUR_PROBE` | Glass of thirteen sizes and shapes over a checkerboard of 40 pt cells instead of the screen; with `GLASS_PROBE_BARE` the checkerboard alone, with `GLASS_PROBE_PALETTE` cells of five greys and three colours centred on the pieces, scaled by `GLASS_PROBE_SCALE`, and with `GLASS_PROBE_SET=thin` eighteen capsules of thin glass along the cells. The sample's gallery draws the same probe for the `probe` extra (`blur`, `bare`, `palette`, `palette-thin`, each with `-bare`) and `probeScale`. |
 | `GLASS_CONTROLS` | The system's tab bar and segmented control instead of the screen. |
 | `GLASS_CONTROLS_WHITE` | Those controls over a white page. |
 | `GLASS_MENUS` | A pull-down with every kind of entry, a plain menu and a card's context menu over the screen. |
-| `GLASS_REMOTE` | With `GLASS_EXHIBIT`, the gallery records itself from that one launch, so ReplayKit asks once, and follows the Darwin notifications `tv.quven.glass.remote.show.<exhibit>`, `.save` and `.record.<seconds>` (`devicectl device notification post`); `remote-last.txt` in Documents names the latest frames, and `remote-region.txt` the region a recording keeps. A Mac can also take the screen over the cable as a capture device, with no prompt at all. |
+| `GLASS_REMOTE` | The gallery opens on `GLASS_EXHIBIT` (or the first exhibit), records itself from the first command that asks for a frame, so ReplayKit asks once a launch and never while the Mac records over the cable, and follows the Darwin notifications `tv.quven.glass.remote.show.<exhibit>`, `.save` and `.record.<seconds>` (`devicectl device notification post`); `remote-last.txt` in Documents names the latest frames, and `remote-region.txt` the region a recording keeps. A Mac can also take the screen over the cable as a capture device, with no prompt at all. |
 
 ## Licence
 
