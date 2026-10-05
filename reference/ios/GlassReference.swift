@@ -1366,6 +1366,9 @@ struct GlassDisc: View {
             .font(.system(size: diameter * 0.36, weight: .semibold))
             .foregroundStyle(.white)
             .frame(width: diameter, height: diameter)
+            // A plain button takes touches only where its label draws, which leaves the glyph's holes and the glass
+            // around it dead.
+            .contentShape(Circle())
             .glassEffect(.regular.interactive(), in: Circle())
     }
 }
@@ -1567,6 +1570,7 @@ struct MorphingPanelStage: View {
                 .padding(20)
                 .frame(width: 340)
                 .glassEffect(.regular, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                .reportsFrame("panel")
                 .glassEffectID("panel", in: glass)
             } else {
                 Button {

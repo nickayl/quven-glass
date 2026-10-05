@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.padding
@@ -396,7 +395,8 @@ private val SidebarLabelStart = 67.dp
 private val DetailBarHeight = 64.dp
 
 /**
- * Draws a gear that opens into the panel tuning the material, as one piece of glass.
+ * Draws a gear that opens into a panel of the material's settings, as one piece of glass, laid out as the reference
+ * lays out its own.
  *
  * @param tuning The live settings.
  */
@@ -426,7 +426,45 @@ internal fun BoxScope.MorphingPanelExhibit(tuning: SampleTuning) {
         reduceMotion = tuning.reduceMotion,
         face = { GlyphFace(Icons.Filled.Settings, contentDescription = null) },
     ) {
-        TuningPanel(tuning, Modifier.heightIn(max = PanelMaxHeight))
+        MaterialPanel(tuning, onDone = { open = false })
+    }
+}
+
+/**
+ * Draws the morphing panel's content: a title beside Done, switches for Liquid Glass and reduced motion, and a blur
+ * slider, at the sizes and colours of the reference's system controls.
+ *
+ * @param tuning The live settings the switches change.
+ * @param onDone Invoked when Done is pressed.
+ */
+@Composable
+private fun MaterialPanel(tuning: SampleTuning, onDone: () -> Unit) {
+    var blur by remember { mutableFloatStateOf(0.5f) }
+    Column(Modifier.padding(PanelPadding), verticalArrangement = Arrangement.spacedBy(PanelRowGap)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Material", style = PanelTitle, modifier = Modifier.weight(1f))
+            Text("Done", style = PanelBody, color = SystemBlue, modifier = Modifier.clickable(onClick = onDone))
+        }
+        PanelSwitch("Liquid glass", tuning.liquid, tuning) { tuning.liquid = it }
+        PanelSwitch("Reduce motion", tuning.reduceMotion, tuning) { tuning.reduceMotion = it }
+        Text("Blur", style = PanelBody, color = SystemSecondaryLabel)
+        QuvenGlassSlider(value = blur, onValueChange = { blur = it }, reduceMotion = tuning.reduceMotion)
+    }
+}
+
+/**
+ * Draws a setting that is on or off: its name beside a glass switch.
+ *
+ * @param name The setting's name.
+ * @param checked Whether the setting is on.
+ * @param tuning The live settings.
+ * @param onCheckedChange Invoked with the setting's new state.
+ */
+@Composable
+private fun PanelSwitch(name: String, checked: Boolean, tuning: SampleTuning, onCheckedChange: (Boolean) -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(name, style = PanelBody, modifier = Modifier.weight(1f))
+        QuvenGlassSwitch(checked = checked, onCheckedChange = onCheckedChange, reduceMotion = tuning.reduceMotion)
     }
 }
 
@@ -1186,12 +1224,26 @@ private val JoiningTogether = 38.dp
 private val JoiningSpacing = 24.dp
 private val SortOrders = listOf("Title", "Year", "Added")
 private val PanelWidth = 340.dp
-private val PanelMaxHeight = 560.dp
 private val PanelCornerRadius = 28.dp
 private val PendingCardWidth = 440.dp
 private val PendingCardPadding = 28.dp
 private val VariantDiameter = 100.dp
 private val SystemBlue = Color(0xFF0091FF)
+
+/** The colour of the system's secondary text over dark content. */
+private val SystemSecondaryLabel = Color(0x99EBEBF5)
+
+/** The inset of the morphing panel's content. */
+private val PanelPadding = 20.dp
+
+/** The space between the morphing panel's rows. */
+private val PanelRowGap = 14.dp
+
+/** The system's body text: 17 points on lines of 22, with none of Material's added tracking. */
+private val PanelBody = TextStyle(color = SampleColors.TextHigh, fontSize = 17.sp, lineHeight = 22.sp, letterSpacing = 0.sp)
+
+/** The morphing panel's title, as the reference sets it: 20 points, semibold, on lines of 24. */
+private val PanelTitle = PanelBody.copy(fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.SemiBold)
 private val SystemRed = Color(0xFFFF453A)
 /** A note, as the system's `music.note` symbol draws it. */
 private val MusicNote: ImageVector = materialIcon(name = "Filled.MusicNote") {
