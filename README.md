@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.20.0")
+    implementation("tv.quven.glass:glass:2.21.0")
 }
 ```
 
@@ -237,6 +237,21 @@ platform's own entries go? They stay.
 ```kotlin
 ProvideQuvenGlassTextToolbar(backdrop = screen) {
     Content()
+}
+```
+
+## Sidebar
+
+`QuvenGlassSidebar` floats a sidebar of thick glass over the content at the start of its parent, the way a split view
+shows its sidebar on an iPad. It stands a few dp inside the parent's edges, 221 dp wide by default, and slides in from
+the start edge on a spring that doesn't overshoot, then back out when you hide it. Nothing reflows. What goes inside?
+Whatever you put there, such as a title, the entries and the button that hides it again. A narrow window should show a
+tab bar instead.
+
+```kotlin
+Box(Modifier.fillMaxSize()) {
+    Library(Modifier.fillMaxSize())
+    QuvenGlassSidebar(shown = sidebarShown) { SidebarEntries(onHide = { sidebarShown = false }) }
 }
 ```
 
@@ -522,6 +537,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
 | Submenu | On an iPhone: the second menu grows out of its entry's row, as wide as the first, its head (the entry in bold, the chevron turned down, then a hairline) centred on the row; the first menu's rows fade to about 0.4 behind it; it folds back into the row |
 | Edit menu | On an iPhone: a capsule 41 pt tall of the actions in 17 pt, each 17 pt in from its hairline, the hairlines 20 pt tall; 14 pt above the selection, or below it without room; paged with arrows where wider than the window |
+| Sidebar | On an iPad: thick glass 221 pt wide, about 7 pt inside its parent's edges, corners of 24; it slides in from the start edge on a critically damped spring of stiffness about 480, there in about 250 ms |
 | Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
 | Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far |
 | Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |

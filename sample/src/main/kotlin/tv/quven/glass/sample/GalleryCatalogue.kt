@@ -167,7 +167,7 @@ internal val Exhibits: List<Exhibit> = listOf(
     ) { TextMenuExhibit(it) },
     Exhibit(
         "Adaptive sidebar",
-        "A sidebar of glass floating over the content, which becomes a tab bar in a narrow window.",
-        ExhibitStatus.Planned,
-    ),
+        "A sidebar of glass floating over the content, which slides in from the edge and out again.",
+        ExhibitStatus.Ready,
+    ) { AdaptiveSidebarExhibit(it) },
 )

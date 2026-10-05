@@ -46,6 +46,9 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.ui.graphics.vector.PathParser
+import tv.quven.glass.QuvenGlassSidebar
 import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import tv.quven.glass.QuvenGlassSubmenu
@@ -292,6 +295,61 @@ internal fun BoxScope.TextMenuExhibit(tuning: SampleTuning) {
             .padding(16.dp),
     )
 }
+
+/**
+ * Draws a sidebar of glass that slides in over the stage from its start and out again, as the reference's split view
+ * shows and hides its sidebar.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.AdaptiveSidebarExhibit(tuning: SampleTuning) {
+    var shown by remember { mutableStateOf(false) }
+    val toggle = rememberVectorPainter(SidebarSymbol)
+    Box(Modifier.matchParentSize().bleed(StageInset)) {
+        QuvenGlassIconButton(
+            onClick = { shown = true },
+            icon = toggle,
+            contentDescription = "Show sidebar",
+            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            reduceMotion = tuning.reduceMotion,
+        )
+        QuvenGlassSidebar(shown, style = tuning.style, reduceMotion = tuning.reduceMotion) {
+            Column {
+                Box(Modifier.fillMaxWidth().height(SidebarHeadHeight), contentAlignment = Alignment.Center) {
+                    Text("Library", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                    Icon(
+                        toggle,
+                        contentDescription = "Hide sidebar",
+                        tint = SampleColors.TextHigh,
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .padding(end = 12.dp)
+                            .size(22.dp)
+                            .clickable(interactionSource = null, indication = null) { shown = false },
+                    )
+                }
+                SidebarEntries.forEach { (label, icon) ->
+                    Row(Modifier.fillMaxWidth().height(SidebarRowHeight).padding(start = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(icon, contentDescription = null, tint = SampleColors.TextHigh, modifier = Modifier.size(20.dp))
+                        Text(label, color = SampleColors.TextHigh, fontSize = 17.sp, modifier = Modifier.padding(start = 15.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The entries of the sidebar exhibit, as the reference lists them. */
+private val SidebarEntries: List<Pair<String, ImageVector>> get() = listOf(
+    "Home" to Icons.Filled.Home,
+    "Watch" to Icons.Filled.PlayArrow,
+    "Favorites" to Icons.Filled.Star,
+    "Explore" to Icons.Filled.Info,
+    "More" to MoreHorizontal,
+)
+private val SidebarHeadHeight = 36.dp
+private val SidebarRowHeight = 36.dp
 
 /**
  * Draws a gear that opens into the panel tuning the material, as one piece of glass.
@@ -1056,6 +1114,15 @@ private val Shuffle: ImageVector = materialIcon(name = "Filled.Shuffle") {
         close()
     }
 }
+
+/** A window with a column at its start, as the system's `sidebar.left` symbol draws it. */
+private val SidebarSymbol: ImageVector = ImageVector.Builder("SidebarLeft", 24.dp, 24.dp, 24f, 24f).apply {
+    addPath(
+        PathParser().parsePathString("M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5h-14a2.5 2.5 0 0 1 -2.5 -2.5v-10a2.5 2.5 0 0 1 2.5 -2.5z M9.5 4.5v15").toNodes(),
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.8f,
+    )
+}.build()
 
 /** A downward arrow, as the system's `arrow.down` symbol draws it. */
 private val ArrowDownward: ImageVector = materialIcon(name = "Filled.ArrowDownward") {

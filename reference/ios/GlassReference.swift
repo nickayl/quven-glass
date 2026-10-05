@@ -1002,20 +1002,12 @@ enum Exhibit: CaseIterable, Identifiable {
         case .clearAndTinted: "The clear variant, which lets bright media through, and glass tinted with a colour."
         case .touchLight: "Light that gathers under the finger and follows it across interactive glass."
         case .textMenu: "The menu of cut, copy and paste on glass, over selected text."
-        case .adaptiveSidebar: "A sidebar of glass floating over the content, which becomes a tab bar in a narrow window."
+        case .adaptiveSidebar: "A sidebar of glass floating over the content, which slides in from the edge and out again."
         }
     }
 
-    /// How far along the Android library is with the element.
-    var status: ExhibitStatus {
-        switch self {
-        case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover, .search,
-             .minimizingTabBar, .bottomAccessory, .scrollEdge, .touchLight, .toolbar, .submenus, .textMenu: .ready
-        case .adaptiveSidebar: .planned
-        default: .inDevelopment
-        }
-    }
+    /// How far along the Android library is with the element: every element is ready.
+    var status: ExhibitStatus { .ready }
 }
 
 /// Lists the system's Liquid Glass elements beside the one chosen, each drawn by the system over hard content.
