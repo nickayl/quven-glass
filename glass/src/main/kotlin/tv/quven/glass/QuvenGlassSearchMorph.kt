@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layout
@@ -99,11 +100,12 @@ public fun QuvenGlassSearchMorph(
         if (searching) shrink.snapTo(0f) else shrink.animateTo(if (shrinking) 1f else 0f, spec)
     }
     val density = LocalDensity.current
-    val frame = remember(searching, shrinking, tabsWidth, height, gap, density) {
+    val foldedAtStart = remember(searching) { searching && shrink.value > FoldedShare }
+    val frame = remember(searching, shrinking, foldedAtStart, tabsWidth, height, gap, density) {
         val sizes = with(density) { SearchMorphSizes(tabsWidth.toPx(), height.toPx(), gap.toPx(), BarSinkInset.toPx(), NearGap.toPx()) }
         return@remember {
             if (searching || progress.value > 0f) {
-                searchMorphFrame(progress.value, opening = searching, sizes)
+                searchMorphFrame(progress.value, opening = searching, sizes, foldedAtStart)
             } else {
                 minimizedBarFrame(shrink.value, minimizing = shrinking, sizes)
             }
@@ -119,7 +121,7 @@ public fun QuvenGlassSearchMorph(
                 backdrop = backdrop,
                 reduceMotion = reduceMotion,
                 fold = { frame().fold },
-                progress = { max(progress.value, shrink.value) },
+                progress = { if (foldedAtStart) 1f else max(progress.value, shrink.value) },
                 heldCentre = heldCentre,
                 tabs = tabs,
                 tabsFace = tabsFace,
@@ -168,9 +170,16 @@ internal class SearchMorphFrame(val fold: TabsFold, val field: Rect, val fieldAl
  * @param progress How far the bar has turned into a field, from 0 to 1, past either while its spring overshoots.
  * @param opening Whether the bar is turning into the field, rather than back.
  * @param sizes The sizes the morph is laid out from.
+ * @param fromFold Whether the opening starts from the minimized bar, whose tabs are already folded and whose Search circle
+ * already sinks, rather than from the resting one.
  * @return The frame.
  */
-internal fun searchMorphFrame(progress: Float, opening: Boolean, sizes: SearchMorphSizes): SearchMorphFrame {
+internal fun searchMorphFrame(progress: Float, opening: Boolean, sizes: SearchMorphSizes, fromFold: Boolean = false): SearchMorphFrame {
+    if (fromFold && opening) {
+        val folded = minimizedBarFrame(1f, minimizing = true, sizes)
+        val stretched = searchMorphFrame(progress, opening = true, sizes)
+        return SearchMorphFrame(folded.fold, lerp(folded.field, stretched.field, progress), stretched.fieldAlpha)
+    }
     val width = sizes.tabsWidth + sizes.gap + sizes.height
     val back = 1f - progress
     val fold = tabsFold(
@@ -261,3 +270,6 @@ private const val FieldShowEnd = 0.8f
 private const val FieldHideEnd = 0.35f
 private const val GapCollapseEnd = 0.15f
 private const val GapRestoreStart = 0.6f
+
+// The share of the way to minimized past which a bar counts as folded when the search opens.
+private const val FoldedShare = 0.5f

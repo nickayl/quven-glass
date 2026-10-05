@@ -132,6 +132,34 @@ class QuvenGlassSearchMorphTest {
     }
 
     @Test
+    fun aSearchOpenedFromTheMinimizedBar_startsFromTheFoldedFrame_andEndsWhereAnyOtherSearchDoes() {
+        val folded = minimizedBarFrame(1f, minimizing = true, Sizes)
+        val start = searchMorphFrame(0f, opening = true, Sizes, fromFold = true)
+        val end = searchMorphFrame(1f, opening = true, Sizes, fromFold = true)
+        val plain = searchMorphFrame(1f, opening = true, Sizes)
+
+        assertEquals(folded.fold.tabs, start.fold.tabs)
+        assertEquals(0f, start.fold.facesAlpha)
+        assertEquals(folded.field, start.field)
+        assertEquals(plain.field, end.field)
+        assertEquals(plain.fold.tabs, end.fold.tabs)
+    }
+
+    @Test
+    fun aSearchOpenedFromTheMinimizedBar_keepsTheHeldGlyphInTheFoldedCircle_fromTheFirstFrame() {
+        minimized = true
+        render()
+        compose.mainClock.autoAdvance = false
+
+        searching = true
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(32)
+
+        val glyph = compose.onNodeWithTag(HeldTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(Height / 2f, (glyph.left.value + glyph.right.value) / 2f, 3f)
+    }
+
+    @Test
     fun aPressOnTheMinimizedBar_asksItBack_andEndsNoSearch() {
         minimized = true
         render()
