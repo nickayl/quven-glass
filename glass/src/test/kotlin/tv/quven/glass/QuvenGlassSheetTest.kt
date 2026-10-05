@@ -12,11 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
@@ -89,6 +93,15 @@ class QuvenGlassSheetTest {
         compose.waitForIdle()
 
         compose.onNodeWithText(Title).assertDoesNotExist()
+    }
+
+    @Test
+    fun accessibilityServices_canCloseTheSheet() {
+        render()
+
+        compose.onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.Dismiss)).onFirst().performSemanticsAction(SemanticsActions.Dismiss)
+
+        compose.runOnIdle { assertEquals(1, dismissals) }
     }
 
     @Test(expected = IllegalStateException::class)

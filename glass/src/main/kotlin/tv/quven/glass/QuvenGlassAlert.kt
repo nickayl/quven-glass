@@ -50,6 +50,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -313,7 +314,15 @@ private fun AlertPanel(
                 pill = null,
                 adapts = false,
             )
-            .semantics { paneTitle = request.title }
+            .semantics {
+                paneTitle = request.title
+                request.onDismissRequest?.let { close ->
+                    dismiss {
+                        close()
+                        true
+                    }
+                }
+            }
             .focusGroup(),
     ) {
         Column(

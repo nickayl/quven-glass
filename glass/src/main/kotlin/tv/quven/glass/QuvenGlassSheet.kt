@@ -47,6 +47,8 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.dismiss
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
@@ -185,6 +187,12 @@ public fun QuvenGlassSheetHost(
                         drawContent()
                     }
                     .clip(SheetShape)
+                    .semantics {
+                        dismiss {
+                            request.onDismissRequest()
+                            true
+                        }
+                    }
                     .nestedScroll(nested)
                     .draggable(drag, Orientation.Vertical, onDragStopped = { velocity -> release(velocity) }),
             ) {
