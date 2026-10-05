@@ -148,8 +148,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Bottom accessory",
         "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { BottomAccessoryExhibit(it) },
     Exhibit(
         "Scroll edge",
         "Content fades and blurs as it passes under the bars at the top and bottom of a page.",

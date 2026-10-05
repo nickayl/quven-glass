@@ -101,11 +101,38 @@ class QuvenGlassMinimizingBarTest {
         compose.onNodeWithTag(HeldTag, useUnmergedTree = true).assertDoesNotExist()
     }
 
+    @Test
+    fun theAccessory_standsAboveTheRestingBar_andBesideTheMinimizedCircle_asTallAsTheCircle() {
+        val above = accessoryRect(0f, TabsWidth, 62f, 7.25f, Gaps)
+        val beside = accessoryRect(1f, TabsWidth, 62f, 7.25f, Gaps)
+
+        assertEquals(Rect(0f, 0f, TabsWidth, 47.5f), above)
+        assertEquals(Rect(7.25f + 47.5f + 8f, 47.5f + 9.5f + 7.25f, TabsWidth - 7.25f, 47.5f + 9.5f + 7.25f + 47.5f), beside)
+    }
+
+    @Test
+    fun minimizing_theAccessoryNarrowsBeforeItFalls() {
+        val halfway = accessoryRect(0.5f, TabsWidth, 62f, 7.25f, Gaps)
+
+        assertTrue(halfway.left > 0.5f * (7.25f + 47.5f + 8f))
+        assertEquals(0f, halfway.top)
+    }
+
+    @Test
+    fun withAnAccessory_theBarStandsUnderIt_andTheAccessoryIsDrawn() {
+        render(accessory = true)
+
+        val tabs = compose.onNodeWithTag(TabsTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val strip = compose.onNodeWithTag(AccessoryTag, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(47.5f + 9.5f, tabs.top.value, 0.5f)
+        assertEquals(0f, strip.top.value, 0.5f)
+    }
+
     private fun scroll(minimizer: QuvenGlassBarMinimizer, consumed: Float, available: Float = 0f) {
         minimizer.nestedScrollConnection.onPostScroll(Offset(0f, consumed), Offset(0f, available), NestedScrollSource.UserInput)
     }
 
-    private fun render() {
+    private fun render(accessory: Boolean = false) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
                 Box(Modifier.fillMaxSize()) {
@@ -119,6 +146,11 @@ class QuvenGlassMinimizingBarTest {
                         tabs = { Box(Modifier.fillMaxSize().testTag(TabsTag)) },
                         tabsFace = { BasicText("Tabs") },
                         heldGlyph = { Box(Modifier.size(20.dp).testTag(HeldTag)) },
+                        accessory = if (accessory) {
+                            { Box(Modifier.fillMaxSize().testTag(AccessoryTag)) }
+                        } else {
+                            null
+                        },
                     )
                 }
             }
@@ -129,6 +161,8 @@ class QuvenGlassMinimizingBarTest {
     private companion object {
         const val TabsTag = "tabs"
         const val HeldTag = "held"
+        const val AccessoryTag = "accessory"
         const val TabsWidth = 354f
+        val Gaps = AccessoryGaps(above = 9.5f, inline = 8f)
     }
 }

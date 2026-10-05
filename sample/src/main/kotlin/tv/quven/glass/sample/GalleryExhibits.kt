@@ -46,6 +46,8 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Icon
 import tv.quven.glass.rememberQuvenGlassBarMinimizer
 import tv.quven.glass.QuvenGlassMinimizingBar
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -356,6 +358,39 @@ private const val SearchLitMillis = 50L
  */
 @Composable
 internal fun BoxScope.MinimizingTabBarExhibit(tuning: SampleTuning) {
+    MinimizingBarStage(tuning, accessory = null)
+}
+
+/**
+ * Draws the minimizing bar with a player's strip above it, which comes down beside the minimized bar, as the reference's
+ * bottom accessory does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.BottomAccessoryExhibit(tuning: SampleTuning) {
+    MinimizingBarStage(tuning) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(rememberVectorPainter(MusicNote), contentDescription = null, tint = SampleColors.TextHigh, modifier = Modifier.size(20.dp))
+            Text("Now playing", color = SampleColors.TextHigh, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Icon(Icons.Filled.PlayArrow, contentDescription = "Play", tint = SampleColors.TextHigh, modifier = Modifier.size(22.dp))
+            Icon(rememberVectorPainter(FastForward), contentDescription = "Next", tint = SampleColors.TextHigh, modifier = Modifier.size(22.dp))
+        }
+    }
+}
+
+/**
+ * Draws a phone's bar of four entries that minimizes as the stage scrolls, with [accessory] above it.
+ *
+ * @param tuning The live settings.
+ * @param accessory Draws the accessory's content, or `null` for none.
+ */
+@Composable
+private fun BoxScope.MinimizingBarStage(tuning: SampleTuning, accessory: (@Composable RowScope.() -> Unit)?) {
     var held by remember { mutableIntStateOf(0) }
     val minimizer = rememberQuvenGlassBarMinimizer()
     val stage = LocalStageScroll.current
@@ -375,6 +410,7 @@ internal fun BoxScope.MinimizingTabBarExhibit(tuning: SampleTuning) {
         tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 4, entrySize = phoneEntrySize(4)) },
         tabsFace = { SampleTabsFace(count = 4, held = held, selected = true, tuning = tuning) },
         heldGlyph = { SampleHeldGlyph(held, selected = true) },
+        accessory = accessory,
     )
 }
 
@@ -726,6 +762,39 @@ private val PendingCardPadding = 28.dp
 private val VariantDiameter = 100.dp
 private val SystemBlue = Color(0xFF0091FF)
 private val SystemRed = Color(0xFFFF453A)
+/** A note, as the system's `music.note` symbol draws it. */
+private val MusicNote: ImageVector = materialIcon(name = "Filled.MusicNote") {
+    materialPath {
+        moveTo(12f, 3f)
+        verticalLineToRelative(10.55f)
+        curveToRelative(-0.59f, -0.34f, -1.27f, -0.55f, -2f, -0.55f)
+        curveToRelative(-2.21f, 0f, -4f, 1.79f, -4f, 4f)
+        reflectiveCurveToRelative(1.79f, 4f, 4f, 4f)
+        reflectiveCurveToRelative(4f, -1.79f, 4f, -4f)
+        verticalLineTo(7f)
+        horizontalLineToRelative(4f)
+        verticalLineTo(3f)
+        horizontalLineToRelative(-6f)
+        close()
+    }
+}
+
+/** Two arrows forward, as the system's `forward.fill` symbol draws them. */
+private val FastForward: ImageVector = materialIcon(name = "Filled.FastForward") {
+    materialPath {
+        moveTo(4f, 18f)
+        lineToRelative(8.5f, -6f)
+        lineTo(4f, 6f)
+        verticalLineToRelative(12f)
+        close()
+        moveTo(13f, 6f)
+        verticalLineToRelative(12f)
+        lineToRelative(8.5f, -6f)
+        lineTo(13f, 6f)
+        close()
+    }
+}
+
 /** A downward arrow, as the system's `arrow.down` symbol draws it. */
 private val ArrowDownward: ImageVector = materialIcon(name = "Filled.ArrowDownward") {
     materialPath {
