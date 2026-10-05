@@ -138,11 +138,14 @@ public fun QuvenGlassSearchMorph(
                     BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier) {
                         Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
-                            Row(
-                                Modifier.padding(start = GlyphGap).graphicsLayer { alpha = frame().fieldAlpha },
-                                verticalAlignment = Alignment.CenterVertically,
-                                content = field,
-                            )
+                            // At rest the field is not there to take the press, which opens the search instead.
+                            if (searching || progress.value > 0f) {
+                                Row(
+                                    Modifier.padding(start = GlyphGap).graphicsLayer { alpha = frame().fieldAlpha },
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    content = field,
+                                )
+                            }
                         }
                     }
                 }

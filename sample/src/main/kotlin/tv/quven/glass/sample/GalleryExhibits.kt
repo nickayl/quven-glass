@@ -11,30 +11,37 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.MailOutline
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -43,38 +50,11 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.ui.graphics.vector.PathParser
-import tv.quven.glass.QuvenGlassSplitView
-import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import tv.quven.glass.QuvenGlassSubmenu
-import tv.quven.glass.QuvenGlassToolbarJoin
-import tv.quven.glass.QuvenGlassToolbarGap
-import tv.quven.glass.QuvenGlassToolbarItem
-import tv.quven.glass.QuvenGlassToolbarGroup
-import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.unit.DpSize
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.ui.layout.layout
-import tv.quven.glass.QuvenGlassSegmentedTrack
-import tv.quven.glass.rememberQuvenGlassBackdrop
-import tv.quven.glass.quvenGlassSource
-import tv.quven.glass.quvenGlassScrollEdge
-import tv.quven.glass.QuvenGlassScrollEdgeStyle
-import tv.quven.glass.QuvenGlassSegmentedControl
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Icon
-import tv.quven.glass.rememberQuvenGlassBarMinimizer
-import tv.quven.glass.QuvenGlassMinimizingBar
-import androidx.compose.foundation.layout.wrapContentWidth
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.Velocity
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -87,53 +67,76 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.graphics.vector.path
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.PathParser
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import tv.quven.glass.LocalQuvenGlassBackdrop
 import tv.quven.glass.QuvenGlassAlert
 import tv.quven.glass.QuvenGlassAlertAction
 import tv.quven.glass.QuvenGlassAlertRole
 import tv.quven.glass.QuvenGlassButton
 import tv.quven.glass.QuvenGlassButtonSize
-import tv.quven.glass.QuvenGlassIconButton
 import tv.quven.glass.QuvenGlassContainer
 import tv.quven.glass.QuvenGlassContextMenuBox
+import tv.quven.glass.QuvenGlassIconButton
 import tv.quven.glass.QuvenGlassMenuBox
 import tv.quven.glass.QuvenGlassMenuChoice
 import tv.quven.glass.QuvenGlassMenuChoices
 import tv.quven.glass.QuvenGlassMenuDivider
 import tv.quven.glass.QuvenGlassMenuItem
 import tv.quven.glass.QuvenGlassMenuTitle
+import tv.quven.glass.QuvenGlassMinimizingBar
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassPopover
+import tv.quven.glass.QuvenGlassScrollEdgeStyle
 import tv.quven.glass.QuvenGlassSearchMorph
-import kotlinx.coroutines.delay
+import tv.quven.glass.QuvenGlassSegmentedControl
+import tv.quven.glass.QuvenGlassSegmentedTrack
 import tv.quven.glass.QuvenGlassSheet
-import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.QuvenGlassSlider
+import tv.quven.glass.QuvenGlassSplitView
+import tv.quven.glass.QuvenGlassStyle
+import tv.quven.glass.QuvenGlassSubmenu
 import tv.quven.glass.QuvenGlassSwitch
+import tv.quven.glass.QuvenGlassToolbarGap
+import tv.quven.glass.QuvenGlassToolbarGroup
+import tv.quven.glass.QuvenGlassToolbarItem
+import tv.quven.glass.QuvenGlassToolbarJoin
 import tv.quven.glass.quvenGlassAnchor
+import tv.quven.glass.quvenGlassScrollEdge
+import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassAppearance
+import tv.quven.glass.rememberQuvenGlassBackdrop
+import tv.quven.glass.rememberQuvenGlassBarMinimizer
 import tv.quven.glass.rememberQuvenGlassMorphState
 
 /**
@@ -281,12 +284,12 @@ internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
 @Composable
 internal fun BoxScope.SubmenusExhibit(tuning: SampleTuning) {
     MenuButton(MoreHorizontal, "Options", tuning, Modifier.align(Alignment.TopEnd)) {
-        QuvenGlassMenuItem("Download", {}, icon = rememberVectorPainter(Icons.Filled.KeyboardArrowDown))
+        QuvenGlassMenuItem("Download", {}, icon = rememberVectorPainter(ArrowDownCircle))
         QuvenGlassSubmenu("Share", icon = rememberVectorPainter(ShareUp)) {
             QuvenGlassMenuItem("Message", {}, icon = rememberVectorPainter(Icons.Filled.Email))
             QuvenGlassMenuItem("Mail", {}, icon = rememberVectorPainter(Icons.Filled.MailOutline))
         }
-        QuvenGlassSubmenu("More", icon = rememberVectorPainter(MoreHorizontal)) {
+        QuvenGlassSubmenu("More", icon = rememberVectorPainter(EllipsisCircle)) {
             QuvenGlassMenuItem("First", {})
             QuvenGlassMenuItem("Second", {})
         }
@@ -302,17 +305,20 @@ internal fun BoxScope.SubmenusExhibit(tuning: SampleTuning) {
 @Composable
 internal fun BoxScope.TextMenuExhibit(tuning: SampleTuning) {
     var text by remember { mutableStateOf("Select a word of this text to raise the menu of cut, copy and paste.") }
-    BasicTextField(
-        value = text,
-        onValueChange = { text = it },
-        textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 20.sp),
-        cursorBrush = SolidColor(SampleColors.Accent),
-        modifier = Modifier
-            .align(Alignment.Center)
-            .size(TextPanelWidth, 200.dp)
-            .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, RoundedCornerShape(28.dp), reduceMotion = tuning.reduceMotion)
-            .padding(16.dp),
-    )
+    // The reference's text view selects and carets in the system's blue.
+    CompositionLocalProvider(LocalTextSelectionColors provides SystemSelection) {
+        BasicTextField(
+            value = text,
+            onValueChange = { text = it },
+            textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 20.sp),
+            cursorBrush = SolidColor(SystemBlue),
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(TextPanelWidth, 200.dp)
+                .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, RoundedCornerShape(28.dp), reduceMotion = tuning.reduceMotion)
+                .padding(16.dp),
+        )
+    }
 }
 
 /**
@@ -572,16 +578,21 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
                         entrySize = phoneEntrySize(3, tablet),
                     )
                 },
-                tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching, tuning = tuning) },
-                heldGlyph = { SampleHeldGlyph(held, selected = !searching) },
+                // While Search's page stands, Search is the tab chosen and no other tab takes the held colour.
+                tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching && !searchPage, tuning = tuning) },
+                heldGlyph = { SampleHeldGlyph(held, selected = !searching && !searchPage) },
                 searchGlyph = { SampleSearchGlyph(selected = searchLit || searchPage) },
                 field = {
+                    // The field takes the keyboard as it opens, as the reference's search field does.
+                    val focus = remember { FocusRequester() }
+                    LaunchedEffect(searching) { if (searching) focus.requestFocus() }
                     BasicTextField(
                         value = text,
                         onValueChange = { text = it },
+                        modifier = Modifier.focusRequester(focus),
                         singleLine = true,
                         textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 17.sp),
-                        cursorBrush = SolidColor(SampleColors.Accent),
+                        cursorBrush = SolidColor(SystemBlue),
                         decorationBox = { inner ->
                             if (text.isEmpty()) Text("Search", color = SampleColors.TextMedium, fontSize = 17.sp)
                             inner()
@@ -1230,6 +1241,9 @@ private val PendingCardPadding = 28.dp
 private val VariantDiameter = 100.dp
 private val SystemBlue = Color(0xFF0091FF)
 
+/** The colours the system selects text in: its blue handles over a highlight of the same blue. */
+private val SystemSelection = TextSelectionColors(handleColor = SystemBlue, backgroundColor = SystemBlue.copy(alpha = 0.35f))
+
 /** The colour of the system's secondary text over dark content. */
 private val SystemSecondaryLabel = Color(0x99EBEBF5)
 
@@ -1292,6 +1306,37 @@ internal val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz
     }
     this
 }
+
+/** An arrow pointing down inside a ring, as the system's `arrow.down.circle` symbol draws it. */
+internal val ArrowDownCircle: ImageVector = ImageVector.Builder("ArrowDownCircle", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(12f, 2.9f)
+        arcTo(9.1f, 9.1f, 0f, isMoreThanHalf = true, isPositiveArc = true, 11.99f, 2.9f)
+        close()
+        moveTo(12f, 7.4f)
+        verticalLineTo(16.2f)
+        moveTo(8.4f, 12.8f)
+        lineTo(12f, 16.4f)
+        lineTo(15.6f, 12.8f)
+    }
+}.build()
+
+/** Three dots inside a ring, as the system's `ellipsis.circle` symbol draws them. */
+internal val EllipsisCircle: ImageVector = ImageVector.Builder("EllipsisCircle", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f) {
+        moveTo(12f, 2.9f)
+        arcTo(9.1f, 9.1f, 0f, isMoreThanHalf = true, isPositiveArc = true, 11.99f, 2.9f)
+        close()
+    }
+    for (x in listOf(7.6f, 12f, 16.4f)) {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(x - 1.25f, 12f)
+            arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x + 1.25f, 12f)
+            arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x - 1.25f, 12f)
+            close()
+        }
+    }
+}.build()
 
 /** A filled bookmark, as the system's `bookmark.fill` symbol draws it. */
 internal val BookmarkFill: ImageVector = ImageVector.Builder("BookmarkFill", 24.dp, 24.dp, 24f, 24f).apply {

@@ -49,6 +49,17 @@ class QuvenGlassSearchMorphTest {
     }
 
     @Test
+    fun atRest_theFieldIsNotThereToTakeThePress_andComesWithTheSearch() {
+        render()
+
+        compose.onNodeWithTag(FieldTag, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(CircleTag, useUnmergedTree = true).assertExists()
+        searching = true
+
+        compose.onNodeWithTag(FieldTag, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
     fun theSearchModifier_reachesTheSearchCircle() {
         render()
 
