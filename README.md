@@ -267,6 +267,29 @@ QuvenGlassContextMenuBox(
 }
 ```
 
+## Alerts
+
+`QuvenGlassAlert` raises an alert on glass in the middle of the screen. The screen dims behind it while it settles
+from a tenth larger, and once you stop drawing it, it fades at its own size. Title and message stand at its start, over
+the actions: two sit side by side, more stack one above another in the order you give them, and a destructive one is
+named in red, while Back calls `onDismissRequest` and a press outside does nothing, as on iOS. Should Back leave it
+standing? Pass none. You'll want a `QuvenGlassAlertHost` last in the window's root, over a backdrop of the whole
+window, with its state handed down through `LocalQuvenGlassAlertHost`.
+
+```kotlin
+if (removing) {
+    QuvenGlassAlert(
+        title = "Remove this collection?",
+        message = "Its titles stay in the library.",
+        actions = listOf(
+            QuvenGlassAlertAction("Cancel", { removing = false }, QuvenGlassAlertRole.Cancel),
+            QuvenGlassAlertAction("Remove", ::remove, QuvenGlassAlertRole.Destructive),
+        ),
+        onDismissRequest = { removing = false },
+    )
+}
+```
+
 ## Styling
 
 `QuvenGlassStyle.Standard` is the measured material, but you can copy it and change what you need:
@@ -318,6 +341,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
 | Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
+| Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |
 | Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
 | Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |

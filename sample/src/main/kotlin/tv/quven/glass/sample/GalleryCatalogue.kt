@@ -128,8 +128,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Alert",
         "A dialog on glass over a dimmed page, its buttons capsules.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { AlertExhibit(it) },
     Exhibit(
         "Popover",
         "A panel of glass that grows out of the control it belongs to and points at it.",

@@ -1010,7 +1010,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider, .contextMenu: .ready
+             .capsuleButtons, .toggle, .slider, .contextMenu, .alert: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }

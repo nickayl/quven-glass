@@ -47,11 +47,14 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import tv.quven.glass.LocalQuvenGlassAlertHost
 import tv.quven.glass.LocalQuvenGlassBackdrop
 import tv.quven.glass.LocalQuvenGlassMenuHost
+import tv.quven.glass.QuvenGlassAlertHost
 import tv.quven.glass.QuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassMenuMetrics
 import tv.quven.glass.quvenGlassSource
+import tv.quven.glass.rememberQuvenGlassAlertHostState
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMenuHostState
 import androidx.compose.ui.unit.DpSize
@@ -87,18 +90,37 @@ class GalleryActivity : ComponentActivity() {
 }
 
 /**
- * Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it.
+ * Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it. An
+ * exhibit's alert stands over the whole window, which it dims, as the system's does.
  *
  * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
  */
 @Composable
 private fun GalleryScreen(initial: Int?) {
     val tuning = remember { SampleTuning() }
+    val screen = rememberQuvenGlassBackdrop()
+    val alerts = rememberQuvenGlassAlertHostState()
+    Box(Modifier.fillMaxSize()) {
+        CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts) {
+            GalleryPanes(initial, tuning, Modifier.fillMaxSize().quvenGlassSource(screen))
+        }
+        QuvenGlassAlertHost(alerts, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
+    }
+}
+
+/**
+ * Draws the list of exhibits beside the one chosen, or one of the two in a narrow window.
+ *
+ * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
+ * @param tuning The live settings.
+ * @param modifier Modifier applied to the panes.
+ */
+@Composable
+private fun GalleryPanes(initial: Int?, tuning: SampleTuning, modifier: Modifier) {
     var chosen by rememberSaveable { mutableIntStateOf(initial ?: 0) }
     var opened by rememberSaveable { mutableStateOf(initial != null) }
     BoxWithConstraints(
-        Modifier
-            .fillMaxSize()
+        modifier
             .background(SampleColors.Ground)
             .safeDrawingPadding(),
     ) {

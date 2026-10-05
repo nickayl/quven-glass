@@ -64,6 +64,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.lerp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.QuvenGlassAlert
+import tv.quven.glass.QuvenGlassAlertAction
+import tv.quven.glass.QuvenGlassAlertRole
 import tv.quven.glass.QuvenGlassButton
 import tv.quven.glass.QuvenGlassButtonSize
 import tv.quven.glass.QuvenGlassIconButton
@@ -263,6 +266,34 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Draws a button that raises an alert asking to remove a collection, as the reference raises Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.AlertExhibit(tuning: SampleTuning) {
+    var shown by remember { mutableStateOf(false) }
+    QuvenGlassButton(
+        onClick = { shown = true },
+        label = "Show alert",
+        size = QuvenGlassButtonSize.Large,
+        modifier = Modifier.align(Alignment.Center),
+        reduceMotion = tuning.reduceMotion,
+    )
+    if (shown) {
+        QuvenGlassAlert(
+            title = "Remove this collection?",
+            message = "Its titles stay in the library.",
+            actions = listOf(
+                QuvenGlassAlertAction("Cancel", { shown = false }, QuvenGlassAlertRole.Cancel),
+                QuvenGlassAlertAction("Remove", { shown = false }, QuvenGlassAlertRole.Destructive),
+            ),
+            onDismissRequest = { shown = false },
+        )
     }
 }
 

@@ -151,7 +151,7 @@ public fun QuvenGlassMenuHost(
                 Modifier
                     .fillMaxSize()
                     .then(request.outsideModifier)
-                    .pointerInput(request) { dismissOnPress(request.onDismissRequest) },
+                    .pointerInput(request) { keepPresses(request.onDismissRequest) },
             )
         }
         QuvenGlassMorph(
@@ -160,7 +160,7 @@ public fun QuvenGlassMenuHost(
             anchor = seed ?: anchor,
             placement = placement,
             modifier = Modifier.fillMaxSize(),
-            style = if (preview == null) style else remember(style) { style.dimmed(PreviewDim) },
+            style = if (preview == null) style else remember(style) { style.dimmed(ScreenDim) },
             cornerRadius = metrics.cornerRadius,
             backdrop = backdrop,
             reduceMotion = reduceMotion,
@@ -376,7 +376,7 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
 
 /**
  * Draws a control's [preview] lifted out of the screen, which dims behind it, as far as [progress] has opened its menu:
- * the control grows to [PreviewLift] about its centre and moves by [shift], over a veil of black at [PreviewDim], as a
+ * the control grows to [PreviewLift] about its centre and moves by [shift], over a veil of black at [ScreenDim], as a
  * system context menu lifts its preview.
  *
  * @param preview The control.
@@ -391,7 +391,7 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
             .fillMaxSize()
             .drawBehind {
                 val shown = progress().coerceIn(0f, 1f)
-                drawRect(Color.Black, alpha = PreviewDim * shown)
+                drawRect(Color.Black, alpha = ScreenDim * shown)
                 translate(anchor.left, anchor.top + shift * shown) {
                     scale(preview.liftAt(progress()), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
                 }
@@ -411,15 +411,6 @@ private fun QuvenGlassMorphPlacement.around(anchor: Rect): QuvenGlassMorphPlacem
 }
 
 /**
- * Returns this material as glass over a screen dimmed by [dim] draws it: it reads the screen dimmed, and its rim shows
- * the dimmed screen beyond it [DimmedRimGlow] times brighter, as the system's menu does over the screen it dims.
- *
- * @param dim The share of black laid over the screen, from 0 to 1.
- * @return The material.
- */
-private fun QuvenGlassStyle.dimmed(dim: Float): QuvenGlassStyle = copy(backdropDim = dim, rimGlow = DimmedRimGlow)
-
-/**
  * Returns this rectangle grown by [scale] about its centre.
  *
  * @param scale The factor to grow by.
@@ -431,14 +422,14 @@ private fun Rect.lifted(scale: Float): Rect {
 }
 
 /**
- * Closes the menu on a press anywhere outside it and keeps that press, and whatever it goes on to do, from what lies
- * under the menu.
+ * Keeps a press anywhere on this layer, and whatever it goes on to do, from what lies under it, and invokes [onPress]
+ * as it lands.
  *
- * @param onDismiss Closes the menu.
+ * @param onPress Invoked when a press lands, such as closing a menu.
  */
-private suspend fun PointerInputScope.dismissOnPress(onDismiss: () -> Unit) = awaitEachGesture {
+internal suspend fun PointerInputScope.keepPresses(onPress: () -> Unit = {}) = awaitEachGesture {
     awaitFirstDown(requireUnconsumed = false).consume()
-    onDismiss()
+    onPress()
     do {
         val event = awaitPointerEvent()
         event.changes.forEach { it.consume() }
@@ -450,11 +441,5 @@ internal val MenuEdge = 16.dp
 
 /** How much a context menu's control grows as it lifts out of the screen, as measured on the system's. */
 internal const val PreviewLift = 1.1f
-
-/** How dark the screen turns behind a context menu's lifted control, as measured on the system's. */
-private const val PreviewDim = 0.48f
-
-/** How much brighter the rim of a menu over a dimmed screen shows the screen beyond it, as measured on the system's. */
-private const val DimmedRimGlow = 1.2f
 
 private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)

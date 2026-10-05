@@ -272,7 +272,7 @@ private val QuvenGlassButtonSize.padding: PaddingValues
 private val NoPadding = PaddingValues(0.dp)
 
 /** The spring a glass button grows and shrinks on under the finger, passing its size a little, as measured on Apple's. */
-private val ButtonPressSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 685f)
+internal val ButtonPressSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 685f)
 
 /** How a glass button's light comes up under the finger, as measured on Apple's. */
 private val ButtonGlowRise = tween<Float>(70, easing = LinearOutSlowInEasing)

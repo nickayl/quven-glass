@@ -198,3 +198,19 @@ public data class QuvenGlassStyle(
         private val MenuBlur = 9.5.dp
     }
 }
+
+/**
+ * Returns this material as glass over a screen dimmed by [dim] draws it: it reads the screen dimmed, and its rim shows
+ * the dimmed screen beyond it [DimmedRimGlow] times brighter, as the system's menus and alerts do over the screen they
+ * dim.
+ *
+ * @param dim The share of black laid over the screen, from 0 to 1.
+ * @return The material.
+ */
+internal fun QuvenGlassStyle.dimmed(dim: Float): QuvenGlassStyle = copy(backdropDim = dim, rimGlow = DimmedRimGlow)
+
+/** How dark the screen turns behind a context menu's lifted control or an alert, as measured on the system's. */
+internal const val ScreenDim = 0.48f
+
+/** How much brighter the rim of glass over a dimmed screen shows the screen beyond it, as measured on the system's. */
+private const val DimmedRimGlow = 1.2f
