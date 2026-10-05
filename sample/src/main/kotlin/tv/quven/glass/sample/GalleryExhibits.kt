@@ -46,6 +46,16 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.layout.layout
+import androidx.compose.material.icons.filled.Refresh
+import tv.quven.glass.QuvenGlassSegmentedTrack
+import tv.quven.glass.rememberQuvenGlassBackdrop
+import tv.quven.glass.quvenGlassSource
+import tv.quven.glass.quvenGlassScrollEdge
+import tv.quven.glass.QuvenGlassScrollEdgeStyle
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Icon
 import tv.quven.glass.rememberQuvenGlassBarMinimizer
@@ -429,6 +439,84 @@ internal class StageScroll : NestedScrollConnection {
 
 /** Provides the stage's scrolling to its exhibit. */
 internal val LocalStageScroll: ProvidableCompositionLocal<StageScroll> = staticCompositionLocalOf { StageScroll() }
+
+/**
+ * Draws a page of its own whose content scrolls under a bar at its top and a toolbar at its bottom, softly or with a hard
+ * edge as the bar's control chooses, as the reference's page does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.ScrollEdgeExhibit(tuning: SampleTuning) {
+    var hard by remember { mutableStateOf(false) }
+    val page = rememberQuvenGlassBackdrop()
+    val style = if (hard) QuvenGlassScrollEdgeStyle.Hard else QuvenGlassScrollEdgeStyle.Soft
+    Box(Modifier.matchParentSize().bleed(StageInset)) {
+        SampleBackdropContent(
+            Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(top = PageBarHeight, bottom = PageBarHeight, style = style),
+            top = PageBarHeight,
+        )
+        CompositionLocalProvider(LocalQuvenGlassBackdrop provides page.takeIf { tuning.liquid }) {
+            Box(Modifier.align(Alignment.TopCenter).height(PageBarHeight), contentAlignment = Alignment.Center) {
+                EdgeStyleTrack(hard, onHard = { hard = it }, tuning = tuning)
+            }
+            Row(
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(PageBarHeight).padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.Refresh), contentDescription = "Shuffle", reduceMotion = tuning.reduceMotion)
+                QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.PlayArrow), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
+            }
+        }
+    }
+}
+
+/**
+ * Draws the control choosing a soft or a hard edge.
+ *
+ * @param hard Whether the hard edge is chosen.
+ * @param onHard Invoked with whether the hard edge was pressed.
+ * @param tuning The live settings.
+ */
+@Composable
+private fun EdgeStyleTrack(hard: Boolean, onHard: (Boolean) -> Unit, tuning: SampleTuning) {
+    val options = listOf(false, true)
+    val appearance = rememberQuvenGlassAppearance()
+    QuvenGlassSegmentedTrack(
+        options = options,
+        held = if (hard) 1 else 0,
+        optionSize = DpSize(88.dp, 32.dp),
+        style = tuning.style,
+        gap = 2.dp,
+        inset = 4.dp,
+        reduceMotion = tuning.reduceMotion,
+        onDraggedTo = onHard,
+        appearance = appearance,
+    ) { option, _ ->
+        Box(
+            Modifier.fillMaxSize().selectable(selected = option == hard, role = Role.RadioButton, interactionSource = null, indication = null) { onHard(option) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(if (option) "Hard" else "Soft", color = appearance.contentColor(SampleColors.TextHigh, SampleColors.TextHighOnLight), fontSize = 15.sp)
+        }
+    }
+}
+
+/**
+ * Lays the content out [by] beyond each edge of the room it is given, so it covers the stage's inset too.
+ *
+ * @param by How far the content reaches past each edge.
+ * @return The modifier.
+ */
+private fun Modifier.bleed(by: Dp): Modifier = layout { measurable, constraints ->
+    val reach = by.roundToPx() * 2
+    val placeable = measurable.measure(constraints.copy(minWidth = constraints.maxWidth + reach, maxWidth = constraints.maxWidth + reach, minHeight = constraints.maxHeight + reach, maxHeight = constraints.maxHeight + reach))
+    layout(constraints.maxWidth, constraints.maxHeight) { placeable.place(-reach / 2, -reach / 2) }
+}
+
+/** The height of the bars over the scroll edge page's edges, as the reference's navigation bar and toolbar stand. */
+private val PageBarHeight = 56.dp
 
 /**
  * Draws a button that opens a popover pointing at it, as the reference opens Apple's.

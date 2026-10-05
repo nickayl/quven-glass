@@ -153,8 +153,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Scroll edge",
         "Content fades and blurs as it passes under the bars at the top and bottom of a page.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { ScrollEdgeExhibit(it) },
     Exhibit(
         "Touch light",
         "Light that gathers under the finger and follows it across interactive glass.",

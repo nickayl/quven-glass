@@ -55,13 +55,14 @@ private val Posters = listOf(
  *
  * @param modifier Modifier applied to the list.
  * @param scroll The distance the list starts scrolled by, in density-independent pixels.
+ * @param top The room above the first item, which a bar standing over the list's top edge takes at rest.
  */
 @Composable
-internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float = 0f) {
+internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float = 0f, top: Dp = 0.dp) {
     val state = rememberLazyListState()
     val density = LocalDensity.current
     LaunchedEffect(scroll) { if (scroll > 0f) state.scrollBy(with(density) { scroll.dp.toPx() }) }
-    LazyColumn(modifier.background(SampleColors.Ground), state = state, contentPadding = PaddingValues(bottom = 140.dp)) {
+    LazyColumn(modifier.background(SampleColors.Ground), state = state, contentPadding = PaddingValues(top = top, bottom = 140.dp)) {
         item { Header() }
         items(12) { block ->
             when (block % 4) {

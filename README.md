@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.15.0")
+    implementation("tv.quven.glass:glass:2.16.0")
 }
 ```
 
@@ -175,6 +175,22 @@ QuvenGlassMinimizingBar(
     heldGlyph = { Icon(Icons.Filled.Home, contentDescription = "Home") },
     accessory = { NowPlaying(Modifier.fillMaxSize().padding(horizontal = 16.dp)) },
 )
+```
+
+## Scroll edges
+
+`Modifier.quvenGlassScrollEdge` gives content that scrolls under bars the scroll edge effect iOS draws there, and all it
+needs to know is how tall the bar over each edge is. The soft style, the default, darkens and blurs the content near the
+edge and a little past the bar, so the bar seems to float over whatever passes beneath it, as the navigation bars of
+Apple's own apps do. The hard style hides it under an opaque band as tall as the bar. Its edge is sharp. Put it on the
+scrolling content, which you should pad by the bars' heights as iOS does, so the content isn't under a bar until you
+scroll. Want the bars' glass to see what's drawn under them? Put `quvenGlassSource` first.
+
+```kotlin
+LazyColumn(
+    Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(top = 56.dp, bottom = 56.dp),
+    contentPadding = PaddingValues(vertical = 56.dp),
+) { items(titles) { Row(it) } }
 ```
 
 ## Text on light glass
@@ -430,6 +446,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
 | Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |
 | Bottom accessory | On an iPhone: a capsule as tall as the minimized circle (47.5 pt), 9.5 pt above the resting bar and as wide; minimizing, it narrows to start 8 pt past the circle and end 7.25 pt in, then falls into the bar's line; growing back, it rises before it widens; it keeps its own glass over the bar's |
+| Scroll edge | Under a 56 pt bar on an iPhone: soft, the content blurs about 3.5 pt at the edge, gone by 80% of the reach, and darkens 0.29 toward black over 1.78 times the bar's height, with a lip of about 0.66 along the first 10% that ends by 17%; hard, an opaque band of `#212121` as tall as the bar, 0.45 darker at its very top, ends on a sharp line |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
 | Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass turns towards white, the whole button alike, by about 1.05 times the mean luminance of what lies under it, within about 70 ms, and dies away over about 450 ms after release; a prominent button's tint lightens 1.65 times |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |

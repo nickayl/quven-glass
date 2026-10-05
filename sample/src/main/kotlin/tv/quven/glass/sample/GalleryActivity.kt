@@ -279,5 +279,6 @@ private val Ground = SampleColors.Ground
 private val PagePadding = 16.dp
 private val StageShape = RoundedCornerShape(24.dp)
 private val StageSize = DpSize(400.dp, 600.dp)
-private val StageInset = 24.dp
+/** The room between the stage's edge and its exhibit. */
+internal val StageInset = 24.dp
 private const val TabletWidthDp = 600
