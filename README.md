@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.26.0")
+    implementation("tv.quven.glass:glass:2.26.1")
 }
 ```
 
@@ -566,7 +566,7 @@ the cable, and the blur probe's still screenshots.
 | Sidebar | On an iPad: thick glass 320 pt wide, 10 pt inside its parent's edges, corners of 24, the detail beside it from its end edge; it slides in from the start edge on a critically damped spring of stiffness about 480, there in about 250 ms |
 | Segmented control | In a page's content on an iPad: a flat track 32 pt tall, (118, 118, 128) at 24%, not glass; the pill 2 pt inside it, white at about 27%; pressed or sent to another option it lifts into a lens of clear glass 18 pt wider and 12 taller, which bends the options under it as it crosses in about 240 ms on a spring with damping 0.85 and stiffness 230, and settles back once it rests |
 | Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
-| Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far |
+| Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far. On a tablet it floats as a card 580 pt wide in the middle, its foot 92.5 pt above the window's, 357.5 pt tall at rest and from 84.5 pt below the top at full height, and slides down whole as it closes |
 | Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |
 | Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
 | Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |

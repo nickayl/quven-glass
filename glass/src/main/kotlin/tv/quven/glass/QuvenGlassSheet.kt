@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawOutline
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -142,7 +144,7 @@ public fun QuvenGlassSheetHost(
     val topInset = WindowInsets.safeDrawing.getTop(density).toFloat()
     BoxWithConstraints(modifier.fillMaxSize()) {
         val height = constraints.maxHeight.toFloat()
-        val geometry = SheetGeometry(height, topInset)
+        val geometry = SheetGeometry(height, topInset, floatingSheet(constraints.maxWidth.toFloat(), height, density))
         val scope = rememberCoroutineScope()
         val motion = remember(request) { SheetMotion(height, scope) }
         val rests = request.detents.map(geometry::topOf)
@@ -257,15 +259,43 @@ internal class SheetRequest : GlassPresentation() {
 }
 
 /**
+ * Where a sheet floats as a card in a window of a tablet's size, as the system's does on an iPad: [width] wide in the
+ * middle, its foot [bottomGap] above the window's, its top at [mediumTop] at half height and [largeTop] at full height.
+ *
+ * @property width The card's width, in pixels.
+ * @property bottomGap The room between the card's foot and the window's, in pixels.
+ * @property mediumTop The card's top at half height, in pixels from the window's top.
+ * @property largeTop The card's top at full height, in pixels from the window's top.
+ */
+internal class SheetFloat(val width: Float, val bottomGap: Float, val mediumTop: Float, val largeTop: Float)
+
+/**
+ * Returns where a sheet floats in a window [width] by [height], or `null` for a window too small for it to float, where
+ * it rises from the bottom edge as on a phone.
+ *
+ * @param width The window's width, in pixels.
+ * @param height The window's height, in pixels.
+ * @param density The density the measurements are read at.
+ * @return The floating card, or `null`.
+ */
+internal fun floatingSheet(width: Float, height: Float, density: Density): SheetFloat? = with(density) {
+    if (width < FloatingMinSide.toPx() || height < FloatingMinSide.toPx()) return null
+    val bottom = FloatingBottomGap.toPx()
+    SheetFloat(FloatingWidth.toPx(), bottom, height - bottom - FloatingMediumHeight.toPx(), FloatingLargeTop.toPx())
+}
+
+/**
  * Where a sheet stands in a window [height] tall below a top inset of [topInset], and how it looks there: the higher it
  * stands between half the window and full height, the nearer the edges it reaches and the more opaque it turns.
  *
  * @property height The window's height, in pixels.
  * @property topInset The window's top inset, in pixels.
+ * @property floating Where the sheet floats as a card, or `null` where it rises from the window's bottom edge.
  */
-internal class SheetGeometry(val height: Float, val topInset: Float) {
+internal class SheetGeometry(val height: Float, val topInset: Float, val floating: SheetFloat? = null) {
 
-    private val mediumTop = height * (1f - MediumShare)
+    private val mediumTop = floating?.mediumTop ?: (height * (1f - MediumShare))
+    private val largeTop = floating?.largeTop ?: topInset
 
     /**
      * Returns the top of a sheet resting at [detent].
@@ -275,7 +305,7 @@ internal class SheetGeometry(val height: Float, val topInset: Float) {
      */
     fun topOf(detent: QuvenGlassSheetDetent): Float = when (detent) {
         QuvenGlassSheetDetent.Medium -> mediumTop
-        QuvenGlassSheetDetent.Large -> topInset
+        QuvenGlassSheetDetent.Large -> largeTop
     }
 
     /**
@@ -284,7 +314,7 @@ internal class SheetGeometry(val height: Float, val topInset: Float) {
      * @param top The sheet's top, in pixels.
      * @return The share, from 0 at half the window or lower to 1 at full height.
      */
-    fun expansionAt(top: Float): Float = ((mediumTop - top) / (mediumTop - topInset)).coerceIn(0f, 1f)
+    fun expansionAt(top: Float): Float = ((mediumTop - top) / (mediumTop - largeTop)).coerceIn(0f, 1f)
 
     /**
      * Returns the share of the opaque surface laid over the sheet's glass where its top stands at [top].
@@ -315,6 +345,30 @@ internal class SheetGeometry(val height: Float, val topInset: Float) {
      * @return The gap, in pixels.
      */
     fun insetAt(top: Float, inset: Float): Float = inset * (1f - expansionAt(top))
+
+    /**
+     * Returns the bounds of a sheet whose top stands at [top] in a window [width] wide: a floating card keeps its width
+     * and slides down whole below half height; a phone's sheet reaches the window's bottom, inset by [inset] at half the
+     * window.
+     *
+     * @param top The sheet's top, in pixels.
+     * @param width The window's width, in pixels.
+     * @param inset The gap a phone's sheet keeps at half the window, in pixels.
+     * @param maxWidth The widest a phone's sheet grows, in pixels.
+     * @return The bounds, in pixels.
+     */
+    fun boundsAt(top: Float, width: Float, inset: Float, maxWidth: Float): Rect {
+        val float = floating
+        if (float != null) {
+            val shown = minOf(float.width, width)
+            val foot = height - float.bottomGap
+            val tall = maxOf(foot - top, foot - mediumTop).coerceAtLeast(0f)
+            return Rect((width - shown) / 2f, top, (width + shown) / 2f, top + tall)
+        }
+        val gap = insetAt(top, inset)
+        val shown = minOf(width - 2f * gap, maxWidth).coerceAtLeast(0f)
+        return Rect((width - shown) / 2f, top, (width + shown) / 2f, top + (height - top - gap).coerceAtLeast(0f))
+    }
 }
 
 /**
@@ -416,9 +470,9 @@ private class SheetScrollConnection(
 }
 
 /**
- * Lays out the sheet: its top where [top] reads, as wide as the window less the gap it keeps from the sides, and as
- * tall as the room left above the window's bottom less the same gap; a wide window keeps it [SheetMaxWidth] wide, in
- * the middle.
+ * Lays out the sheet where [geometry] bounds it with its top where [top] reads: on a phone as wide as the window less
+ * the gap it keeps from the sides and as tall as the room left above the window's bottom less the same gap, at most
+ * [SheetMaxWidth] wide, in the middle; on a tablet as a floating card.
  *
  * @param geometry The sheet's geometry.
  * @param top Reads the sheet's top, in pixels.
@@ -429,13 +483,10 @@ private class SheetScrollConnection(
 private fun SheetLayout(geometry: SheetGeometry, top: () -> Float, maxWidth: Int, content: @Composable () -> Unit) {
     val density = LocalDensity.current
     Layout(content) { measurables, constraints ->
-        val at = top()
-        val inset = geometry.insetAt(at, with(density) { SheetInset.toPx() })
-        val width = minOf(maxWidth - 2f * inset, with(density) { SheetMaxWidth.toPx() }).coerceAtLeast(0f)
-        val sheetHeight = (geometry.height - at - inset).coerceAtLeast(0f)
-        val placeable = measurables.single().measure(Constraints.fixed(width.roundToInt(), sheetHeight.roundToInt()))
+        val bounds = geometry.boundsAt(top(), maxWidth.toFloat(), with(density) { SheetInset.toPx() }, with(density) { SheetMaxWidth.toPx() })
+        val placeable = measurables.single().measure(Constraints.fixed(bounds.width.roundToInt(), bounds.height.roundToInt()))
         layout(constraints.maxWidth, constraints.maxHeight) {
-            placeable.place(IntOffset(((maxWidth - width) / 2f).roundToInt(), at.roundToInt()))
+            placeable.place(IntOffset(bounds.left.roundToInt(), bounds.top.roundToInt()))
         }
     }
 }
@@ -458,5 +509,12 @@ private val ContentTop = 16.dp
 private const val BeyondResistance = 0.3f
 private const val FlingProjectionSeconds = 0.15f
 private const val CloseShare = 0.5f
+
+// Measured on the system's sheet on an iPad, in a window 1180 by 820.
+private val FloatingMinSide = 600.dp
+private val FloatingWidth = 580.dp
+private val FloatingBottomGap = 92.5.dp
+private val FloatingMediumHeight = 357.5.dp
+private val FloatingLargeTop = 84.5.dp
 private const val SettleStiffness = 450f
 private val SettleSpring = spring<Float>(dampingRatio = 0.9f, stiffness = SettleStiffness)
