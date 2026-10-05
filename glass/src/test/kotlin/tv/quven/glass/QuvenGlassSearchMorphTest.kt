@@ -49,6 +49,15 @@ class QuvenGlassSearchMorphTest {
     }
 
     @Test
+    fun theSearchModifier_reachesTheSearchCircle() {
+        render()
+
+        compose.onNodeWithTag(CircleTag, useUnmergedTree = true).performClick()
+
+        compose.runOnIdle { assertTrue(searching) }
+    }
+
+    @Test
     fun aPressOnTheFoldedTabs_endsTheSearch() {
         searching = true
         render()
@@ -155,6 +164,7 @@ class QuvenGlassSearchMorphTest {
                         field = { BasicText("Search", Modifier.testTag(FieldTag)) },
                         minimized = minimized,
                         onExpand = { minimized = false },
+                        searchModifier = Modifier.testTag(CircleTag),
                     )
                 }
             }
@@ -166,6 +176,7 @@ class QuvenGlassSearchMorphTest {
         const val TabsTag = "tabs"
         const val HeldTag = "held"
         const val SearchTag = "search"
+        const val CircleTag = "circle"
         const val FieldTag = "field"
         const val TabsWidth = 288f
         const val Height = 62f
