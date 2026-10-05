@@ -2,8 +2,14 @@ package tv.quven.glass
 
 import android.view.View
 import androidx.annotation.RequiresApi
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.interaction.InteractionSource
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -11,21 +17,30 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.isUnspecified
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToDownIgnoreConsumed
+import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.PointerInputModifierNode
 import androidx.compose.ui.node.currentValueOf
 import androidx.compose.ui.node.invalidateDraw
 import androidx.compose.ui.node.requireDensity
 import androidx.compose.ui.node.requireLayoutDirection
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import kotlin.math.max
 import kotlin.math.min
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * Draws Liquid Glass of [style] under this node's content: the [backdrop] seen through glass of [shape] that folds it
@@ -164,9 +179,12 @@ internal class LiquidGlassNode(
     private var appearance: QuvenGlassAppearance?,
     private var adapts: Boolean,
     private var glowSource: GlassLiftSource?,
-) : GlassPaintingNode(), CompositionLocalConsumerModifierNode {
+) : GlassPaintingNode(), CompositionLocalConsumerModifierNode, PointerInputModifierNode {
 
     private val press = GlassPress()
+    private val touchGlow = Animatable(0f)
+    private var touchAt by mutableStateOf(Offset.Zero)
+    private var touches: Job? = null
     private val ownAppearance = QuvenGlassAppearance()
     private val tracker = GlassAppearanceTracker(::backdropBrightness, ::isWindowShown)
     private var probe: GlassBrightnessProbe? = null
@@ -228,9 +246,38 @@ internal class LiquidGlassNode(
         if (adapts) followBrightness()
     }
 
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (pass != PointerEventPass.Initial || style.touchLight <= 0f) return
+        val change = pointerEvent.changes.firstOrNull() ?: return
+        when {
+            change.changedToDownIgnoreConsumed() -> {
+                touchAt = change.position
+                light(on = true)
+            }
+            change.changedToUpIgnoreConsumed() -> light(on = false)
+            change.pressed -> touchAt = change.position
+        }
+    }
+
+    override fun onCancelPointerInput() {
+        light(on = false)
+    }
+
+    // Glass only watches the finger: what stands under it, beside its content, still takes the press.
+    override fun sharePointerInputWithSiblings(): Boolean = true
+
+    // The light gathers at once under the finger and dies away once it lifts, as on Apple's interactive glass.
+    private fun light(on: Boolean) {
+        touches?.cancel()
+        touches = coroutineScope.launch {
+            touchGlow.animateTo(if (on) 1f else 0f, if (on) TouchLightRise else TouchLightFade)
+        }
+    }
+
     override fun onDetach() {
         unregister()
         press.stop()
+        touches?.cancel()
         tracker.stop()
         probe?.release()
         probe = null
@@ -268,7 +315,10 @@ internal class LiquidGlassNode(
         val grown = pressScale(lift, with(requireDensity()) { style.pressExpansion.toPx() }, max(size.width, size.height))
         val pill = pillSource?.pill(size)?.translate(offset)
         val glow = glowSource?.lift() ?: lift
-        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, glow, style.pressWhite)
+        val touch = touchGlow.value.takeIf { it > 0f && style.touchLight > 0f }?.let { amount ->
+            TouchLight(touchAt + offset, with(requireDensity()) { TouchLightSpread.toPx() }, amount * style.touchLight)
+        } ?: TouchLight.None
+        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, glow, style.pressWhite, touch)
     }
 
     private fun shownAppearance(): QuvenGlassAppearance = appearance ?: ownAppearance
@@ -308,3 +358,8 @@ internal class LiquidGlassNode(
         if (isAttached) press.follow(coroutineScope, interactionSource) { GlassPress.spec(style, reduceMotion) }
     }
 }
+
+// Measured on Apple's interactive glass on an iPhone.
+private val TouchLightSpread = 95.dp
+private val TouchLightRise = tween<Float>(35)
+private val TouchLightFade = tween<Float>(400, easing = FastOutSlowInEasing)

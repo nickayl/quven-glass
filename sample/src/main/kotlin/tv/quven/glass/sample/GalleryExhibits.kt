@@ -519,6 +519,25 @@ private fun Modifier.bleed(by: Dp): Modifier = layout { measurable, constraints 
 private val PageBarHeight = 56.dp
 
 /**
+ * Draws a panel of interactive glass that lights under the finger, as the reference's interactive glass does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.TouchLightExhibit(tuning: SampleTuning) {
+    Box(
+        Modifier
+            .align(Alignment.Center)
+            .fillMaxWidth()
+            .height(260.dp)
+            .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style.interactive(), RoundedCornerShape(32.dp), reduceMotion = tuning.reduceMotion),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("Press and drag", color = SampleColors.TextHigh, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+/**
  * Draws a button that opens a popover pointing at it, as the reference opens Apple's.
  *
  * @param tuning The live settings.

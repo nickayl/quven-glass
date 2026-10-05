@@ -75,6 +75,8 @@ import androidx.compose.ui.unit.dp
  * white over bright content; 0 leaves it to [pressGlow].
  * @property pressWhite The share of white a pressed surface turns towards at least, whatever lies under it, from 0 to 1, as
  * the items of Apple's tab bar light under the finger even over black; 0 leaves it to [pressLighten].
+ * @property touchLight How much white light gathers under the finger on interactive glass and follows it, at its middle,
+ * from 0 to 1; 0 for glass that does not light where it is touched.
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -122,6 +124,7 @@ public data class QuvenGlassStyle(
     val rimLight: Float = 0f,
     val pressLighten: Float = 0f,
     val pressWhite: Float = 0f,
+    val touchLight: Float = 0f,
 ) {
 
     /**
@@ -173,6 +176,14 @@ public data class QuvenGlassStyle(
     public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
     /**
+     * Returns this material as interactive glass draws it: a light gathers under the finger and follows it, as on Apple's
+     * interactive glass.
+     *
+     * @return The interactive material.
+     */
+    public fun interactive(): QuvenGlassStyle = copy(touchLight = InteractiveTouchLight)
+
+    /**
      * Returns this material as a pressable item of a tab bar draws it, such as its Search circle: it grows under the finger
      * and lights towards white even over black, as Apple's tab bar items do.
      *
@@ -200,6 +211,7 @@ public data class QuvenGlassStyle(
         )
 
         private const val BarItemPressWhite = 0.41f
+        private const val InteractiveTouchLight = 0.057f
         private val BarItemPressExpansion = 9.dp
         private const val MenuPressGlow = 3.6f
         private const val ButtonTintGlow = 1.65f

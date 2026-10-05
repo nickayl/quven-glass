@@ -158,8 +158,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Touch light",
         "Light that gathers under the finger and follows it across interactive glass.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { TouchLightExhibit(it) },
     Exhibit(
         "Text menu",
         "The menu of cut, copy and paste on glass, over selected text.",

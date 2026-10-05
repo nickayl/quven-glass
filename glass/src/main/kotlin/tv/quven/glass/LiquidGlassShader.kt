@@ -25,6 +25,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeLight("shapeLight", MaxGlassSurfaces),
     ShapeGlow("shapeGlow", MaxGlassSurfaces),
     ShapeWhite("shapeWhite", MaxGlassSurfaces),
+    ShapeTouch("shapeTouch", 4 * MaxGlassSurfaces),
     PillRect("pillRect", 4 * MaxGlassSurfaces),
     PillLook("pillLook", 4 * MaxGlassSurfaces),
     ShapeCount("shapeCount", 0),
@@ -88,6 +89,7 @@ uniform float shapeLift[4];
 uniform float shapeLight[4];
 uniform float shapeGlow[4];
 uniform float shapeWhite[4];
+uniform float4 shapeTouch[4];
 uniform float4 pillRect[4];
 uniform float4 pillLook[4];
 uniform int shapeCount;
@@ -223,6 +225,20 @@ float pressWhiteAt(float2 p) {
     return white;
 }
 
+// The light the fingers on the surfaces holding p gather there: white, fading from each finger as a Gaussian.
+float touchLightAt(float2 p) {
+    float light = 0.0;
+    for (int i = 0; i < 4; i++) {
+        if (i < shapeCount && shapeTouch[i].w > 0.0) {
+            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, roundBox(p, shapeRect[i], shapeRadii[i]));
+            float2 away = p - shapeTouch[i].xy;
+            float sigma = shapeTouch[i].z;
+            light += within * shapeTouch[i].w * exp(-dot(away, away) / (2.0 * sigma * sigma));
+        }
+    }
+    return light;
+}
+
 float luma(float3 c) {
     return dot(c, LUMA);
 }
@@ -355,6 +371,8 @@ half4 main(float2 coord) {
         rgb = mix(rgb, float3(1.0), max(white, lighten));
     }
 
+    rgb = clamp(rgb + touchLightAt(coord), 0.0, 1.0);
+
     if (rimGlow > 0.0) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
         rgb = mix(rgb, clamp(outside * rimGlow, 0.0, 1.0), rim);
@@ -405,6 +423,7 @@ internal data class GlassPill(val rect: Rect, val radius: Float, val alpha: Floa
  * lights it on a timing of its own.
  * @property white The share of white the surface turns towards at least while lit, its material's
  * [QuvenGlassStyle.pressWhite].
+ * @property touch The light a finger gathers on the surface, in the layer's pixels.
  */
 internal data class GlassSurface(
     val form: GlassForm,
@@ -413,7 +432,31 @@ internal data class GlassSurface(
     val light: Float = 0f,
     val glow: Float = lift,
     val white: Float = 0f,
+    val touch: TouchLight = TouchLight.None,
 )
+
+/**
+ * A light gathered under a finger on a glass surface.
+ *
+ * @property at Where the finger is.
+ * @property sigma How far the light spreads, as a Gaussian's standard deviation.
+ * @property amount How bright the light is at the finger, as a share of white.
+ */
+internal data class TouchLight(val at: Offset, val sigma: Float, val amount: Float) {
+
+    /**
+     * Returns this light moved by [offset].
+     *
+     * @param offset The distance to move by.
+     * @return The moved light.
+     */
+    fun translate(offset: Offset): TouchLight = copy(at = at + offset)
+
+    companion object {
+        /** Gets the light of a surface no finger touches. */
+        val None: TouchLight = TouchLight(Offset.Zero, 1f, 0f)
+    }
+}
 
 /** Binds a [QuvenGlassStyle] and a set of [GlassSurface]s to the Liquid Glass program and builds its effect. */
 @RequiresApi(33)
@@ -426,6 +469,7 @@ internal class LiquidGlassShader private constructor() {
     private val lights = FloatArray(LiquidGlassUniform.ShapeLight.floats)
     private val glows = FloatArray(LiquidGlassUniform.ShapeGlow.floats)
     private val whites = FloatArray(LiquidGlassUniform.ShapeWhite.floats)
+    private val touches = FloatArray(LiquidGlassUniform.ShapeTouch.floats)
     private val pillRects = FloatArray(LiquidGlassUniform.PillRect.floats)
     private val pillLooks = FloatArray(LiquidGlassUniform.PillLook.floats)
 
@@ -448,6 +492,7 @@ internal class LiquidGlassShader private constructor() {
         lights.fill(0f)
         glows.fill(0f)
         whites.fill(0f)
+        touches.fill(0f)
         pillRects.fill(0f)
         pillLooks.fill(0f)
         for (index in 0 until count) {
@@ -466,6 +511,10 @@ internal class LiquidGlassShader private constructor() {
             lights[index] = surface.light
             glows[index] = surface.glow
             whites[index] = surface.white
+            touches[at] = surface.touch.at.x
+            touches[at + 1] = surface.touch.at.y
+            touches[at + 2] = surface.touch.sigma
+            touches[at + 3] = surface.touch.amount
             surface.pill?.let { pill ->
                 pillRects[at] = pill.rect.left
                 pillRects[at + 1] = pill.rect.top
@@ -485,6 +534,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.ShapeLight.uniform, lights)
             setFloatUniform(LiquidGlassUniform.ShapeGlow.uniform, glows)
             setFloatUniform(LiquidGlassUniform.ShapeWhite.uniform, whites)
+            setFloatUniform(LiquidGlassUniform.ShapeTouch.uniform, touches)
             setFloatUniform(LiquidGlassUniform.PillRect.uniform, pillRects)
             setFloatUniform(LiquidGlassUniform.PillLook.uniform, pillLooks)
             setIntUniform(LiquidGlassUniform.ShapeCount.uniform, count)
