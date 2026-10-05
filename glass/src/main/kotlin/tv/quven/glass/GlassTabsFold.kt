@@ -103,6 +103,7 @@ internal fun FoldingTabs(
  * @param material The item's material.
  * @param backdrop The backdrop the glass stands over.
  * @param reduceMotion Whether motion is reduced.
+ * @param modifier Modifier applied to the item.
  * @param content Draws the item's content, filling it.
  */
 @Composable
@@ -111,11 +112,12 @@ internal fun BarItemButton(
     material: QuvenGlassStyle,
     backdrop: QuvenGlassBackdrop?,
     reduceMotion: Boolean,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     GlassButton(
         onClick = onClick,
-        modifier = Modifier,
+        modifier = modifier,
         shape = CircleShape,
         material = material,
         prominent = false,

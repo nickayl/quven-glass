@@ -994,7 +994,7 @@ enum Exhibit: CaseIterable, Identifiable {
         case .sheet: "A sheet of glass that rises from the bottom edge and turns opaque as it is drawn to full height."
         case .alert: "A dialog on glass over a dimmed page, its buttons capsules."
         case .popover: "A panel of glass that grows out of the control it belongs to and points at it."
-        case .search: "The Search circle opens into a field of glass along the bar."
+        case .search: "The Search circle opens into a field of glass along the bar, and sinks with the tabs as the bar minimizes."
         case .minimizingTabBar:
             "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back at the top or when pressed."
         case .bottomAccessory: "A strip of glass above the tab bar, such as a player's controls, that shrinks with the bar."
@@ -1686,6 +1686,7 @@ struct SearchStage: View {
                     .searchable(text: $text)
             }
         }
+        .tabBarMinimizeBehavior(.onScrollDown)
         .environment(\.horizontalSizeClass, .compact)
     }
 }
@@ -1703,12 +1704,18 @@ struct MinimizingTabBarStage: View {
     }
 }
 
-/// A tab bar laid out as on a phone with a player's strip above it.
+/// A tab bar laid out as on a phone, with Search beside its tabs and a player's strip above it, as Music lays it out.
 struct BottomAccessoryStage: View {
+    @State private var text = ""
+
     var body: some View {
         TabView {
-            ForEach(Array(entries.prefix(4).enumerated()), id: \.offset) { _, entry in
+            ForEach(Array(entries.prefix(3).enumerated()), id: \.offset) { _, entry in
                 Tab(entry.label, systemImage: entry.symbol) { StageBackdrop() }
+            }
+            Tab(role: .search) {
+                NavigationStack { StageBackdrop().navigationTitle("Search") }
+                    .searchable(text: $text)
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)

@@ -137,7 +137,7 @@ internal val Exhibits: List<Exhibit> = listOf(
     ) { PopoverExhibit(it) },
     Exhibit(
         "Search",
-        "The Search circle opens into a field of glass along the bar.",
+        "The Search circle opens into a field of glass along the bar, and sinks with the tabs as the bar minimizes.",
         ExhibitStatus.Ready,
     ) { SearchExhibit(it) },
     Exhibit(

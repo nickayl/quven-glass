@@ -37,6 +37,7 @@ class QuvenGlassSearchMorphTest {
     val compose = createComposeRule()
 
     private var searching by mutableStateOf(false)
+    private var minimized by mutableStateOf(false)
 
     @Test
     fun aPressOnSearch_opensTheField() {
@@ -112,6 +113,28 @@ class QuvenGlassSearchMorphTest {
         assertTrue(frame.fieldAlpha < 0.01f)
     }
 
+    @Test
+    fun minimized_theTabsFoldAtTheStart_andTheSearchCircleSinksWhereItStands() {
+        val frame = minimizedBarFrame(1f, minimizing = true, Sizes)
+
+        assertEquals(Rect(Inset, Inset, Height - Inset, Height - Inset), frame.fold.tabs)
+        assertEquals(Rect(TabsWidth + Gap + Inset, Inset, TabsWidth + Gap + Height - Inset, Height - Inset), frame.field)
+        assertEquals(0f, frame.fieldAlpha)
+    }
+
+    @Test
+    fun aPressOnTheMinimizedBar_asksItBack_andEndsNoSearch() {
+        minimized = true
+        render()
+
+        compose.onNodeWithTag(HeldTag, useUnmergedTree = true).performClick()
+
+        compose.runOnIdle {
+            assertFalse(minimized)
+            assertFalse(searching)
+        }
+    }
+
     private fun render() {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
@@ -130,6 +153,8 @@ class QuvenGlassSearchMorphTest {
                         heldGlyph = { Box(Modifier.size(20.dp).testTag(HeldTag)) },
                         searchGlyph = { Box(Modifier.size(20.dp).testTag(SearchTag)) },
                         field = { BasicText("Search", Modifier.testTag(FieldTag)) },
+                        minimized = minimized,
+                        onExpand = { minimized = false },
                     )
                 }
             }

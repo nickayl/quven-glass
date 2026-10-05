@@ -40,11 +40,15 @@ import kotlin.math.roundToInt
  * unfolds them again. The Search circle is a glass button throughout, so the light of the press that opens the field
  * dies away on the field itself, and the folded circle is one too.
  *
+ * While [minimized] the bar gets out of the way of the content, as Apple's tab bar does when it minimizes on scrolling
+ * down: the tabs fold into the same circle and the Search circle sinks where it stands; a press on the folded tabs then
+ * asks the bar to grow back. Drive it from a [QuvenGlassBarMinimizer].
+ *
  * The morph is as wide as the resting bar, the tabs, [gap] and the Search circle, and [height] tall.
  *
  * @param searching Whether the bar stands as a search field.
  * @param onSearch Invoked when the Search circle, or the field it opens into, is pressed.
- * @param onEndSearch Invoked when the folded tabs are pressed.
+ * @param onEndSearch Invoked when the folded tabs are pressed while the bar stands as a search field.
  * @param tabsWidth The width of the capsule of tabs.
  * @param height The height of the bar, the side of the Search circle.
  * @param gap The room between the tabs and the Search circle at rest.
@@ -59,6 +63,9 @@ import kotlin.math.roundToInt
  * @param heldGlyph Draws the held tab's glyph, centred in the square it is given.
  * @param searchGlyph Draws the Search glyph, centred in the Search circle and then at the field's start.
  * @param field Draws the field after its glyph, such as the text being searched.
+ * @param minimized Whether the bar stands minimized; searching takes precedence.
+ * @param onExpand Invoked when the folded tabs are pressed while the bar stands minimized.
+ * @param searchModifier Modifier applied to the Search circle, the field it opens into.
  */
 @Composable
 public fun QuvenGlassSearchMorph(
@@ -78,33 +85,47 @@ public fun QuvenGlassSearchMorph(
     heldGlyph: @Composable BoxScope.() -> Unit,
     searchGlyph: @Composable BoxScope.() -> Unit,
     field: @Composable RowScope.() -> Unit,
+    minimized: Boolean = false,
+    onExpand: () -> Unit = {},
+    searchModifier: Modifier = Modifier,
 ) {
+    val spec = if (reduceMotion) tween<Float>(ReducedMotionFadeMillis) else BarMorphSpring
     val progress = remember { Animatable(if (searching) 1f else 0f) }
-    LaunchedEffect(searching, reduceMotion) {
-        progress.animateTo(if (searching) 1f else 0f, if (reduceMotion) tween(ReducedMotionFadeMillis) else BarMorphSpring)
+    LaunchedEffect(searching, reduceMotion) { progress.animateTo(if (searching) 1f else 0f, spec) }
+    // A search opened from the minimized bar opens from its folded circle, and ends on the whole bar.
+    val shrinking = minimized && !searching
+    val shrink = remember { Animatable(if (shrinking) 1f else 0f) }
+    LaunchedEffect(shrinking, reduceMotion) {
+        if (searching) shrink.snapTo(0f) else shrink.animateTo(if (shrinking) 1f else 0f, spec)
     }
     val density = LocalDensity.current
-    val frame = remember(searching, tabsWidth, height, gap, density) {
+    val frame = remember(searching, shrinking, tabsWidth, height, gap, density) {
         val sizes = with(density) { SearchMorphSizes(tabsWidth.toPx(), height.toPx(), gap.toPx(), BarSinkInset.toPx(), NearGap.toPx()) }
-        return@remember { searchMorphFrame(progress.value, opening = searching, sizes) }
+        return@remember {
+            if (searching || progress.value > 0f) {
+                searchMorphFrame(progress.value, opening = searching, sizes)
+            } else {
+                minimizedBarFrame(shrink.value, minimizing = shrinking, sizes)
+            }
+        }
     }
     val item = remember(style) { style.forBarItems() }
     QuvenGlassContainer(modifier, style = style, spacing = JoinSpacing, backdrop = backdrop) {
         SearchMorphLayout(frame) {
             FoldingTabs(
-                atRest = progress.value == 0f && !searching,
-                onPress = onEndSearch,
+                atRest = progress.value == 0f && !searching && shrink.value == 0f && !shrinking,
+                onPress = if (searching || progress.value > 0f) onEndSearch else onExpand,
                 material = item,
                 backdrop = backdrop,
                 reduceMotion = reduceMotion,
                 fold = { frame().fold },
-                progress = { progress.value },
+                progress = { max(progress.value, shrink.value) },
                 heldCentre = heldCentre,
                 tabs = tabs,
                 tabsFace = tabsFace,
                 heldGlyph = heldGlyph,
             )
-            BarItemButton(onSearch, item, backdrop, reduceMotion) {
+            BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier) {
                 Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
                     Row(
@@ -173,6 +194,23 @@ internal fun searchMorphFrame(progress: Float, opening: Boolean, sizes: SearchMo
         field = Rect(fieldStart, tabs.top, width - tabs.top, tabs.bottom),
         fieldAlpha = if (opening) smoothstep(FieldShowStart, FieldShowEnd, progress) else 1f - smoothstep(0f, FieldHideEnd, back),
     )
+}
+
+/**
+ * Returns the frame [progress] of the way from the resting bar to the minimized one, as Apple's tab bar minimizes with
+ * Search beside its tabs: the tabs fold into a circle at the start as a minimizing bar's do, and the Search circle sinks
+ * where it stands, as far into the bar.
+ *
+ * @param progress How far the bar has minimized, from 0 to 1, past either while its spring overshoots.
+ * @param minimizing Whether the bar is minimizing, rather than growing back.
+ * @param sizes The sizes the morph is laid out from.
+ * @return The frame.
+ */
+internal fun minimizedBarFrame(progress: Float, minimizing: Boolean, sizes: SearchMorphSizes): SearchMorphFrame {
+    val width = sizes.tabsWidth + sizes.gap + sizes.height
+    val fold = minimizingBarFold(progress, minimizing, sizes.tabsWidth, sizes.height, sizes.inset)
+    val sunk = fold.tabs.top
+    return SearchMorphFrame(fold, Rect(width - sunk - fold.tabs.height, sunk, width - sunk, fold.tabs.bottom), fieldAlpha = 0f)
 }
 
 /**

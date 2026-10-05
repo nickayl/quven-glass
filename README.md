@@ -128,6 +128,11 @@ a moment, and their faces grow back with their capsule. What does it need from y
 faces without the held glyph, that glyph on its own, and the field. It's as wide as the resting bar and doesn't centre
 itself, so you should place it.
 
+Does a bar with Search beside its tabs minimize too? Pass `minimized` from a `rememberQuvenGlassBarMinimizer()` and the
+tabs fold into the same circle at the start while the Search circle sinks where it stands, as Music does on an iPhone.
+A press on the folded tabs calls `onExpand`. Opening the search from there starts from the folded circle, and ending it
+doesn't leave the bar minimized.
+
 ```kotlin
 QuvenGlassSearchMorph(
     searching = searching,

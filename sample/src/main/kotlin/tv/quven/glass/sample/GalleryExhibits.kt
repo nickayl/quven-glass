@@ -424,6 +424,13 @@ internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
     var searching by remember { mutableStateOf(false) }
     var searchLit by remember { mutableStateOf(false) }
     var text by remember { mutableStateOf("") }
+    // The stage's scrolling minimizes the bar, as Search beside the reference's tabs minimizes with them.
+    val minimizer = rememberQuvenGlassBarMinimizer()
+    val stage = LocalStageScroll.current
+    DisposableEffect(stage, minimizer) {
+        stage.follower = minimizer.nestedScrollConnection
+        onDispose { stage.follower = null }
+    }
     LaunchedEffect(searchLit) {
         if (searchLit) {
             delay(SearchOpenDelayMillis)
@@ -436,6 +443,8 @@ internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
         searching = searching,
         onSearch = { if (!searching) searchLit = true },
         onEndSearch = { searching = false },
+        minimized = minimizer.minimized,
+        onExpand = minimizer::expand,
         tabsWidth = phoneTabsWidth(3),
         height = PhoneBarHeight,
         gap = tuning.barGap.dp,
