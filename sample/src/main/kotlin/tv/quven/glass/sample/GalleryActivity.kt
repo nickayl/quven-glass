@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassAlertHost
 import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.ProvideQuvenGlassTextToolbar
 import tv.quven.glass.LocalQuvenGlassSheetHost
 import tv.quven.glass.LocalQuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassAlertHost
@@ -107,12 +108,15 @@ private fun GalleryScreen(initial: Int?) {
     val screen = rememberQuvenGlassBackdrop()
     val alerts = rememberQuvenGlassAlertHostState()
     val sheets = rememberQuvenGlassSheetHostState()
-    Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts, LocalQuvenGlassSheetHost provides sheets) {
-            GalleryPanes(initial, tuning, Modifier.fillMaxSize().quvenGlassSource(screen))
+    // The menu of cut, copy and paste stands over everything, as the system's does.
+    ProvideQuvenGlassTextToolbar(style = tuning.style, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion) {
+        Box(Modifier.fillMaxSize()) {
+            CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts, LocalQuvenGlassSheetHost provides sheets) {
+                GalleryPanes(initial, tuning, Modifier.fillMaxSize().quvenGlassSource(screen))
+            }
+            QuvenGlassSheetHost(sheets, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
+            QuvenGlassAlertHost(alerts, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
         }
-        QuvenGlassSheetHost(sheets, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
-        QuvenGlassAlertHost(alerts, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
     }
 }
 

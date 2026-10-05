@@ -1011,7 +1011,7 @@ enum Exhibit: CaseIterable, Identifiable {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
              .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover, .search,
-             .minimizingTabBar, .bottomAccessory, .scrollEdge, .touchLight, .toolbar, .submenus: .ready
+             .minimizingTabBar, .bottomAccessory, .scrollEdge, .touchLight, .toolbar, .submenus, .textMenu: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }

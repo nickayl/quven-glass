@@ -163,8 +163,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Text menu",
         "The menu of cut, copy and paste on glass, over selected text.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { TextMenuExhibit(it) },
     Exhibit(
         "Adaptive sidebar",
         "A sidebar of glass floating over the content, which becomes a tab bar in a narrow window.",

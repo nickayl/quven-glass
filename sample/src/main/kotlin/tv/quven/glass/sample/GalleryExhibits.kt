@@ -271,6 +271,29 @@ internal fun BoxScope.SubmenusExhibit(tuning: SampleTuning) {
 }
 
 /**
+ * Draws text on a panel of glass whose selection raises the menu of cut, copy and paste on glass, which the gallery's root
+ * provides over the whole window, as the reference's text editor raises the system's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.TextMenuExhibit(tuning: SampleTuning) {
+    var text by remember { mutableStateOf("Select a word of this text to raise the menu of cut, copy and paste.") }
+    BasicTextField(
+        value = text,
+        onValueChange = { text = it },
+        textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 20.sp),
+        cursorBrush = SolidColor(SampleColors.Accent),
+        modifier = Modifier
+            .align(Alignment.Center)
+            .fillMaxWidth()
+            .height(200.dp)
+            .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, RoundedCornerShape(28.dp), reduceMotion = tuning.reduceMotion)
+            .padding(16.dp),
+    )
+}
+
+/**
  * Draws a gear that opens into the panel tuning the material, as one piece of glass.
  *
  * @param tuning The live settings.
