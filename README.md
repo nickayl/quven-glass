@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.9.0")
+    implementation("tv.quven.glass:glass:2.10.0")
 }
 ```
 
@@ -269,12 +269,13 @@ QuvenGlassContextMenuBox(
 
 ## Alerts
 
-`QuvenGlassAlert` raises an alert on glass in the middle of the screen. The screen dims behind it while it settles
-from a tenth larger, and once you stop drawing it, it fades at its own size. Title and message stand at its start, over
-the actions: two sit side by side, more stack one above another in the order you give them, and a destructive one is
-named in red, while Back calls `onDismissRequest` and a press outside does nothing, as on iOS. Should Back leave it
-standing? Pass none. You'll want a `QuvenGlassAlertHost` last in the window's root, over a backdrop of the whole
-window, with its state handed down through `LocalQuvenGlassAlertHost`.
+`QuvenGlassAlert` raises an alert on glass in the middle of the screen. The screen dims behind it while it settles from
+a tenth larger, and once you stop drawing it, it fades at its own size. Title and message stand at its start, over the
+actions: two sit side by side, more stack one above another in the order you give them, and a destructive one is named
+in red, while Back calls `onDismissRequest` and a press outside does nothing, as on iOS. Words too long for the window
+scroll above actions that stay in view. Should Back leave it standing? Pass none. You'll want a `QuvenGlassAlertHost`
+last in the window's root, over a backdrop of the whole window, with its state handed down through
+`LocalQuvenGlassAlertHost`.
 
 ```kotlin
 if (removing) {

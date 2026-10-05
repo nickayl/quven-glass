@@ -20,11 +20,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
@@ -210,6 +213,7 @@ public fun QuvenGlassAlertHost(
         AlertPanel(
             request = request,
             width = min(AlertWidth, maxWidth - AlertEdge * 2),
+            maxHeight = maxHeight - AlertEdge * 2,
             style = remember(style) { style.forMenus().dimmed(ScreenDim).copy(rimLight = AlertRimLight) },
             textStyle = textStyle,
             backdrop = backdrop,
@@ -282,10 +286,11 @@ internal class AlertRequest {
 
 /**
  * Draws an alert's glass: its title and message at its start over its actions, grown by [settle] and by a press on an
- * action, and as opaque as [shown].
+ * action, and as opaque as [shown]. Words too long for the window scroll above actions that stay in view.
  *
  * @param request The alert.
  * @param width The alert's width.
+ * @param maxHeight The most the alert may stand tall.
  * @param style The material of the glass.
  * @param textStyle The typeface of the alert's words.
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
@@ -297,6 +302,7 @@ internal class AlertRequest {
 private fun AlertPanel(
     request: AlertRequest,
     width: Dp,
+    maxHeight: Dp,
     style: QuvenGlassStyle,
     textStyle: TextStyle,
     backdrop: QuvenGlassBackdrop?,
@@ -316,6 +322,7 @@ private fun AlertPanel(
     Column(
         request.modifier
             .width(width)
+            .heightIn(max = maxHeight)
             .graphicsLayer {
                 val grown = settle() * lerp(1f, PressedScale, held)
                 scaleX = grown
@@ -335,7 +342,12 @@ private fun AlertPanel(
             .semantics { paneTitle = request.title }
             .focusGroup(),
     ) {
-        Column(Modifier.padding(start = TextInset, end = TextInset, top = TopInset)) {
+        Column(
+            Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(start = TextInset, end = TextInset, top = TopInset),
+        ) {
             BasicText(request.title, style = textStyle.merge(TitleStyle))
             request.message?.let { message ->
                 Spacer(Modifier.height(MessageGap))

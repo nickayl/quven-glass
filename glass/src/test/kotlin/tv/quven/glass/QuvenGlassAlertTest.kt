@@ -21,6 +21,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -28,8 +29,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(application = Application::class, sdk = [34], qualifiers = "w800dp-h600dp")
 class QuvenGlassAlertTest {
 
@@ -41,6 +44,7 @@ class QuvenGlassAlertTest {
     private var dismissals = 0
     private var pressesBehind = 0
     private var actionNames by mutableStateOf(emptyList<String>())
+    private var message = "Its titles stay in the library."
 
     @Test
     fun anAlert_drawsItsTitleMessageAndActions_andAChoiceRunsIt() {
@@ -94,6 +98,17 @@ class QuvenGlassAlertTest {
         compose.runOnIdle { assertEquals(1, pressesBehind) }
     }
 
+    @Test
+    fun wordsTooLongForTheWindow_scroll_andTheActionsStayInViewInsideTheAlertsMargin() {
+        message = List(200) { "A line of the message." }.joinToString(" ")
+        render(actions = listOf("Cancel", "Remove"))
+
+        val root = compose.onRoot().getUnclippedBoundsInRoot()
+        val cancel = compose.onNodeWithTag("action-Cancel").getUnclippedBoundsInRoot()
+        assertTrue(cancel.bottom <= root.bottom - AlertMargin)
+        assertEquals(ActionHeight, (cancel.bottom - cancel.top).value, 0.5f)
+    }
+
     @Test(expected = IllegalStateException::class)
     fun anAlertWithNoHost_fails() {
         compose.setContent { QuvenGlassAlert(title = "Alone", actions = emptyList()) }
@@ -109,7 +124,7 @@ class QuvenGlassAlertTest {
                     if (shown) {
                         QuvenGlassAlert(
                             title = "Remove this collection?",
-                            message = "Its titles stay in the library.",
+                            message = message,
                             actions = actionNames.map { name ->
                                 QuvenGlassAlertAction(name, { chosen += name }, modifier = Modifier.testTag("action-$name"))
                             },
@@ -121,5 +136,10 @@ class QuvenGlassAlertTest {
             }
         }
         compose.waitForIdle()
+    }
+
+    private companion object {
+        val AlertMargin = 24.dp
+        const val ActionHeight = 48f
     }
 }
