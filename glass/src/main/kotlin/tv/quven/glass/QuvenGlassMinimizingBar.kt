@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.lerp
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 /**
@@ -185,8 +186,10 @@ internal fun accessoryRect(progress: Float, tabsWidth: Float, height: Float, ins
 /**
  * Decides when a [QuvenGlassMinimizingBar] minimizes from the scrolling of the content under it, as Apple's tab bar does
  * when it minimizes on scrolling down: once the content has scrolled down [threshold] pixels on end the bar minimizes,
- * and it grows back when the content is drawn or flung against its top, or when [expand] is called. Hand
- * [nestedScrollConnection] to the scrolling content's `nestedScroll` modifier.
+ * and it grows back when the content has scrolled back to where it stood, is drawn or flung against its top, or when
+ * [expand] is called. A nested scroll reports no offset, so where the content stands is the distance scrolled since
+ * the minimizer was made or last [reset]. Hand [nestedScrollConnection] to the scrolling content's `nestedScroll`
+ * modifier.
  *
  * @param threshold How far, in pixels, the content scrolls down on end before the bar minimizes.
  */
@@ -194,6 +197,7 @@ internal fun accessoryRect(progress: Float, tabsWidth: Float, height: Float, ins
 public class QuvenGlassBarMinimizer(private val threshold: Float) {
 
     private var travel = 0f
+    private var position = 0f
 
     /** Gets whether the bar stands minimized. */
     public var minimized: Boolean by mutableStateOf(false)
@@ -205,9 +209,16 @@ public class QuvenGlassBarMinimizer(private val threshold: Float) {
         travel = 0f
     }
 
+    /** Grows the bar back and forgets how far the content has scrolled, for content that starts again at its top. */
+    public fun reset() {
+        expand()
+        position = 0f
+    }
+
     /** Gets the connection that follows the content's scrolling. */
     public val nestedScrollConnection: NestedScrollConnection = object : NestedScrollConnection {
         override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+            position = max(0f, position - consumed.y)
             when {
                 consumed.y < 0f -> {
                     travel -= consumed.y
@@ -215,7 +226,7 @@ public class QuvenGlassBarMinimizer(private val threshold: Float) {
                 }
                 consumed.y > 0f -> travel = 0f
             }
-            if (available.y > 0f) expand()
+            if (available.y > 0f || (minimized && position <= 0f)) expand()
             return Offset.Zero
         }
 

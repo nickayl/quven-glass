@@ -156,9 +156,9 @@ QuvenGlassSearchMorph(
 `QuvenGlassMinimizingBar` lets a phone's tab bar get out of the way while you read, the way iOS minimizes its tab bar on
 scrolling down, and it hands the screen back to the content without hiding which tab you're on. The capsule of tabs
 folds into a circle at its start that keeps the held tab's glyph, and the other faces shrink and fade as it goes.
-Scrolling up a little won't bring it back. The content has to reach its top, or you press the circle. Who decides when
+Scrolling up a little won't bring it back. The content has to scroll back by as far as it scrolled down, or be drawn against its top, or you press the circle. Who decides when
 it folds? `rememberQuvenGlassBarMinimizer()` does, once you hand its `nestedScrollConnection` to the scrolling content,
-and you can call `expand()` yourself when a screen should open with the whole bar. The bar stays put.
+and you can call `expand()` yourself when a screen should open with the whole bar, or `reset()` when it starts again at its top, which also forgets how far the content has scrolled. The bar stays put.
 
 Pass an `accessory`, such as a player's controls or a download that's still running, and it gets a capsule of glass of
 its own above the bar, as wide as the bar and as tall as the folded circle. When the bar minimizes, the accessory

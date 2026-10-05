@@ -64,6 +64,42 @@ class QuvenGlassMinimizingBarTest {
     }
 
     @Test
+    fun scrollingBackUpByTheDistanceScrolledDown_growsTheBarBackWithoutAPull() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+        scroll(minimizer, consumed = -30f)
+        scroll(minimizer, consumed = -30f)
+
+        scroll(minimizer, consumed = 59f)
+        assertTrue(minimizer.minimized)
+        scroll(minimizer, consumed = 1f)
+        assertFalse(minimizer.minimized)
+    }
+
+    @Test
+    fun aResetForgetsTheDistanceScrolled_soTheNextScrollBackIsNotTheTop() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+        scroll(minimizer, consumed = -100f)
+        minimizer.reset()
+        scroll(minimizer, consumed = -30f)
+
+        scroll(minimizer, consumed = 29f)
+        assertTrue(minimizer.minimized)
+        scroll(minimizer, consumed = 1f)
+        assertFalse(minimizer.minimized)
+    }
+
+    @Test
+    fun aPressThatGrowsTheBarBack_keepsTheDistanceScrolled() {
+        val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
+        scroll(minimizer, consumed = -100f)
+        minimizer.expand()
+        scroll(minimizer, consumed = -30f)
+
+        scroll(minimizer, consumed = 100f)
+        assertTrue(minimizer.minimized)
+    }
+
+    @Test
     fun aFlingThatReachesTheTop_growsTheBarBack() {
         val minimizer = QuvenGlassBarMinimizer(threshold = 20f)
         scroll(minimizer, consumed = -40f)
