@@ -110,13 +110,47 @@ public fun QuvenGlassButton(
     interactionSource: MutableInteractionSource? = null,
     content: @Composable RowScope.(ink: Color) -> Unit,
 ) {
+    val glass = remember(style, tint) { style.forButtons(tint) }
+    GlassButton(onClick, modifier, shape, glass, tint.isSpecified, ink, lightInk, contentPadding, enabled, backdrop, reduceMotion, interactionSource, content)
+}
+
+/**
+ * Draws a button of glass of [shape] in a material already made for it, such as [QuvenGlassStyle.forButtons] makes.
+ *
+ * @param onClick Invoked when the button is pressed.
+ * @param modifier Modifier applied to the button, which sizes it.
+ * @param shape The button's shape.
+ * @param material The button's material.
+ * @param prominent Whether the material is tinted nearly opaque, which keeps [ink] over light backdrops too.
+ * @param ink The colour of the content over dark glass and over a prominent button.
+ * @param lightInk The colour of the content over plain glass turned light.
+ * @param contentPadding The room between the button's edge and its content.
+ * @param enabled Whether the button can be pressed.
+ * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
+ * @param reduceMotion Whether motion is reduced.
+ * @param interactionSource The source of the button's presses and focus, or `null` for one of its own.
+ * @param content Draws the button's content, in a row centred in the button, given its ink.
+ */
+@Composable
+internal fun GlassButton(
+    onClick: () -> Unit,
+    modifier: Modifier,
+    shape: Shape,
+    material: QuvenGlassStyle,
+    prominent: Boolean,
+    ink: Color,
+    lightInk: Color,
+    contentPadding: PaddingValues,
+    enabled: Boolean,
+    backdrop: QuvenGlassBackdrop?,
+    reduceMotion: Boolean,
+    interactionSource: MutableInteractionSource?,
+    content: @Composable RowScope.(ink: Color) -> Unit,
+) {
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val appearance = rememberQuvenGlassAppearance()
-    val prominent = tint.isSpecified
     // Under the finger the whole button grows, glass and content alike; where motion is reduced it only lights.
-    val glass = remember(style, tint, reduceMotion) {
-        style.forButtons(tint).let { if (reduceMotion) it.copy(pressExpansion = 0.dp) else it }
-    }
+    val glass = remember(material, reduceMotion) { if (reduceMotion) material.copy(pressExpansion = 0.dp) else material }
     val press = remember { GlassPress() }
     // The light comes up at once and dies away slowly, long after the button has shrunk back, as Apple's does.
     val glow = remember { GlassPress() }

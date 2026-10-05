@@ -73,6 +73,8 @@ import androidx.compose.ui.unit.dp
  * @property pressLighten How far a pressed surface turns towards white, the whole surface alike, as a multiple of the
  * mean luminance of what lies under it, as Apple's glass buttons lighten under the finger: barely over dark content, to
  * white over bright content; 0 leaves it to [pressGlow].
+ * @property pressWhite The share of white a pressed surface turns towards at least, whatever lies under it, from 0 to 1, as
+ * the items of Apple's tab bar light under the finger even over black; 0 leaves it to [pressLighten].
  */
 @Immutable
 public data class QuvenGlassStyle(
@@ -119,6 +121,7 @@ public data class QuvenGlassStyle(
     val pressTintGlow: Float = 1f,
     val rimLight: Float = 0f,
     val pressLighten: Float = 0f,
+    val pressWhite: Float = 0f,
 ) {
 
     /**
@@ -169,6 +172,14 @@ public data class QuvenGlassStyle(
      */
     public fun forMenus(): QuvenGlassStyle = copy(blur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
+    /**
+     * Returns this material as a pressable item of a tab bar draws it, such as its Search circle: it grows under the finger
+     * and lights towards white even over black, as Apple's tab bar items do.
+     *
+     * @return The item's material.
+     */
+    internal fun forBarItems(): QuvenGlassStyle = copy(pressWhite = BarItemPressWhite, pressGrowth = 0f, pressExpansion = BarItemPressExpansion)
+
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
         public val Standard: QuvenGlassStyle = QuvenGlassStyle()
@@ -188,6 +199,8 @@ public data class QuvenGlassStyle(
             specular = 0.75f,
         )
 
+        private const val BarItemPressWhite = 0.41f
+        private val BarItemPressExpansion = 9.dp
         private const val MenuPressGlow = 3.6f
         private const val ButtonTintGlow = 1.65f
         private const val ButtonPressLighten = 1.05f

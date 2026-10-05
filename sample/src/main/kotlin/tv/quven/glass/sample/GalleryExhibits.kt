@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
@@ -45,6 +46,7 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -57,11 +59,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -86,6 +90,8 @@ import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
 import tv.quven.glass.QuvenGlassPopover
+import tv.quven.glass.QuvenGlassSearchMorph
+import kotlinx.coroutines.delay
 import tv.quven.glass.QuvenGlassSheet
 import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.QuvenGlassSlider
@@ -276,6 +282,63 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
         }
     }
 }
+
+/**
+ * Draws a phone's bar whose Search circle opens into a field along it, and whose folded tabs close the field, as the
+ * reference's tab bar does.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
+    var held by remember { mutableIntStateOf(0) }
+    var searching by remember { mutableStateOf(false) }
+    var searchLit by remember { mutableStateOf(false) }
+    var text by remember { mutableStateOf("") }
+    LaunchedEffect(searchLit) {
+        if (searchLit) {
+            delay(SearchOpenDelayMillis)
+            searching = true
+            delay(SearchLitMillis)
+            searchLit = false
+        }
+    }
+    QuvenGlassSearchMorph(
+        searching = searching,
+        onSearch = { if (!searching) searchLit = true },
+        onEndSearch = { searching = false },
+        tabsWidth = PhoneTabsWidth,
+        height = PhoneBarHeight,
+        gap = tuning.barGap.dp,
+        heldCentre = phoneGlyphCentre(held),
+        modifier = Modifier.align(Alignment.BottomCenter),
+        style = tuning.style,
+        reduceMotion = tuning.reduceMotion,
+        tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 3, entrySize = PhoneEntrySize) },
+        tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching, tuning = tuning) },
+        heldGlyph = { SampleHeldGlyph(held, selected = !searching) },
+        searchGlyph = { SampleSearchGlyph(selected = searchLit) },
+        field = {
+            BasicTextField(
+                value = text,
+                onValueChange = { text = it },
+                singleLine = true,
+                textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 17.sp),
+                cursorBrush = SolidColor(SampleColors.Accent),
+                decorationBox = { inner ->
+                    if (text.isEmpty()) Text("Search", color = SampleColors.TextMedium, fontSize = 17.sp)
+                    inner()
+                },
+            )
+        },
+    )
+}
+
+/** How long Search stands chosen before the bar opens into the field, as the reference's tab bar waits. */
+private const val SearchOpenDelayMillis = 215L
+
+/** How long Search stays lit as chosen once the field opens, before its glyph fades back to the field's colour. */
+private const val SearchLitMillis = 50L
 
 /**
  * Draws a button that opens a popover pointing at it, as the reference opens Apple's.

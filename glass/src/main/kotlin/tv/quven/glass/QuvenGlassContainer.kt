@@ -94,6 +94,7 @@ internal class GlassContainerState(val backdrop: QuvenGlassBackdrop) {
      * @param target The container's coordinates.
      * @return The placed surfaces, at most [MaxGlassSurfaces], in the order they were added.
      */
+    @RequiresApi(33)
     fun surfacesIn(target: LayoutCoordinates): List<GlassSurface> =
         surfaces.asSequence().mapNotNull { it.surfaceIn(target) }.take(MaxGlassSurfaces).toList()
 }

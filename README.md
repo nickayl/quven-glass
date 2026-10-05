@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.12.0")
+    implementation("tv.quven.glass:glass:2.13.0")
 }
 ```
 
@@ -117,6 +117,34 @@ QuvenGlassContainer(spacing = 8.dp) {
 ```
 
 Each option draws its own face and answers its own press; the track only reads where the finger is.
+
+## Searching from the tab bar
+
+`QuvenGlassSearchMorph` turns a phone's tab bar into a search field and back, the way iOS does when its Search tab is
+chosen. Press the Search circle and it swells and lights, then stretches along the bar into a field, while the capsule
+of tabs folds into a circle at the start that carries the held tab's glyph to its middle; both sink a little into the
+bar as they go. Press that circle and the tabs will unfold. They come close enough to the shrinking field to run into it for
+a moment, and their faces grow back with their capsule. What does it need from you? The tabs you draw at rest, their
+faces without the held glyph, that glyph on its own, and the field. It's as wide as the resting bar and doesn't centre
+itself, so you should place it.
+
+```kotlin
+QuvenGlassSearchMorph(
+    searching = searching,
+    onSearch = { searching = true },
+    onEndSearch = { searching = false },
+    tabsWidth = 288.dp,
+    height = 62.dp,
+    gap = 8.dp,
+    heldCentre = DpOffset(50.dp, 23.dp),
+    modifier = Modifier.align(Alignment.BottomCenter),
+    tabs = { Tabs(held, onHold = { held = it }) },
+    tabsFace = { TabFaces(held) },
+    heldGlyph = { Icon(Icons.Filled.Home, contentDescription = "Home") },
+    searchGlyph = { Icon(Icons.Filled.Search, contentDescription = "Search") },
+    field = { SearchField(query, onQueryChange = { query = it }) },
+)
+```
 
 ## Text on light glass
 
@@ -368,6 +396,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light |
 | Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving |
 | Drag | The lens follows the finger and settles on the nearest option |
+| Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
 | Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass turns towards white, the whole button alike, by about 1.05 times the mean luminance of what lies under it, within about 70 ms, and dies away over about 450 ms after release; a prominent button's tint lightens 1.65 times |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |

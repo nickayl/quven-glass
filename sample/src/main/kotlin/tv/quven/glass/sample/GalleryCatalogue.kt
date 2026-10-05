@@ -138,8 +138,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Search",
         "The Search circle opens into a field of glass along the bar.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { SearchExhibit(it) },
     Exhibit(
         "Minimizing tab bar",
         "On a phone the tab bar shrinks to its held entry while the content scrolls down, and grows back as it scrolls up.",

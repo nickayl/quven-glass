@@ -24,6 +24,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeLift("shapeLift", MaxGlassSurfaces),
     ShapeLight("shapeLight", MaxGlassSurfaces),
     ShapeGlow("shapeGlow", MaxGlassSurfaces),
+    ShapeWhite("shapeWhite", MaxGlassSurfaces),
     PillRect("pillRect", 4 * MaxGlassSurfaces),
     PillLook("pillLook", 4 * MaxGlassSurfaces),
     ShapeCount("shapeCount", 0),
@@ -69,7 +70,7 @@ internal const val LiquidGlassContent = "content"
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
  * `pressGlow` times, and where `pressLighten` is, it turns towards white by `pressLighten` times the mean luminance of the
- * backdrop under it, the whole surface alike, in place of the light a lifted surface otherwise gains;
+ * backdrop under it, or by its own `shapeWhite` where that is more, the whole surface alike, in place of the light a lifted surface otherwise gains;
  * where `rimGlow` is, the rim shows the backdrop just outside it lit `rimGlow` times.
  *
  * Inside each surface the backdrop is read `zoom` times further from the surface's centre, so a `zoom` above 1 shows it
@@ -86,6 +87,7 @@ uniform float4 shapeRadii[4];
 uniform float shapeLift[4];
 uniform float shapeLight[4];
 uniform float shapeGlow[4];
+uniform float shapeWhite[4];
 uniform float4 pillRect[4];
 uniform float4 pillLook[4];
 uniform int shapeCount;
@@ -209,6 +211,18 @@ float2 fieldNormal(float2 p) {
     return len > EPSILON ? g / len : float2(0.0, -1.0);
 }
 
+// The share of white the pressed surfaces holding p turn towards at least, each as far as it is lit.
+float pressWhiteAt(float2 p) {
+    float white = 0.0;
+    for (int i = 0; i < 4; i++) {
+        if (i < shapeCount) {
+            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, roundBox(p, shapeRect[i], shapeRadii[i]));
+            white = max(white, shapeWhite[i] * shapeGlow[i] * within);
+        }
+    }
+    return white;
+}
+
 float luma(float3 c) {
     return dot(c, LUMA);
 }
@@ -314,9 +328,10 @@ half4 main(float2 coord) {
     float own = luma(rgb);
     rgb = clamp(mix(float3(own), rgb, tone.a) + brighten, 0.0, 1.0);
     // The rim catches its light under the tint, so a strong tint all but hides it.
+    float white = glow > 0.0 ? pressWhiteAt(coord) : 0.0;
     float facing = 0.5 + 0.5 * dot(n, lens.zw);
     float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
-    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + (pressLighten > 0.0 ? 0.0 : LIFT_GLOW * glow);
+    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + (pressLighten > 0.0 || white > 0.0 ? 0.0 : LIFT_GLOW * glow);
     rgb += shine;
     rgb = mix(rgb, tint.rgb, tint.a);
     if (pressTintGlow > 1.0) {
@@ -335,8 +350,9 @@ half4 main(float2 coord) {
     if (pressGlow > 0.0) {
         rgb = mix(rgb, clamp(seen * pressGlow, 0.0, 1.0), glow);
     }
-    if (pressLighten > 0.0 && glow > 0.0) {
-        rgb = mix(rgb, float3(1.0), clamp(pressLighten * surfaceLuma(coord), 0.0, 1.0) * glow);
+    if ((pressLighten > 0.0 || white > 0.0) && glow > 0.0) {
+        float lighten = pressLighten > 0.0 ? clamp(pressLighten * surfaceLuma(coord), 0.0, 1.0) * glow : 0.0;
+        rgb = mix(rgb, float3(1.0), max(white, lighten));
     }
 
     if (rimGlow > 0.0) {
@@ -387,6 +403,8 @@ internal data class GlassPill(val rect: Rect, val radius: Float, val alpha: Floa
  * @property light How light the surface has turned, from 0 to 1.
  * @property glow How brightly the surface lights under the finger, from 0 to 1; as far as it is pressed unless a press
  * lights it on a timing of its own.
+ * @property white The share of white the surface turns towards at least while lit, its material's
+ * [QuvenGlassStyle.pressWhite].
  */
 internal data class GlassSurface(
     val form: GlassForm,
@@ -394,6 +412,7 @@ internal data class GlassSurface(
     val pill: GlassPill?,
     val light: Float = 0f,
     val glow: Float = lift,
+    val white: Float = 0f,
 )
 
 /** Binds a [QuvenGlassStyle] and a set of [GlassSurface]s to the Liquid Glass program and builds its effect. */
@@ -406,6 +425,7 @@ internal class LiquidGlassShader private constructor() {
     private val lifts = FloatArray(LiquidGlassUniform.ShapeLift.floats)
     private val lights = FloatArray(LiquidGlassUniform.ShapeLight.floats)
     private val glows = FloatArray(LiquidGlassUniform.ShapeGlow.floats)
+    private val whites = FloatArray(LiquidGlassUniform.ShapeWhite.floats)
     private val pillRects = FloatArray(LiquidGlassUniform.PillRect.floats)
     private val pillLooks = FloatArray(LiquidGlassUniform.PillLook.floats)
 
@@ -427,6 +447,7 @@ internal class LiquidGlassShader private constructor() {
         lifts.fill(0f)
         lights.fill(0f)
         glows.fill(0f)
+        whites.fill(0f)
         pillRects.fill(0f)
         pillLooks.fill(0f)
         for (index in 0 until count) {
@@ -444,6 +465,7 @@ internal class LiquidGlassShader private constructor() {
             lifts[index] = surface.lift
             lights[index] = surface.light
             glows[index] = surface.glow
+            whites[index] = surface.white
             surface.pill?.let { pill ->
                 pillRects[at] = pill.rect.left
                 pillRects[at + 1] = pill.rect.top
@@ -462,6 +484,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.ShapeLift.uniform, lifts)
             setFloatUniform(LiquidGlassUniform.ShapeLight.uniform, lights)
             setFloatUniform(LiquidGlassUniform.ShapeGlow.uniform, glows)
+            setFloatUniform(LiquidGlassUniform.ShapeWhite.uniform, whites)
             setFloatUniform(LiquidGlassUniform.PillRect.uniform, pillRects)
             setFloatUniform(LiquidGlassUniform.PillLook.uniform, pillLooks)
             setIntUniform(LiquidGlassUniform.ShapeCount.uniform, count)

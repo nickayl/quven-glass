@@ -237,7 +237,7 @@ class QuvenGlassMorphTest {
     @Test
     fun thePanel_isComposedOnceAndKeptWhileClosed_soAnOpeningComposesNothing() {
         var compositions = 0
-        render { remember { compositions++ } }
+        render { remember<Int> { ++compositions } }
 
         repeat(2) {
             compose.runOnIdle { expanded = true }
