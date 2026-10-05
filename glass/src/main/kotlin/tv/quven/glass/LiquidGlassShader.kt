@@ -345,9 +345,10 @@ half4 main(float2 coord) {
     rgb = clamp(mix(float3(own), rgb, tone.a) + brighten, 0.0, 1.0);
     // The rim catches its light under the tint, so a strong tint all but hides it.
     float white = glow > 0.0 ? pressWhiteAt(coord) : 0.0;
+    float touched = touchLightAt(coord);
     float facing = 0.5 + 0.5 * dot(n, lens.zw);
     float rim = 1.0 - smoothstep(0.0, RIM_WIDTH_DP * pixel, depth);
-    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + (pressLighten > 0.0 || white > 0.0 ? 0.0 : LIFT_GLOW * glow);
+    float shine = lens.y * rim * mix(RIM_AWAY_SHARE, 1.0, facing * facing) * RIM_GAIN + (pressLighten > 0.0 || white > 0.0 || touched > 0.0 ? 0.0 : LIFT_GLOW * glow);
     rgb += shine;
     rgb = mix(rgb, tint.rgb, tint.a);
     if (pressTintGlow > 1.0) {
@@ -371,7 +372,7 @@ half4 main(float2 coord) {
         rgb = mix(rgb, float3(1.0), max(white, lighten));
     }
 
-    rgb = clamp(rgb + touchLightAt(coord), 0.0, 1.0);
+    rgb = clamp(rgb + touched, 0.0, 1.0);
 
     if (rimGlow > 0.0) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);

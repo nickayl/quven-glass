@@ -118,8 +118,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Toolbar",
         "Glass buttons along the top of a page, grouped into capsules that join and part.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { ToolbarExhibit(it) },
     Exhibit(
         "Sheet",
         "A sheet of glass that rises from the bottom edge and turns opaque as it is drawn to full height.",

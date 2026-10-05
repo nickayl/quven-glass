@@ -117,7 +117,7 @@ public fun QuvenGlassButton(
 /**
  * Draws a button of glass of [shape] in a material already made for it, such as [QuvenGlassStyle.forButtons] makes.
  *
- * @param onClick Invoked when the button is pressed.
+ * @param onClick Invoked when the button is pressed, or `null` where its content takes the presses on [interactionSource].
  * @param modifier Modifier applied to the button, which sizes it.
  * @param shape The button's shape.
  * @param material The button's material.
@@ -133,7 +133,7 @@ public fun QuvenGlassButton(
  */
 @Composable
 internal fun GlassButton(
-    onClick: () -> Unit,
+    onClick: (() -> Unit)?,
     modifier: Modifier,
     shape: Shape,
     material: QuvenGlassStyle,
@@ -174,7 +174,13 @@ internal fun GlassButton(
                 appearance = appearance.takeUnless { prominent },
                 glow = remember(glow) { GlassLiftSource { glow.value } },
             )
-            .clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+            .then(
+                if (onClick == null) {
+                    Modifier
+                } else {
+                    Modifier.clickable(interactionSource = interactions, indication = null, enabled = enabled, role = Role.Button, onClick = onClick)
+                },
+            )
             .padding(contentPadding)
             .graphicsLayer {
                 val grown = pressScale(press.value, glass.pressExpansion.toPx(), max(size.width, size.height).toFloat())

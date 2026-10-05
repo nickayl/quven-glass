@@ -35,7 +35,6 @@ import androidx.compose.ui.node.requireLayoutDirection
 import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
 import kotlin.math.max
 import kotlin.math.min
@@ -316,7 +315,7 @@ internal class LiquidGlassNode(
         val pill = pillSource?.pill(size)?.translate(offset)
         val glow = glowSource?.lift() ?: lift
         val touch = touchGlow.value.takeIf { it > 0f && style.touchLight > 0f }?.let { amount ->
-            TouchLight(touchAt + offset, with(requireDensity()) { TouchLightSpread.toPx() }, amount * style.touchLight)
+            TouchLight(touchAt + offset, with(requireDensity()) { style.touchLightSpread.toPx() }, amount * style.touchLight)
         } ?: TouchLight.None
         return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, glow, style.pressWhite, touch)
     }
@@ -360,6 +359,5 @@ internal class LiquidGlassNode(
 }
 
 // Measured on Apple's interactive glass on an iPhone.
-private val TouchLightSpread = 95.dp
 private val TouchLightRise = tween<Float>(35)
-private val TouchLightFade = tween<Float>(400, easing = FastOutSlowInEasing)
+private val TouchLightFade = tween<Float>(450, easing = FastOutSlowInEasing)

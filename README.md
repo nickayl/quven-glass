@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.17.0")
+    implementation("tv.quven.glass:glass:2.18.0")
 }
 ```
 
@@ -203,6 +203,26 @@ Does every surface light up? It doesn't.
 
 ```kotlin
 Box(Modifier.size(360.dp, 260.dp).quvenLiquidGlass(backdrop, QuvenGlassStyle.Standard.interactive(), RoundedCornerShape(32.dp)))
+```
+
+## Toolbars
+
+`QuvenGlassToolbarGroup` puts toolbar buttons on glass the way iOS groups its bar items, with one button standing alone
+in a circle and two or more sharing a single capsule between them. Press any of them and the whole capsule swells, as a
+glass button does, while it lights toward white around your finger even over a black page. Lay groups in a row 13 dp
+apart (`QuvenGlassToolbarGap`) inside a `QuvenGlassContainer` spaced at `QuvenGlassToolbarJoin`, and a swollen group
+will run into its neighbour for as long as it's held. Why not join them at rest? Apple doesn't.
+
+```kotlin
+QuvenGlassContainer(Modifier.fillMaxWidth().padding(horizontal = 16.dp), spacing = QuvenGlassToolbarJoin) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(back, "Back", onBack)))
+        Text("Library", Modifier.padding(start = 13.dp).weight(1f))
+        QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(share, "Share", onShare), QuvenGlassToolbarItem(heart, "Favorite", onFavorite)))
+        Spacer(Modifier.width(QuvenGlassToolbarGap))
+        QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(more, "More", onMore)))
+    }
+}
 ```
 
 ## Text on light glass
@@ -460,6 +480,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Bottom accessory | On an iPhone: a capsule as tall as the minimized circle (47.5 pt), 9.5 pt above the resting bar and as wide; minimizing, it narrows to start 8 pt past the circle and end 7.25 pt in, then falls into the bar's line; growing back, it rises before it widens; it keeps its own glass over the bar's |
 | Scroll edge | Under a 56 pt bar on an iPhone: soft, the content blurs about 3.5 pt at the edge, gone by 80% of the reach, and darkens 0.29 toward black over 1.78 times the bar's height, with a lip of about 0.66 along the first 10% that ends by 17%; hard, an opaque band of `#212121` as tall as the bar, 0.45 darker at its very top, ends on a sharp line |
 | Touch light | Interactive glass on an iPhone: white added under the finger, 14.5 levels (0.057) at its centre and falling as a Gaussian with σ about 95 pt, in within about 35 ms, following the finger, gone about 400 ms after it lifts on an ease out |
+| Toolbar | On an iPhone: groups 44 pt tall, a circle for one button and 59 pt wider for each further one, 13 pt apart; a press swells the whole group 16 pt along its longer side and lights it toward white, 0.41 at the finger and falling as a Gaussian of about 45 pt, so a swollen group joins its neighbour |
 | Light glass | Thin glass only: lean 0.82 towards `0xF5`, saturation 3.27; turns light above a mean channel of 0.74 and dark below 0.64, smoothed over 2 s |
 | Press on a glass button | The button grows 16 pt along its longer side on a spring that passes its size by about 12%, back in about 150 ms; plain glass turns towards white, the whole button alike, by about 1.05 times the mean luminance of what lies under it, within about 70 ms, and dies away over about 450 ms after release; a prominent button's tint lightens 1.65 times |
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |

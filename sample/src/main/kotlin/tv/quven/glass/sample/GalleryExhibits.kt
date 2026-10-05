@@ -46,11 +46,16 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import tv.quven.glass.QuvenGlassToolbarJoin
+import tv.quven.glass.QuvenGlassToolbarGap
+import tv.quven.glass.QuvenGlassToolbarItem
+import tv.quven.glass.QuvenGlassToolbarGroup
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.layout.layout
-import androidx.compose.material.icons.filled.Refresh
 import tv.quven.glass.QuvenGlassSegmentedTrack
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.quvenGlassSource
@@ -449,25 +454,84 @@ internal val LocalStageScroll: ProvidableCompositionLocal<StageScroll> = staticC
 @Composable
 internal fun BoxScope.ScrollEdgeExhibit(tuning: SampleTuning) {
     var hard by remember { mutableStateOf(false) }
+    PageStage(
+        tuning,
+        edge = if (hard) QuvenGlassScrollEdgeStyle.Hard else QuvenGlassScrollEdgeStyle.Soft,
+        top = { EdgeStyleTrack(hard, onHard = { hard = it }, tuning = tuning) },
+        bottom = {
+            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Shuffle), contentDescription = "Shuffle", reduceMotion = tuning.reduceMotion)
+            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.PlayArrow), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
+        },
+    )
+}
+
+/**
+ * Draws a page with a toolbar along its top, a back button, a title, a group of two buttons and one more, and a toolbar
+ * along its bottom, as the reference's navigation bar and toolbar group their items.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.ToolbarExhibit(tuning: SampleTuning) {
+    val share = rememberVectorPainter(Icons.Filled.Share)
+    val heart = rememberVectorPainter(Icons.Outlined.FavoriteBorder)
+    val more = rememberVectorPainter(MoreHorizontal)
+    val back = rememberVectorPainter(Icons.AutoMirrored.Filled.KeyboardArrowLeft)
+    PageStage(
+        tuning,
+        edge = QuvenGlassScrollEdgeStyle.Soft,
+        top = {
+            QuvenGlassContainer(Modifier.fillMaxWidth().padding(horizontal = 16.dp), style = tuning.style, spacing = QuvenGlassToolbarJoin) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(back, "Back") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+                    Text("Library", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 13.dp).weight(1f))
+                    QuvenGlassToolbarGroup(
+                        listOf(QuvenGlassToolbarItem(share, "Share") {}, QuvenGlassToolbarItem(heart, "Favorite") {}),
+                        style = tuning.style,
+                        reduceMotion = tuning.reduceMotion,
+                    )
+                    Spacer(Modifier.width(QuvenGlassToolbarGap))
+                    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(more, "More") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+                }
+            }
+        },
+        bottom = {
+            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Shuffle), "Shuffle") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Icons.Filled.PlayArrow), "Play") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+        },
+    )
+}
+
+/**
+ * Draws a page of its own over the whole stage: content that scrolls under a bar at its top and a toolbar at its
+ * bottom, meeting them with [edge], and the glass of both bars standing over that content.
+ *
+ * @param tuning The live settings.
+ * @param edge How the content meets the bars.
+ * @param top Draws the top bar's content, centred in it.
+ * @param bottom Draws the bottom toolbar's items, spread along it.
+ */
+@Composable
+private fun BoxScope.PageStage(
+    tuning: SampleTuning,
+    edge: QuvenGlassScrollEdgeStyle,
+    top: @Composable () -> Unit,
+    bottom: @Composable RowScope.() -> Unit,
+) {
     val page = rememberQuvenGlassBackdrop()
-    val style = if (hard) QuvenGlassScrollEdgeStyle.Hard else QuvenGlassScrollEdgeStyle.Soft
     Box(Modifier.matchParentSize().bleed(StageInset)) {
         SampleBackdropContent(
-            Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(top = PageBarHeight, bottom = PageBarHeight, style = style),
+            Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(top = PageBarHeight, bottom = PageBarHeight, style = edge),
             top = PageBarHeight,
         )
         CompositionLocalProvider(LocalQuvenGlassBackdrop provides page.takeIf { tuning.liquid }) {
-            Box(Modifier.align(Alignment.TopCenter).height(PageBarHeight), contentAlignment = Alignment.Center) {
-                EdgeStyleTrack(hard, onHard = { hard = it }, tuning = tuning)
-            }
+            Box(Modifier.align(Alignment.TopCenter).fillMaxWidth().height(PageBarHeight), contentAlignment = Alignment.Center) { top() }
             Row(
-                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(PageBarHeight).padding(horizontal = 16.dp),
+                Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(PageBarHeight).padding(horizontal = 28.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
-            ) {
-                QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.Refresh), contentDescription = "Shuffle", reduceMotion = tuning.reduceMotion)
-                QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Icons.Filled.PlayArrow), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
-            }
+                content = bottom,
+            )
         }
     }
 }
@@ -898,6 +962,51 @@ private val FastForward: ImageVector = materialIcon(name = "Filled.FastForward")
         verticalLineToRelative(12f)
         lineToRelative(8.5f, -6f)
         lineTo(13f, 6f)
+        close()
+    }
+}
+
+/** Three dots in a row, as the system's `ellipsis` symbol draws them. */
+private val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz") {
+    for (x in listOf(6f, 12f, 18f)) {
+        materialPath {
+            moveTo(x, 10f)
+            curveToRelative(-1.1f, 0f, -2f, 0.9f, -2f, 2f)
+            reflectiveCurveToRelative(0.9f, 2f, 2f, 2f)
+            reflectiveCurveToRelative(2f, -0.9f, 2f, -2f)
+            reflectiveCurveToRelative(-0.9f, -2f, -2f, -2f)
+            close()
+        }
+    }
+    this
+}
+
+/** Two crossing arrows, as the system's `shuffle` symbol draws them. */
+private val Shuffle: ImageVector = materialIcon(name = "Filled.Shuffle") {
+    materialPath {
+        moveTo(10.59f, 9.17f)
+        lineTo(5.41f, 4f)
+        lineTo(4f, 5.41f)
+        lineToRelative(5.17f, 5.17f)
+        lineToRelative(1.42f, -1.41f)
+        close()
+        moveTo(14.5f, 4f)
+        lineToRelative(2.04f, 2.04f)
+        lineTo(4f, 18.59f)
+        lineTo(5.41f, 20f)
+        lineTo(17.96f, 7.46f)
+        lineTo(20f, 9.5f)
+        verticalLineTo(4f)
+        horizontalLineToRelative(-5.5f)
+        close()
+        moveTo(14.83f, 13.41f)
+        lineToRelative(-1.41f, 1.41f)
+        lineToRelative(3.13f, 3.13f)
+        lineTo(14.5f, 20f)
+        horizontalLineTo(20f)
+        verticalLineToRelative(-5.5f)
+        lineToRelative(-2.04f, 2.04f)
+        lineToRelative(-3.13f, -3.13f)
         close()
     }
 }
