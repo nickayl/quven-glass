@@ -123,8 +123,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Sheet",
         "A sheet of glass that rises from the bottom edge and turns opaque as it is drawn to full height.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { SheetExhibit(it) },
     Exhibit(
         "Alert",
         "A dialog on glass over a dimmed page, its buttons capsules.",

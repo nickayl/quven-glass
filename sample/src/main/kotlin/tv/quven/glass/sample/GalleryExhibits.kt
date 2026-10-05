@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +15,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -42,12 +45,14 @@ import androidx.compose.material.icons.materialIcon
 import androidx.compose.material.icons.materialPath
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
@@ -80,6 +85,7 @@ import tv.quven.glass.QuvenGlassMenuItem
 import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
+import tv.quven.glass.QuvenGlassSheet
 import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.QuvenGlassSlider
 import tv.quven.glass.QuvenGlassSwitch
@@ -264,6 +270,35 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
                         GlassCaption(name, tuning)
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Draws a button that raises a sheet, as the reference raises Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.SheetExhibit(tuning: SampleTuning) {
+    var shown by remember { mutableStateOf(false) }
+    QuvenGlassButton(
+        onClick = { shown = true },
+        label = "Show sheet",
+        size = QuvenGlassButtonSize.Large,
+        modifier = Modifier.align(Alignment.Center),
+        reduceMotion = tuning.reduceMotion,
+    )
+    if (shown) {
+        QuvenGlassSheet(onDismissRequest = { shown = false }, modifier = Modifier.padding(horizontal = 24.dp)) {
+            Box(Modifier.fillMaxWidth()) {
+                Column {
+                    Text("Sheet", color = SampleColors.TextHigh, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(12.dp))
+                    Text("Drag it up to full height to see it turn opaque.", color = SampleColors.TextMedium, fontSize = 17.sp)
+                }
+                CaptureMark(Modifier.align(Alignment.TopEnd))
             }
         }
     }
@@ -568,3 +603,18 @@ private val GlassVariants: List<Pair<String, QuvenGlassStyle>> = listOf(
     "Tinted" to QuvenGlassStyle.Standard.tinted(SampleColors.Accent),
     "Clear, tinted" to QuvenGlassStyle.Clear.copy(tint = Color(0x662979FF)),
 )
+
+/** Gets whether the gallery is being recorded, which draws the marks a capture follows. */
+internal val LocalCaptureMarks: ProvidableCompositionLocal<Boolean> = staticCompositionLocalOf { false }
+
+/**
+ * Draws, while the gallery is recorded, a mark of pure green a capture follows, as the reference marks the system's
+ * elements.
+ *
+ * @param modifier Modifier applied to the mark.
+ */
+@Composable
+private fun CaptureMark(modifier: Modifier) {
+    if (LocalCaptureMarks.current) Box(modifier.padding(8.dp).size(8.dp).background(Color(0xFF00FF00)))
+}
+

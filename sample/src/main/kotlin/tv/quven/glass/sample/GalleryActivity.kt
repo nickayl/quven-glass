@@ -49,14 +49,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassAlertHost
 import tv.quven.glass.LocalQuvenGlassBackdrop
+import tv.quven.glass.LocalQuvenGlassSheetHost
 import tv.quven.glass.LocalQuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassAlertHost
 import tv.quven.glass.QuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassMenuMetrics
+import tv.quven.glass.QuvenGlassSheetHost
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.rememberQuvenGlassAlertHostState
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMenuHostState
+import tv.quven.glass.rememberQuvenGlassSheetHostState
 import androidx.compose.ui.unit.DpSize
 
 /** Shows every Liquid Glass element Apple draws, the library's own where it draws one, each over hard content. */
@@ -68,10 +71,12 @@ class GalleryActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // A capture opens the gallery on the exhibit named and copies the region named on every frame.
         val exhibit = intent.getStringExtra(ExtraExhibit)?.let { title -> Exhibits.indexOfFirst { it.title == title }.takeIf { it >= 0 } }
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(exhibit) }
-        }
         val seconds = intent.getFloatExtra(ExtraWindow, 0f)
+        setContent {
+            CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f)) {
+                MaterialTheme(colorScheme = darkColorScheme()) { GalleryScreen(exhibit) }
+            }
+        }
         val region = intent.getStringExtra(ExtraRegion)?.split(',')?.mapNotNull(String::toFloatOrNull)
         if (seconds > 0f && region?.size == 4) {
             recordWindowAfterLaunch(RectF(region[0], region[1], region[0] + region[2], region[1] + region[3]), CapturePixelsPerDp, seconds)
@@ -91,7 +96,7 @@ class GalleryActivity : ComponentActivity() {
 
 /**
  * Lists the exhibits beside the one chosen; a narrow window shows the list, then the exhibit chosen from it. An
- * exhibit's alert stands over the whole window, which it dims, as the system's does.
+ * exhibit's sheets and alerts stand over the whole window, which they dim, as the system's do.
  *
  * @param initial The index of the exhibit to open on, or `null` to open on the first and, in a narrow window, the list.
  */
@@ -100,10 +105,12 @@ private fun GalleryScreen(initial: Int?) {
     val tuning = remember { SampleTuning() }
     val screen = rememberQuvenGlassBackdrop()
     val alerts = rememberQuvenGlassAlertHostState()
+    val sheets = rememberQuvenGlassSheetHostState()
     Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts) {
+        CompositionLocalProvider(LocalQuvenGlassAlertHost provides alerts, LocalQuvenGlassSheetHost provides sheets) {
             GalleryPanes(initial, tuning, Modifier.fillMaxSize().quvenGlassSource(screen))
         }
+        QuvenGlassSheetHost(sheets, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
         QuvenGlassAlertHost(alerts, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion)
     }
 }

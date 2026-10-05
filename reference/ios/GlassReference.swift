@@ -19,7 +19,7 @@ struct GlassReferenceApp: App {
             } else if ReferenceLaunch.menus {
                 MenusProbe()
             } else if let exhibit = ReferenceLaunch.exhibit {
-                GalleryScreen(showing: exhibit)
+                GalleryScreen(showing: exhibit, opened: true)
             } else if ReferenceLaunch.measuring {
                 ReferenceScreen()
             } else {
@@ -1010,7 +1010,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider, .contextMenu, .alert: .ready
+             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
@@ -1019,19 +1019,40 @@ enum Exhibit: CaseIterable, Identifiable {
 
 /// Lists the system's Liquid Glass elements beside the one chosen, each drawn by the system over hard content.
 struct GalleryScreen: View {
+    @Environment(\.horizontalSizeClass) private var sizeClass
     @State private var chosen: Exhibit
+    @State private var opened: Bool
 
     /// Creates the gallery.
-    /// - Parameter exhibit: The exhibit shown first.
-    init(showing exhibit: Exhibit = .material) {
+    /// - Parameters:
+    ///   - exhibit: The exhibit shown first.
+    ///   - opened: Whether a narrow window opens on the exhibit rather than on the list.
+    init(showing exhibit: Exhibit = .material, opened: Bool = false) {
         _chosen = State(initialValue: exhibit)
+        _opened = State(initialValue: opened)
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ExhibitList(chosen: $chosen)
-                .frame(width: 300)
-            ExhibitPage(exhibit: chosen)
+        Group {
+            // A narrow window shows the list, then the exhibit chosen from it, as the Android sample does.
+            if sizeClass == .compact {
+                if opened {
+                    ExhibitPage(exhibit: chosen)
+                        .overlay(alignment: .topLeading) {
+                            Button("Exhibits", systemImage: "chevron.left") { opened = false }
+                                .buttonStyle(.glass)
+                                .padding(.leading, 16)
+                        }
+                } else {
+                    ExhibitList(chosen: Binding(get: { chosen }, set: { chosen = $0; opened = true }))
+                }
+            } else {
+                HStack(spacing: 0) {
+                    ExhibitList(chosen: $chosen)
+                        .frame(width: 300)
+                    ExhibitPage(exhibit: chosen)
+                }
+            }
         }
         .background(Palette.ground)
         .preferredColorScheme(.dark)
@@ -1592,6 +1613,8 @@ struct SheetStage: View {
         Button("Show sheet") { shown = true }
             .buttonStyle(.glass)
             .controlSize(.large)
+            .reportsFrame("sheet.show")
+            .accessibilityIdentifier("sheet.show")
             .sheet(isPresented: $shown) {
                 VStack(alignment: .leading, spacing: 12) {
                     Text("Sheet").font(.title2.bold())
@@ -1599,6 +1622,13 @@ struct SheetStage: View {
                     Spacer()
                 }
                 .padding(24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                // A capture follows the sheet by a mark of pure green near its top corner.
+                .overlay(alignment: .topTrailing) {
+                    if ReferenceLaunch.capture != nil {
+                        Rectangle().fill(Color(red: 0, green: 1, blue: 0)).frame(width: 8, height: 8).padding(32)
+                    }
+                }
                 .presentationDetents([.medium, .large])
             }
     }

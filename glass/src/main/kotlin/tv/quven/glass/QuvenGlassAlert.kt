@@ -29,7 +29,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.ProvidableCompositionLocal
@@ -99,27 +98,8 @@ public class QuvenGlassAlertAction(
 @Stable
 public class QuvenGlassAlertHostState internal constructor() {
 
-    /** Gets the alert standing or fading away, or `null` for none. */
-    internal var shown: AlertRequest? by mutableStateOf(null)
-        private set
-
-    /**
-     * Raises [request], replacing at once any other alert.
-     *
-     * @param request The alert to raise.
-     */
-    internal fun show(request: AlertRequest) {
-        shown = request
-    }
-
-    /**
-     * Forgets [request] if it is the alert standing.
-     *
-     * @param request The alert to forget.
-     */
-    internal fun release(request: AlertRequest) {
-        if (shown === request) shown = null
-    }
+    /** Gets the alert standing or fading away. */
+    internal val slot: PresentationSlot<AlertRequest> = PresentationSlot()
 }
 
 /**
@@ -159,10 +139,7 @@ public fun QuvenGlassAlert(
     val host = checkNotNull(LocalQuvenGlassAlertHost.current) { "A QuvenGlassAlert needs a QuvenGlassAlertHost above it." }
     val request = remember { AlertRequest() }
     SideEffect { request.update(title, message, actions, modifier, onDismissRequest, content) }
-    DisposableEffect(host, request) {
-        host.show(request)
-        onDispose { request.standing = false }
-    }
+    PresentWhileComposed(host.slot, request)
 }
 
 /**
@@ -186,7 +163,7 @@ public fun QuvenGlassAlertHost(
     backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
     reduceMotion: Boolean = false,
 ) {
-    val request = state.shown ?: return
+    val request = state.slot.shown ?: return
     val dim = remember(request) { Animatable(0f) }
     val shown = remember(request) { Animatable(0f) }
     val settle = remember(request) { Animatable(if (reduceMotion) 1f else OpeningScale) }
@@ -199,7 +176,7 @@ public fun QuvenGlassAlertHost(
             // Gone, it fades at its own size while the screen brightens a little longer behind it.
             launch { shown.animateTo(0f, tween(FadeOutMillis, easing = LinearOutSlowInEasing)) }
             dim.animateTo(0f, tween(UndimMillis, easing = FastOutSlowInEasing))
-            state.release(request)
+            state.slot.release(request)
         }
     }
     if (request.standing) BackHandler(enabled = request.onDismissRequest != null) { request.onDismissRequest?.invoke() }
@@ -228,7 +205,7 @@ public fun QuvenGlassAlertHost(
  * An alert raised in a [QuvenGlassAlertHost]: what [QuvenGlassAlert] last drew, kept while the alert fades away.
  */
 @Stable
-internal class AlertRequest {
+internal class AlertRequest : GlassPresentation() {
 
     /** Gets the alert's title. */
     var title: String by mutableStateOf("")
@@ -253,9 +230,6 @@ internal class AlertRequest {
     /** Gets what the alert draws under its message, or `null` for nothing. */
     var content: (@Composable ColumnScope.() -> Unit)? by mutableStateOf(null)
         private set
-
-    /** Gets or sets a value indicating whether the alert is still drawn by its owner; `false` while it fades away. */
-    var standing: Boolean by mutableStateOf(true)
 
     /**
      * Takes what the alert's owner draws now.
