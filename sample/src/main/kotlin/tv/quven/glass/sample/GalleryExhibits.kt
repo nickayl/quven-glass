@@ -85,10 +85,12 @@ import tv.quven.glass.QuvenGlassMenuItem
 import tv.quven.glass.QuvenGlassMenuTitle
 import tv.quven.glass.QuvenGlassMorph
 import tv.quven.glass.QuvenGlassMorphPlacement
+import tv.quven.glass.QuvenGlassPopover
 import tv.quven.glass.QuvenGlassSheet
 import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.QuvenGlassSlider
 import tv.quven.glass.QuvenGlassSwitch
+import tv.quven.glass.quvenGlassAnchor
 import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassAppearance
 import tv.quven.glass.rememberQuvenGlassMorphState
@@ -271,6 +273,33 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Draws a button that opens a popover pointing at it, as the reference opens Apple's.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+internal fun BoxScope.PopoverExhibit(tuning: SampleTuning) {
+    val state = rememberQuvenGlassMorphState()
+    var shown by remember { mutableStateOf(false) }
+    QuvenGlassButton(
+        onClick = { shown = true },
+        label = "Show popover",
+        size = QuvenGlassButtonSize.Large,
+        modifier = Modifier.align(Alignment.Center).quvenGlassAnchor(state, stretches = false),
+        reduceMotion = tuning.reduceMotion,
+    )
+    QuvenGlassPopover(state, expanded = shown, onDismissRequest = { shown = false }, modifier = Modifier.width(280.dp)) {
+        Box(Modifier.fillMaxWidth().padding(20.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Popover", color = SampleColors.TextHigh, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("A panel that points at its control.", color = SampleColors.TextMedium, fontSize = 17.sp)
+            }
+            CaptureMark(Modifier.align(Alignment.TopEnd))
         }
     }
 }

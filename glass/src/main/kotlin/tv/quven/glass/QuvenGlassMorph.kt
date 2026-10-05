@@ -130,17 +130,29 @@ public fun interface QuvenGlassMorphPlacement {
          * @param edge The least room between the glass and the space's sides.
          * @return The placement.
          */
-        public fun aboveOrBelow(gap: Dp, edge: Dp): QuvenGlassMorphPlacement =
+        public fun aboveOrBelow(gap: Dp, edge: Dp): QuvenGlassMorphPlacement = beside(gap, edge, ::alignedStart)
+
+        /**
+         * Returns the placement that stands the opened glass above or below the anchor, [gap] away from it on the side
+         * with more room, centred on it and kept at least [edge] inside the space, as a popover points at its control.
+         *
+         * @param gap The room between the glass and the anchor.
+         * @param edge The least room between the glass and the space's sides.
+         * @return The placement.
+         */
+        public fun aboveOrBelowCentred(gap: Dp, edge: Dp): QuvenGlassMorphPlacement =
+            beside(gap, edge) { size, anchor, _ -> (anchor.center.x - size.width / 2f).roundToInt() }
+
+        private fun beside(gap: Dp, edge: Dp, left: (IntSize, IntRect, IntSize) -> Int): QuvenGlassMorphPlacement =
             QuvenGlassMorphPlacement { size, anchor, space, density ->
                 val inset = with(density) { edge.roundToPx() }
                 val apart = with(density) { gap.roundToPx() }
-                val left = alignedStart(size, anchor, space)
                 val top = if (opensAbove(anchor.top.toFloat(), anchor.bottom.toFloat(), space.height.toFloat())) {
                     anchor.top - apart - size.height
                 } else {
                     anchor.bottom + apart
                 }
-                IntOffset(left.keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
+                IntOffset(left(size, anchor, space).keptInside(size.width, space.width, inset), top.keptInside(size.height, space.height, inset))
             }
 
         /**
@@ -255,6 +267,8 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
  * @param face Draws the control's own face inside the glass while it starts to grow.
  * @param fromControl Whether the control's own glass stays as a lit cap the panel drops from, as a menu drops out of its
  * button; `false` grows the panel's glass alone, as a context menu flows out of the card it lifts.
+ * @param keepsSource Whether the cap stays whole, joined to the open panel as its point, as a popover points at its
+ * control, rather than sinking into the panel as it opens.
  * @param content Draws the open panel.
  */
 @Composable
@@ -271,6 +285,7 @@ public fun QuvenGlassMorph(
     reduceMotion: Boolean = false,
     face: @Composable () -> Unit = {},
     fromControl: Boolean = true,
+    keepsSource: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     LaunchedEffect(expanded, reduceMotion) {
@@ -301,7 +316,7 @@ public fun QuvenGlassMorph(
             QuvenGlassContainer(
                 Modifier.graphicsLayer { alpha = if (reduceMotion) state.progress.value else 1f },
                 style = glassStyle,
-                spacing = MorphJoin,
+                spacing = if (keepsSource) PointJoin else MorphJoin,
                 backdrop = backdrop,
             ) {
                 // The static material draws each surface apart, so only joined glass keeps the control's.
@@ -354,8 +369,8 @@ public fun QuvenGlassMorph(
         state.rises = open.top < anchor.top && abs(open.bottom - anchor.bottom) < 1f
         state.openBounds = open
         frame.update(
-            if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx())
-            else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx()),
+            if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx(), anchor.takeIf { keepsSource })
+            else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx(), keepsSource),
             open,
         )
         val glassPlaceable = measurables[0].measure(Constraints.fixed(space.width, space.height))
@@ -437,14 +452,15 @@ private class BodyShape(private val frame: MorphFrame) : Shape {
 internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: Float) {
     companion object {
         /**
-         * Returns the geometry of a glass that stands open as [open], with no control's glass left.
+         * Returns the geometry of a glass that stands open as [open], with [source] left of the control's glass.
          *
          * @param open The open panel's bounds.
          * @param cornerRadius The open panel's corner radius, in pixels.
+         * @param source The control's glass kept beside the panel, or `null` for none.
          * @return The geometry.
          */
-        fun settled(open: Rect, cornerRadius: Float): MorphGeometry =
-            MorphGeometry(Rect(open.center, Size.Zero), open, cornerRadius.coerceAtMost(open.minDimension / 2f))
+        fun settled(open: Rect, cornerRadius: Float, source: Rect? = null): MorphGeometry =
+            MorphGeometry(source ?: Rect(open.center, Size.Zero), open, cornerRadius.coerceAtMost(open.minDimension / 2f))
     }
 }
 
@@ -461,7 +477,14 @@ internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: F
  * @param cornerRadius The open panel's corner radius, in pixels.
  * @return The geometry.
  */
-internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float, cornerRadius: Float): MorphGeometry {
+internal fun morphGeometry(
+    anchor: Rect,
+    open: Rect,
+    spread: Float,
+    reach: Float,
+    cornerRadius: Float,
+    keepsSource: Boolean = false,
+): MorphGeometry {
     val settle = smoothstep(NearEdgeStart, 1f, spread)
     val hangs = abs(open.top - anchor.top) <= abs(open.bottom - anchor.bottom)
     val top: Float
@@ -482,6 +505,8 @@ internal fun morphGeometry(anchor: Rect, open: Rect, spread: Float, reach: Float
         lerp(anchor.center.x + seed, open.right, spread),
         bottom,
     )
+    // A cap kept stays whole where it stands, joined to the panel as its point.
+    if (keepsSource) return MorphGeometry(anchor, body, morphRadius(body.size, cornerRadius, spread))
     // The cap keeps the control's near edge, then sinks into the panel's glass, away from its edge, as it fades.
     val fade = smoothstep(SourceFadeStart, SourceFadeEnd, spread)
     val kept = lerp(SourceRelease, SourceCap, smoothstep(0f, SourceSqueezeEnd, spread)) * (1f - fade)
@@ -566,6 +591,9 @@ private const val SpreadStiffness = 300f
 private const val DropDamping = 0.68f
 private const val DropStiffness = 380f
 private val MorphJoin = 48.dp
+
+// A kept cap joins the panel over a short reach, so it reads as a point rather than a swell.
+private val PointJoin = 8.dp
 private const val NearEdgeStart = 0.7f
 private const val BodySeedShare = 0.6f
 private const val BodySwellEnd = 0.15f

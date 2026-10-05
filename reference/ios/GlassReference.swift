@@ -1010,7 +1010,7 @@ enum Exhibit: CaseIterable, Identifiable {
     var status: ExhibitStatus {
         switch self {
         case .material, .glassButtons, .tabBar, .segmentedControl, .joiningGlass, .menus, .morphingPanel, .clearAndTinted,
-             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet: .ready
+             .capsuleButtons, .toggle, .slider, .contextMenu, .alert, .sheet, .popover: .ready
         case .adaptiveSidebar: .planned
         default: .inDevelopment
         }
@@ -1661,6 +1661,8 @@ struct PopoverStage: View {
         Button("Show popover") { shown = true }
             .buttonStyle(.glass)
             .controlSize(.large)
+            .reportsFrame("popover.show")
+            .accessibilityIdentifier("popover.show")
             .popover(isPresented: $shown) {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("Popover").font(.headline)
@@ -1668,6 +1670,11 @@ struct PopoverStage: View {
                 }
                 .padding(20)
                 .frame(width: 280)
+                .overlay(alignment: .topTrailing) {
+                    if ReferenceLaunch.capture != nil {
+                        Rectangle().fill(Color(red: 0, green: 1, blue: 0)).frame(width: 8, height: 8).padding(12)
+                    }
+                }
             }
     }
 }

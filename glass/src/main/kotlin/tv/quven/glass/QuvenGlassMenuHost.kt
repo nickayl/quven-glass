@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.heightIn
@@ -42,6 +43,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntRect
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -143,7 +145,13 @@ public fun QuvenGlassMenuHost(
         val lifted = anchor.lifted(PreviewLift)
         val shift = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
         val seed = preview?.seed(lifted.translate(0f, shift), constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
-        val placement = if (preview == null) request.placement else request.placement.around(lifted)
+        // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
+        val point = if (request.popover) popoverPoint(anchor, constraints.maxHeight.toFloat(), density) else null
+        val placement = when {
+            preview != null -> request.placement.around(lifted)
+            point != null -> request.placement.around(anchor)
+            else -> request.placement
+        }
         if (preview != null) LiftedPreview(preview, anchor, shift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
@@ -157,30 +165,40 @@ public fun QuvenGlassMenuHost(
         QuvenGlassMorph(
             state = request.morph,
             expanded = request.expanded,
-            anchor = seed ?: anchor,
+            anchor = seed ?: point ?: anchor,
             placement = placement,
             modifier = Modifier.fillMaxSize(),
-            style = if (preview == null) style else remember(style) { style.dimmed(ScreenDim) },
+            style = when {
+                preview != null -> remember(style) { style.dimmed(ScreenDim) }
+                point != null -> remember(style) { style.copy(pressGlow = 0f) }
+                else -> style
+            },
             cornerRadius = metrics.cornerRadius,
             backdrop = backdrop,
             reduceMotion = reduceMotion,
             face = request.face,
             fromControl = preview == null,
+            keepsSource = point != null,
         ) {
-            QuvenGlassMenu(
-                request.menuModifier
-                    .focusRequester(menuFocus)
-                    .onFocusChanged { holdsFocus = it.hasFocus }
-                    .focusProperties { onExit = { if (request.expanded) cancelFocusChange() } }
-                    .focusGroup()
-                    .heightIn(max = maxHeight - MenuEdge * 2),
-                metrics = metrics,
-                colors = colors,
-                textStyle = textStyle,
-                onChosen = request.onDismissRequest,
-                rising = request.morph.rises,
-                content = request.content,
-            )
+            val panel = request.menuModifier
+                .focusRequester(menuFocus)
+                .onFocusChanged { holdsFocus = it.hasFocus }
+                .focusProperties { onExit = { if (request.expanded) cancelFocusChange() } }
+                .focusGroup()
+                .heightIn(max = maxHeight - MenuEdge * 2)
+            if (request.popover) {
+                Column(panel, content = request.content)
+            } else {
+                QuvenGlassMenu(
+                    panel,
+                    metrics = metrics,
+                    colors = colors,
+                    textStyle = textStyle,
+                    onChosen = request.onDismissRequest,
+                    rising = request.morph.rises,
+                    content = request.content,
+                )
+            }
         }
     }
 }
@@ -212,7 +230,7 @@ public fun QuvenGlassDropdown(
     face: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    GlassDropdown(state, expanded, onDismissRequest, modifier, outsideModifier, placement, face, preview = null, content)
+    GlassDropdown(state, expanded, onDismissRequest, modifier, outsideModifier, placement, face, preview = null, content = content)
 }
 
 /**
@@ -228,7 +246,8 @@ public fun QuvenGlassDropdown(
  * @param face Draws the control's face inside the glass while it starts to grow.
  * @param preview The control lifted over the dimmed screen while the menu is shown, or `null` for a menu that dims
  * nothing.
- * @param content The menu's entries.
+ * @param popover Whether [content] is a panel of its own that points at its control, rather than a menu's entries.
+ * @param content The menu's entries, or the popover's panel.
  * @throws IllegalStateException No [QuvenGlassMenuHost] is provided above.
  */
 @Composable
@@ -241,6 +260,7 @@ internal fun GlassDropdown(
     placement: QuvenGlassMorphPlacement,
     face: @Composable () -> Unit,
     preview: GlassMenuPreview?,
+    popover: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val host = checkNotNull(LocalQuvenGlassMenuHost.current) { "A glass menu opens in a QuvenGlassMenuHost above it." }
@@ -253,6 +273,7 @@ internal fun GlassDropdown(
         request.placement = placement
         request.face = face
         request.preview = preview
+        request.popover = popover
         request.content = content
     }
     LaunchedEffect(host, request, expanded) {
@@ -372,6 +393,25 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
 
     /** Gets or sets the control lifted over the dimmed screen while the menu is shown, or `null` for none. */
     var preview: GlassMenuPreview? by mutableStateOf(null)
+
+    /** Gets or sets a value indicating whether the content is a popover's panel rather than a menu's entries. */
+    var popover: Boolean by mutableStateOf(false)
+}
+
+/**
+ * Returns the drop of glass a popover grows from: a circle beyond [control]'s edge on the side the popover opens to,
+ * centred on it, which stays joined to the open panel as its point.
+ *
+ * @param control The control's bounds.
+ * @param spaceHeight The height of the space the popover stands in.
+ * @param density The density the point is measured in.
+ * @return The drop's bounds.
+ */
+internal fun popoverPoint(control: Rect, spaceHeight: Float, density: Density): Rect = with(density) {
+    val radius = PopoverPointDiameter.toPx() / 2f
+    val reach = PopoverPointReach.toPx()
+    val centreY = if (opensAbove(control.top, control.bottom, spaceHeight)) control.top - reach else control.bottom + reach
+    Rect(Offset(control.center.x, centreY), radius)
 }
 
 /**
@@ -435,6 +475,15 @@ internal suspend fun PointerInputScope.keepPresses(onPress: () -> Unit = {}) = a
         event.changes.forEach { it.consume() }
     } while (event.changes.any { it.pressed })
 }
+
+/** The diameter of the drop of glass a popover grows from, and keeps as its point. */
+private val PopoverPointDiameter = 18.dp
+
+/** How far beyond its control's edge the centre of a popover's point stands. */
+private val PopoverPointReach = 13.dp
+
+/** The room between a popover's panel and its control, which its point spans. */
+internal val PopoverGap = 14.dp
 
 /** The least room between a menu and the host's edges, which also caps a long menu's height. */
 internal val MenuEdge = 16.dp

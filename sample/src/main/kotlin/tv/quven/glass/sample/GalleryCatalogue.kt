@@ -133,8 +133,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     Exhibit(
         "Popover",
         "A panel of glass that grows out of the control it belongs to and points at it.",
-        ExhibitStatus.InDevelopment,
-    ),
+        ExhibitStatus.Ready,
+    ) { PopoverExhibit(it) },
     Exhibit(
         "Search",
         "The Search circle opens into a field of glass along the bar.",

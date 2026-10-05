@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.11.1")
+    implementation("tv.quven.glass:glass:2.12.0")
 }
 ```
 
@@ -267,6 +267,23 @@ QuvenGlassContextMenuBox(
 }
 ```
 
+## Popovers
+
+`QuvenGlassPopover` opens a panel of anything you like out of a control, as an iPad's popovers do. A drop of glass forms
+at the control's edge and grows into the panel above or below it, centred on it, then stays joined to the panel as a
+small point, and closing it folds the panel back into that drop. The control does not hide, so mark it with
+`quvenGlassAnchor(state, stretches = false)`. The popover opens in the same `QuvenGlassMenuHost` as the menus, and a
+press elsewhere or Back calls `onDismissRequest`. Why a drop? It can bend and light what lies under it, since it is the
+panel's own glass.
+
+```kotlin
+val state = rememberQuvenGlassMorphState()
+QuvenGlassButton(onClick = { showing = true }, label = "Details", modifier = Modifier.quvenGlassAnchor(state, stretches = false))
+QuvenGlassPopover(state, expanded = showing, onDismissRequest = { showing = false }, modifier = Modifier.width(280.dp)) {
+    Details(Modifier.padding(20.dp))
+}
+```
+
 ## Sheets
 
 `QuvenGlassSheet` raises a sheet from the bottom edge, the way iOS does on a phone. At about half the window it floats
@@ -360,6 +377,7 @@ Reference: iPad A16, iOS 26.5, Liquid Glass set to Glass; `reference/ios` frames
 | Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
 | Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |
+| Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
 | Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far |
 | Alert | 319 pt wide with corners of 33, centred; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |
 | Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
