@@ -57,6 +57,7 @@ class QuvenGlassStyleTest {
         assertEquals(104.dp, track.touchLightSpread)
         assertEquals(0.96f, track.slideDamping, 0f)
         assertEquals(324f, track.slideStiffness, 0f)
+        assertEquals(0.15f, track.platter.alpha, 0.005f)
     }
 
     @Test

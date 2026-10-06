@@ -330,6 +330,7 @@ public data class QuvenGlassStyle(
         touchLightSpread = TrackTouchSpread,
         slideDamping = TrackSlideDamping,
         slideStiffness = TrackSlideStiffness,
+        platter = TrackPlatter,
     )
 
     /**
@@ -380,6 +381,8 @@ public data class QuvenGlassStyle(
         private val TrackTouchSpread = 104.dp
         private const val TrackSlideDamping = 0.96f
         private const val TrackSlideStiffness = 324f
+        // Measured on the system's tab bar on an iPad: the chosen tab's platter is white at 15%.
+        private val TrackPlatter = Color(0x26FFFFFF)
         // Measured on a physical iPad: the rim of still glass shows what lies just outside it, as it is.
         private const val StandardRimGlow = 1f
         private const val MenuPressGlow = 3.6f
