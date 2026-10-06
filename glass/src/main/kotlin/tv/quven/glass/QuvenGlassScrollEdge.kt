@@ -9,11 +9,13 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.layer.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.layer.CompositingStrategy as LayerCompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.node.DrawModifierNode
@@ -50,7 +52,11 @@ public fun Modifier.quvenGlassScrollEdge(
     bottom: Dp = 0.dp,
     style: QuvenGlassScrollEdgeStyle = QuvenGlassScrollEdgeStyle.Soft,
     color: Color = HardEdgeColor,
-): Modifier = this then ScrollEdgeElement(top, bottom, style, color)
+): Modifier {
+    // Soft edges are kept offscreen, so glass animating over them reads their blur instead of blurring again.
+    val kept = if (style == QuvenGlassScrollEdgeStyle.Soft) graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen) else this
+    return kept then ScrollEdgeElement(top, bottom, style, color)
+}
 
 /**
  * Returns how far toward black soft content stands at [share] of the way across the soft edge from the edge itself:
@@ -162,8 +168,8 @@ private class ScrollEdgeNode(
 
     /**
      * Draws [recording] blurred by [sigma] over the band [reach] tall at the top or bottom edge, faded out away from the
-     * edge. Only the band and the reach of its blur are blurred, into [band]'s blur layer, and the faded result is kept in
-     * an offscreen layer the renderer reuses while the content stands still, so glass animating over it blurs nothing.
+     * edge. Only the band and the reach of its blur are blurred, into [band]'s blur layer, and the fade masks that blur
+     * alone in an offscreen layer.
      */
     private fun DrawScope.softBlur(band: BlurredBand, recording: GraphicsLayer, sigma: Float, reach: Float, atTop: Boolean) {
         val rect = band(reach, atTop)
@@ -172,7 +178,7 @@ private class ScrollEdgeNode(
         band.blur.renderEffect = BlurEffect(sigma, sigma, TileMode.Clamp)
         band.blur.record(IntSize(size.width.roundToInt(), (to - from).roundToInt())) { translate(top = -from) { drawLayer(recording) } }
         val brush = edgeBrush(reach, atTop, ::softEdgeBlur)
-        band.faded.compositingStrategy = CompositingStrategy.Offscreen
+        band.faded.compositingStrategy = LayerCompositingStrategy.Offscreen
         band.faded.record(IntSize(rect.width.roundToInt(), rect.height.roundToInt())) {
             translate(top = from - rect.top) { drawLayer(band.blur) }
             translate(top = -rect.top) { drawRect(brush, rect.topLeft, rect.size, blendMode = BlendMode.DstIn) }
