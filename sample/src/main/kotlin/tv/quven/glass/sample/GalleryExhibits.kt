@@ -309,13 +309,14 @@ internal fun BoxScope.TextMenuExhibit(tuning: SampleTuning) {
         BasicTextField(
             value = text,
             onValueChange = { text = it },
-            textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 20.sp),
+            textStyle = TextStyle(color = SampleColors.TextHigh, fontSize = 20.sp, fontFamily = BackdropFont),
             cursorBrush = SolidColor(SystemBlue),
             modifier = Modifier
                 .align(Alignment.Center)
                 .size(TextPanelWidth, 200.dp)
                 .quvenLiquidGlass(LocalQuvenGlassBackdrop.current, tuning.style, RoundedCornerShape(28.dp), reduceMotion = tuning.reduceMotion)
-                .padding(16.dp),
+                // The reference's text view sets its text 16 in from its frame, then 5 further at the sides and 8 at the top and foot.
+                .padding(horizontal = 21.dp, vertical = 24.dp),
         )
     }
 }
@@ -1478,6 +1479,13 @@ private val SidebarSymbol: ImageVector = ImageVector.Builder("SidebarLeft", 24.d
         PathParser().parsePathString("M5 4.5h14a2.5 2.5 0 0 1 2.5 2.5v10a2.5 2.5 0 0 1 -2.5 2.5h-14a2.5 2.5 0 0 1 -2.5 -2.5v-10a2.5 2.5 0 0 1 2.5 -2.5z M9.5 4.5v15").toNodes(),
         stroke = SolidColor(Color.Black),
         strokeLineWidth = 1.8f,
+    )
+    // The three short rows the system's symbol draws in its left pane.
+    addPath(
+        PathParser().parsePathString("M5 8h2.2 M5 10.5h2.2 M5 13h2.2").toNodes(),
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.5f,
+        strokeLineCap = StrokeCap.Round,
     )
 }.build()
 

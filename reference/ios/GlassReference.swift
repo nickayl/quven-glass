@@ -2083,7 +2083,7 @@ struct TextMenuStage: View {
 
     var body: some View {
         TextEditor(text: $text)
-            .font(.system(size: 20))
+            .font(BackdropFont.inter(size: 20))
             .scrollContentBackground(.hidden)
             .padding(16)
             .frame(width: 440, height: 200)

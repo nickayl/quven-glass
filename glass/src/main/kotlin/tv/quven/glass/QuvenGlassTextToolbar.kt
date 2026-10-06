@@ -3,6 +3,7 @@ package tv.quven.glass
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -11,10 +12,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuItem
+import androidx.compose.foundation.text.contextmenu.data.TextContextMenuKeys
 import androidx.compose.foundation.text.contextmenu.data.TextContextMenuSession
 import androidx.compose.foundation.text.contextmenu.provider.LocalTextContextMenuToolbarProvider
 import androidx.compose.foundation.text.contextmenu.provider.TextContextMenuDataProvider
@@ -35,22 +39,31 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.Placeable
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.platform.LocalTextToolbar
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.TextToolbar
 import androidx.compose.ui.platform.TextToolbarStatus
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -88,7 +101,7 @@ public fun ProvideQuvenGlassTextToolbar(
             box != null && asked != null -> {
                 val session = remember(asked) { object : TextContextMenuSession { override fun close() = menus.close() } }
                 val actions = asked.data().components.filterIsInstance<TextContextMenuItem>().map { item ->
-                    EditAction(item.label) { item.onClick(session) }
+                    EditAction(item.label, editKindOf(item.key)) { item.onClick(session) }
                 }
                 if (actions.isNotEmpty()) {
                     EditMenu(asked, asked.contentBounds(box), box.positionInRoot(), actions, style, backdrop, textStyle, reduceMotion, onDone = {})
@@ -145,9 +158,28 @@ internal class EditMenuRequest(val selection: Rect, val actions: List<EditAction
  * One action of an edit menu.
  *
  * @property label The action's name.
+ * @property kind Which of the clipboard's and the selection's own actions this is, if any.
  * @property run Runs the action.
  */
-internal class EditAction(val label: String, val run: () -> Unit)
+internal class EditAction(val label: String, val kind: EditKind = EditKind.Other, val run: () -> Unit)
+
+/** The actions an edit menu knows by name, which it gives a glyph of its own and heads its expanded form with. */
+internal enum class EditKind { Cut, Copy, Paste, SelectAll, Autofill, Other }
+
+/**
+ * Returns which known action a text context menu item's [key] names.
+ *
+ * @param key The item's key.
+ * @return The action, or [EditKind.Other] for one the menu does not know.
+ */
+internal fun editKindOf(key: Any): EditKind = when (key) {
+    TextContextMenuKeys.CutKey -> EditKind.Cut
+    TextContextMenuKeys.CopyKey -> EditKind.Copy
+    TextContextMenuKeys.PasteKey -> EditKind.Paste
+    TextContextMenuKeys.SelectAllKey -> EditKind.SelectAll
+    TextContextMenuKeys.AutofillKey -> EditKind.Autofill
+    else -> EditKind.Other
+}
 
 /** The text toolbar that asks for the edit menu on glass, which its provider draws. */
 @Stable
@@ -182,11 +214,11 @@ internal class GlassTextToolbar : TextToolbar {
         onAutofillRequested: (() -> Unit)?,
     ) {
         val actions = listOfNotNull(
-            onCutRequested?.let { EditAction(labels.cut, it) },
-            onCopyRequested?.let { EditAction(labels.copy, it) },
-            onPasteRequested?.let { EditAction(labels.paste, it) },
-            onSelectAllRequested?.let { EditAction(labels.selectAll, it) },
-            onAutofillRequested?.let { EditAction(labels.autofill, it) },
+            onCutRequested?.let { EditAction(labels.cut, EditKind.Cut, run = it) },
+            onCopyRequested?.let { EditAction(labels.copy, EditKind.Copy, run = it) },
+            onPasteRequested?.let { EditAction(labels.paste, EditKind.Paste, run = it) },
+            onSelectAllRequested?.let { EditAction(labels.selectAll, EditKind.SelectAll, run = it) },
+            onAutofillRequested?.let { EditAction(labels.autofill, EditKind.Autofill, run = it) },
         )
         shown = EditMenuRequest(rect, actions).takeIf { actions.isNotEmpty() }
     }
@@ -214,7 +246,9 @@ internal class EditLabels(val cut: String, val copy: String, val paste: String, 
 
 /**
  * Draws [actions] on a capsule of glass over [selection], centred on it, above it where the room allows and otherwise
- * below.
+ * below. On a phone the actions that do not fit page behind arrows, as iOS pages its edit menu; on a tablet they stand
+ * behind a chevron that expands the capsule into a menu of every action, its clipboard's actions heading it side by
+ * side, as iPadOS expands its edit menu.
  *
  * @param request The menu, which restarts its appearance when it changes.
  * @param selection The selection's bounds, in the provider's coordinates.
@@ -238,80 +272,290 @@ private fun EditMenu(
     reduceMotion: Boolean,
     onDone: () -> Unit,
 ) {
-    val appear = remember(request) { Animatable(0f) }
-    LaunchedEffect(request) { appear.animateTo(1f, tween(AppearMillis)) }
     var page by remember(request, actions.size) { mutableIntStateOf(0) }
+    var expanded by remember(request) { mutableStateOf(false) }
+    val appear = remember(request, expanded) { Animatable(0f) }
+    LaunchedEffect(request, expanded) { appear.animateTo(1f, tween(AppearMillis)) }
     val density = LocalDensity.current
+    val window = LocalWindowInfo.current.containerSize
+    val metrics = if (with(density) { minOf(window.width, window.height).toDp() } >= TabletSide) EditMenuMetrics.Tablet else EditMenuMetrics.Phone
     val gap = with(density) { MenuGap.toPx() }
-    val room = LocalWindowInfo.current.containerSize.width - with(density) { (MenuMargin * 2).roundToPx() }
+    val margin = with(density) { MenuMargin.roundToPx() }
+    val room = minOf(window.width - margin * 2, with(density) { metrics.maxWidth.roundToPx() })
     val hairlines = remember { HairlineStops() }
+    val bar = remember(request) { BarBounds() }
+    val run: (EditAction) -> Unit = { action ->
+        action.run()
+        onDone()
+    }
     Layout(
         content = {
-            Layout(
-                content = {
-                    actions.forEach { action ->
-                        EditMenuAction(action.label, textStyle) {
-                            action.run()
-                            onDone()
-                        }
-                    }
-                    EditMenuAction(PreviousPage, textStyle) { page-- }
-                    EditMenuAction(NextPage, textStyle) { page++ }
+            Box(
+                Modifier.graphicsLayer {
+                    val shown = appear.value
+                    alpha = shown
+                    val grown = if (reduceMotion) 1f else AppearScale + (1f - AppearScale) * shown
+                    scaleX = grown
+                    scaleY = grown
+                    // The expanded menu grows out of the chevron at the capsule's end.
+                    transformOrigin = if (expanded) TransformOrigin(1f, 0f) else TransformOrigin.Center
                 },
-                modifier = Modifier
-                    .height(MenuHeight)
-                    .graphicsLayer {
-                        val shown = appear.value
-                        alpha = shown
-                        val grown = if (reduceMotion) 1f else AppearScale + (1f - AppearScale) * shown
-                        scaleX = grown
-                        scaleY = grown
-                    }
-                    .liquidGlass(backdrop, style, CircleShape, null, reduceMotion, lift = null, pill = null)
-                    .drawBehind {
-                        val tall = HairlineHeight.toPx()
-                        hairlines.stops.forEach { x ->
-                            drawRect(HairlineColor, Offset(x, (size.height - tall) / 2f), Size(HairlineWidth.toPx(), tall))
-                        }
-                    },
-            ) { measurables, constraints ->
-                val tall = constraints.maxHeight
-                val placeables = measurables.map { it.measure(Constraints(minHeight = tall, maxHeight = tall)) }
-                val items = placeables.dropLast(2)
-                val back = placeables[placeables.size - 2]
-                val more = placeables.last()
-                val hairline = HairlineWidth.roundToPx()
-                val pages = editMenuPages(items.map { it.width }, room, back.width, hairline)
-                val shown = pages[page.coerceIn(pages.indices)]
-                val row = buildList {
-                    if (shown.first > 0) add(back)
-                    shown.forEach { add(items[it]) }
-                    if (shown.last < items.lastIndex) add(more)
-                }
-                hairlines.stops = row.dropLast(1).runningFold(0) { x, piece -> x + piece.width + hairline }.drop(1).map { (it - hairline).toFloat() }
-                val width = row.sumOf { it.width } + hairline * (row.size - 1)
-                layout(width, tall) {
-                    var x = 0
-                    row.forEach { piece ->
-                        piece.place(x, 0)
-                        x += piece.width + hairline
-                    }
+            ) {
+                if (expanded) {
+                    ExpandedEditMenu(actions, style, backdrop, textStyle, reduceMotion, run)
+                } else {
+                    EditMenuBar(actions, metrics, room, page, { page = it }, { expanded = true }, hairlines, style, backdrop, textStyle, reduceMotion, run)
                 }
             }
         },
+    ) { measurables, _ ->
+        if (!expanded) {
+            // The menu takes the width its actions need, up to its room, wherever the provider stands.
+            val menu = measurables.single().measure(Constraints(maxHeight = metrics.height.roundToPx()))
+            val above = selection.top - gap - menu.height
+            val top = if (origin.y + above >= 0f) above else selection.bottom + gap
+            val left = (selection.center.x - menu.width / 2f).coerceAtLeast(margin - origin.x)
+            bar.bounds = Rect(Offset(left, top), Size(menu.width.toFloat(), menu.height.toFloat()))
+            layout(0, 0) { menu.place(IntOffset(left.roundToInt(), top.roundToInt())) }
+        } else {
+            // The expanded menu keeps the capsule's top and end, within the window.
+            val menu = measurables.single().measure(Constraints(maxHeight = (window.height - margin * 2).coerceAtLeast(0)))
+            val from = bar.bounds
+            val left = (from.right - menu.width).coerceAtLeast(margin - origin.x)
+            val top = from.top.coerceIn(margin - origin.y, (window.height - margin - menu.height - origin.y).coerceAtLeast(margin - origin.y))
+            layout(0, 0) { menu.place(IntOffset(left.roundToInt(), top.roundToInt())) }
+        }
+    }
+}
+
+/**
+ * Draws the edit menu's capsule: the actions that fit in [room], parted by hairlines, with arrows to the other pages on a
+ * phone or a chevron that expands the menu on a tablet.
+ *
+ * @param actions The actions, in the order they stand.
+ * @param metrics The capsule's layout.
+ * @param room The widest the capsule may stand, in pixels.
+ * @param page The page shown, on a phone.
+ * @param onPage Invoked with the page to show.
+ * @param onExpand Invoked when the chevron is pressed, on a tablet.
+ * @param hairlines Where the hairlines stand, as the last layout placed them.
+ * @param style The material.
+ * @param backdrop The backdrop the glass stands over.
+ * @param textStyle The typeface of the names.
+ * @param reduceMotion Whether motion is reduced.
+ * @param run Runs an action chosen.
+ */
+@Composable
+private fun EditMenuBar(
+    actions: List<EditAction>,
+    metrics: EditMenuMetrics,
+    room: Int,
+    page: Int,
+    onPage: (Int) -> Unit,
+    onExpand: () -> Unit,
+    hairlines: HairlineStops,
+    style: QuvenGlassStyle,
+    backdrop: QuvenGlassBackdrop?,
+    textStyle: TextStyle,
+    reduceMotion: Boolean,
+    run: (EditAction) -> Unit,
+) {
+    Layout(
+        content = {
+            actions.forEach { action -> EditMenuAction(action.label, metrics, textStyle) { run(action) } }
+            if (metrics.expands) {
+                EditMenuMore(metrics, onExpand)
+            } else {
+                EditMenuAction(PreviousPage, metrics, textStyle) { onPage(page - 1) }
+                EditMenuAction(NextPage, metrics, textStyle) { onPage(page + 1) }
+            }
+        },
+        modifier = Modifier
+            .height(metrics.height)
+            .liquidGlass(backdrop, style, CircleShape, null, reduceMotion, lift = null, pill = null)
+            .drawBehind {
+                val tall = metrics.hairlineHeight.toPx()
+                hairlines.stops.forEach { x ->
+                    drawRect(metrics.hairlineColor, Offset(x, (size.height - tall) / 2f), Size(HairlineWidth.toPx(), tall))
+                }
+            },
     ) { measurables, constraints ->
-        // The menu takes the width its actions need, up to the window's, wherever the provider stands.
-        val menu = measurables.single().measure(Constraints(maxHeight = MenuHeight.roundToPx()))
-        val above = selection.top - gap - menu.height
-        val top = if (origin.y + above >= 0f) above else selection.bottom + gap
-        val left = (selection.center.x - menu.width / 2f).coerceAtLeast(MenuMargin.toPx() - origin.x)
-        layout(0, 0) { menu.place(IntOffset(left.roundToInt(), top.roundToInt())) }
+        val tall = constraints.maxHeight
+        val placeables = measurables.map { it.measure(Constraints(minHeight = tall, maxHeight = tall)) }
+        val hairline = HairlineWidth.roundToPx()
+        val row: List<Placeable>
+        val parted: Int
+        if (metrics.expands) {
+            val items = placeables.dropLast(1)
+            val more = placeables.last()
+            val shown = editMenuFit(items.map { it.width }, room, more.width, hairline)
+            row = items.take(shown) + if (shown < items.size) listOf(more) else emptyList()
+            // No hairline parts the last action from the chevron.
+            parted = shown - 1
+        } else {
+            val items = placeables.dropLast(2)
+            val back = placeables[placeables.size - 2]
+            val next = placeables.last()
+            val pages = editMenuPages(items.map { it.width }, room, back.width, hairline)
+            val shown = pages[page.coerceIn(pages.indices)]
+            row = buildList {
+                if (shown.first > 0) add(back)
+                shown.forEach { add(items[it]) }
+                if (shown.last < items.lastIndex) add(next)
+            }
+            parted = row.size - 1
+        }
+        val starts = row.runningFold(0) { x, piece -> x + piece.width + hairline }
+        hairlines.stops = (1..parted).map { (starts[it] - hairline).toFloat() }
+        val width = row.sumOf { it.width } + hairline * parted
+        layout(width, tall) {
+            var x = 0
+            row.forEachIndexed { index, piece ->
+                piece.place(x, 0)
+                x += piece.width + if (index < parted) hairline else 0
+            }
+        }
+    }
+}
+
+/**
+ * Draws every action of an expanded edit menu on a menu's glass: the clipboard's actions side by side at its head, the
+ * others one under another, each with its glyph where it has one.
+ *
+ * @param actions The actions, in the order they stand.
+ * @param style The material.
+ * @param backdrop The backdrop the glass stands over.
+ * @param textStyle The typeface of the names.
+ * @param reduceMotion Whether motion is reduced.
+ * @param run Runs an action chosen.
+ */
+@Composable
+private fun ExpandedEditMenu(
+    actions: List<EditAction>,
+    style: QuvenGlassStyle,
+    backdrop: QuvenGlassBackdrop?,
+    textStyle: TextStyle,
+    reduceMotion: Boolean,
+    run: (EditAction) -> Unit,
+) {
+    val metrics = QuvenGlassMenuMetrics.Tablet
+    val clipboard = actions.filter { it.kind in ClipboardKinds }
+    val others = actions - clipboard.toSet()
+    val palette = clipboard.mapNotNull { action -> editGlyph(action)?.let { glyph -> PaletteAction(action.label, glyph) { run(action) } } }
+    Box(Modifier.liquidGlass(backdrop, remember(style) { style.forMenus() }, RoundedCornerShape(metrics.cornerRadius), null, reduceMotion, lift = null, pill = null)) {
+        QuvenGlassMenu(metrics = metrics, textStyle = textStyle) {
+            if (palette.isNotEmpty()) MenuPalette(palette)
+            if (palette.isNotEmpty() && others.isNotEmpty()) QuvenGlassMenuDivider()
+            others.forEach { action -> QuvenGlassMenuItem(action.label, onClick = { run(action) }, icon = editGlyph(action)) }
+        }
+    }
+}
+
+/**
+ * Returns the glyph an expanded edit menu gives [action], one of its own for an action it knows.
+ *
+ * @param action The action.
+ * @return The glyph, or `null` for an action the menu does not know.
+ */
+@Composable
+private fun editGlyph(action: EditAction): Painter? = when (action.kind) {
+    EditKind.Cut -> rememberVectorPainter(EditGlyphs.Cut)
+    EditKind.Copy -> rememberVectorPainter(EditGlyphs.Copy)
+    EditKind.Paste -> rememberVectorPainter(EditGlyphs.Paste)
+    EditKind.SelectAll -> rememberVectorPainter(EditGlyphs.SelectAll)
+    EditKind.Autofill -> rememberVectorPainter(EditGlyphs.Autofill)
+    EditKind.Other -> null
+}
+
+/**
+ * Draws the chevron at the end of a tablet's edit menu, in a circle within the capsule's end, that expands the menu.
+ *
+ * @param metrics The capsule's layout.
+ * @param onClick Invoked when the chevron is pressed.
+ */
+@Composable
+private fun EditMenuMore(metrics: EditMenuMetrics, onClick: () -> Unit) {
+    val inset = (metrics.height - MoreDiameter) / 2
+    Box(
+        Modifier
+            .fillMaxHeight()
+            .width(MoreDiameter + inset)
+            .clickable(interactionSource = null, indication = null, role = Role.Button, onClick = onClick),
+    ) {
+        Canvas(Modifier.align(Alignment.CenterStart).size(MoreDiameter)) {
+            drawCircle(MoreFill)
+            val half = MoreChevron.toPx() / 2f
+            val path = Path().apply {
+                moveTo(center.x - half / 2f, center.y - half)
+                lineTo(center.x + half / 2f, center.y)
+                lineTo(center.x - half / 2f, center.y + half)
+            }
+            drawPath(path, Color.White, style = Stroke(width = MoreStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        }
     }
 }
 
 /** Where the hairlines between an edit menu's actions stand, from its start, as its last layout placed them. */
 private class HairlineStops {
     var stops: List<Float> = emptyList()
+}
+
+/** Where the edit menu's capsule last stood, in the provider's coordinates, which the expanded menu grows from. */
+private class BarBounds {
+    var bounds: Rect = Rect.Zero
+}
+
+/**
+ * The layout of an edit menu's capsule, as the system lays it out on a phone and on a tablet.
+ *
+ * @property height The capsule's height.
+ * @property actionSize The size of an action's name.
+ * @property actionPadding The room either side of an action's name.
+ * @property hairlineHeight The height of the hairline between two actions.
+ * @property hairlineColor The colour of the hairline.
+ * @property maxWidth The widest the capsule stands.
+ * @property expands Whether the actions that do not fit stand behind a chevron that expands the menu, rather than on
+ * further pages.
+ */
+internal class EditMenuMetrics(
+    val height: Dp,
+    val actionSize: TextUnit,
+    val actionPadding: Dp,
+    val hairlineHeight: Dp,
+    val hairlineColor: Color,
+    val maxWidth: Dp,
+    val expands: Boolean,
+) {
+    companion object {
+        /** Gets the layout on a phone, measured on the system's edit menu on an iPhone. */
+        val Phone: EditMenuMetrics = EditMenuMetrics(41.dp, 17.sp, 17.dp, 20.dp, Color(0x38FFFFFF), Dp.Infinity, expands = false)
+
+        /** Gets the layout on a tablet, measured on the system's edit menu on an iPad. */
+        val Tablet: EditMenuMetrics = EditMenuMetrics(43.dp, 15.sp, 17.dp, 17.dp, Color(0x80545454), 500.dp, expands = true)
+    }
+}
+
+/**
+ * Returns how many of an edit menu's actions stand in its capsule on a tablet: all of them where they fit in [room],
+ * otherwise as many as fit beside the chevron that expands the menu, and always the first.
+ *
+ * @param widths The widths of the actions, in order.
+ * @param room The widest the capsule may stand.
+ * @param more The width of the chevron.
+ * @param hairline The width of the hairline between two actions.
+ * @return The number of actions shown.
+ */
+internal fun editMenuFit(widths: List<Int>, room: Int, more: Int, hairline: Int): Int {
+    if (widths.sum() + hairline * (widths.size - 1).coerceAtLeast(0) <= room) return widths.size
+    var used = more
+    var count = 0
+    for (width in widths) {
+        val next = used + width + if (count > 0) hairline else 0
+        if (next > room && count > 0) break
+        used = next
+        count++
+    }
+    return count
 }
 
 /**
@@ -349,11 +593,12 @@ internal fun editMenuPages(widths: List<Int>, room: Int, arrow: Int, hairline: I
  * Draws one action of an edit menu, lit while pressed.
  *
  * @param label The action's name.
+ * @param metrics The capsule's layout.
  * @param textStyle The typeface of its name.
  * @param onClick Invoked when the action is chosen.
  */
 @Composable
-private fun EditMenuAction(label: String, textStyle: TextStyle, onClick: () -> Unit) {
+private fun EditMenuAction(label: String, metrics: EditMenuMetrics, textStyle: TextStyle, onClick: () -> Unit) {
     val presses = remember { MutableInteractionSource() }
     val pressed by presses.collectIsPressedAsState()
     Box(
@@ -361,10 +606,10 @@ private fun EditMenuAction(label: String, textStyle: TextStyle, onClick: () -> U
             .fillMaxHeight()
             .background(if (pressed) PressedColor else Color.Transparent)
             .clickable(interactionSource = presses, indication = null, role = Role.Button, onClick = onClick)
-            .padding(horizontal = ActionPadding),
+            .padding(horizontal = metrics.actionPadding),
         contentAlignment = Alignment.Center,
     ) {
-        BasicText(label, style = textStyle.merge(TextStyle(color = Color.White, fontSize = ActionSize)), maxLines = 1)
+        BasicText(label, style = textStyle.merge(TextStyle(color = Color.White, fontSize = metrics.actionSize)), maxLines = 1)
     }
 }
 
@@ -385,17 +630,20 @@ internal fun ReadEditLabels(toolbar: GlassTextToolbar) {
     )
 }
 
-// Measured on the system's edit menu on an iPhone.
-private val MenuHeight: Dp = 41.dp
+// Measured on the system's edit menu on an iPhone; a tablet's layout is EditMenuMetrics.Tablet.
 private val MenuGap: Dp = 14.dp
-private val ActionPadding: Dp = 17.dp
-private val ActionSize = 17.sp
 private val HairlineWidth: Dp = 1.dp
-private val HairlineHeight: Dp = 20.dp
-private val HairlineColor = Color(0x38FFFFFF)
 private val PressedColor = Color(0x1FFFFFFF)
 private val MenuMargin: Dp = 8.dp
 private const val PreviousPage = "\u2039"
 private const val NextPage = "\u203A"
 private const val AppearMillis = 200
 private const val AppearScale = 0.9f
+
+// Measured on the system's edit menu on an iPad: the chevron's circle within the capsule's end, white at 6%.
+private val TabletSide: Dp = 600.dp
+private val MoreDiameter: Dp = 36.dp
+private val MoreFill = Color(0x0FFFFFFF)
+private val MoreChevron: Dp = 13.dp
+private val MoreStroke: Dp = 2.dp
+private val ClipboardKinds = setOf(EditKind.Cut, EditKind.Copy, EditKind.Paste)

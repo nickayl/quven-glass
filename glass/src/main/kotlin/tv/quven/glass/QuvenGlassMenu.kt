@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -58,17 +60,20 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.util.lerp
 import kotlin.math.roundToInt
 import kotlin.reflect.KMutableProperty0
@@ -284,6 +289,62 @@ private fun MenuItemRow(
         if (trailing != null) {
             Box(Modifier.align(Alignment.CenterEnd).padding(end = metrics.sideInset).size(metrics.iconSize), contentAlignment = Alignment.Center) {
                 trailing(ink)
+            }
+        }
+    }
+}
+
+/**
+ * An action of a [MenuPalette]: its name, its glyph and what choosing it runs.
+ *
+ * @property label The action's name.
+ * @property icon The action's glyph.
+ * @property run Runs the action.
+ */
+internal class PaletteAction(val label: String, val icon: Painter, val run: () -> Unit)
+
+/**
+ * Draws actions side by side across a [QuvenGlassMenu], each glyph over its name in small type, as an expanded edit menu
+ * heads its entries with the clipboard's actions. A press lights the action's cell; a choice closes the menu.
+ *
+ * @param actions The actions, in the order they stand.
+ * @param modifier Modifier applied to the row.
+ */
+@Composable
+internal fun MenuPalette(actions: List<PaletteAction>, modifier: Modifier = Modifier) {
+    val menu = LocalOpenMenu.current
+    val metrics = menu.metrics
+    Row(modifier.fillMaxWidth().height(PaletteHeight).padding(horizontal = metrics.highlightInset)) {
+        actions.forEach { action ->
+            val presses = remember { MutableInteractionSource() }
+            val pressed by presses.collectIsPressedAsState()
+            Box(
+                Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .drawBehind { if (pressed) drawRoundRect(menu.colors.highlight, cornerRadius = CornerRadius(PaletteCorner.toPx())) }
+                    .clickable(interactionSource = presses, indication = null, role = Role.Button) {
+                        action.run()
+                        menu.onChosen()
+                    },
+            ) {
+                Box(Modifier.align(Alignment.TopCenter).padding(top = PaletteIconCentre - metrics.iconSize / 2)) {
+                    MenuGlyph(action.icon, menu.colors.label, Modifier.testTag(PaletteGlyphTag))
+                }
+                BasicText(
+                    action.label,
+                    Modifier.align(Alignment.TopCenter).padding(top = PaletteLabelCentre - PaletteLabelLine / 2),
+                    style = menu.textStyle.merge(
+                        TextStyle(
+                            color = menu.colors.label,
+                            fontSize = PaletteLabelSize,
+                            lineHeight = PaletteLabelLine.value.sp,
+                            lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None),
+                        ),
+                    ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
@@ -601,6 +662,15 @@ private object FromTheFoot : Arrangement.Vertical {
 }
 
 private val TrailingGap = 8.dp
+
+// Measured on the palette heading an expanded edit menu on an iPad.
+private val PaletteHeight = 53.5.dp
+private val PaletteIconCentre = 18.dp
+private val PaletteLabelCentre = 38.dp
+private val PaletteLabelSize = 12.sp
+private val PaletteLabelLine = 14.dp
+private val PaletteCorner = 12.dp
+internal const val PaletteGlyphTag = "quven-glass-palette-glyph"
 private const val HighlightFadeMillis = 180
 private const val HighlightDelayMillis = 150
 private const val WashInMillis = 50

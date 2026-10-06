@@ -280,7 +280,7 @@ private fun inter(weight: FontWeight): Font =
     Font(R.font.inter_variable, weight = weight, variationSettings = FontVariation.Settings(FontVariation.weight(weight.weight)))
 
 /** The family the backdrop's text is drawn in, the iOS reference's. */
-private val BackdropFont = FontFamily(inter(FontWeight.Normal), inter(FontWeight.Bold), inter(FontWeight.ExtraBold), inter(FontWeight.Black))
+internal val BackdropFont = FontFamily(inter(FontWeight.Normal), inter(FontWeight.Bold), inter(FontWeight.ExtraBold), inter(FontWeight.Black))
 
 /** The style the backdrop's text sets over the theme's, its letters unspaced as the iOS reference's. */
 private val BackdropText = TextStyle(letterSpacing = 0.sp)
