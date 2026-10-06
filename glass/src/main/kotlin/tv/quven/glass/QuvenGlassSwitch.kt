@@ -31,6 +31,10 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
@@ -48,7 +52,7 @@ import kotlinx.coroutines.flow.collectLatest
  *
  * @param checked Whether the switch is on.
  * @param onCheckedChange Invoked with the new state when the switch is tapped or its thumb is dragged across, or `null`
- * for a switch that cannot be changed.
+ * for a passive switch, whose state a parent such as a toggleable row changes and announces.
  * @param modifier Modifier applied to the switch.
  * @param enabled Whether the switch can be changed.
  * @param onColor The colour of the track while the switch is on.
@@ -75,7 +79,7 @@ public fun QuvenGlassSwitch(
  * Draws a [QuvenGlassSwitch], lifting its thumb into a lens only where [liquid] says the lens is drawn.
  *
  * @param checked Whether the switch is on.
- * @param onCheckedChange Invoked with the new state, or `null` for a switch that cannot be changed.
+ * @param onCheckedChange Invoked with the new state, or `null` for a passive switch.
  * @param modifier Modifier applied to the switch.
  * @param enabled Whether the switch can be changed.
  * @param onColor The colour of the track while on.
@@ -123,13 +127,23 @@ internal fun GlassSwitch(
                 onDragStarted = { motion.startDrag() },
                 onDragStopped = { motion.release { side -> if (side != currentChecked) currentChange?.invoke(side) } },
             )
-            .toggleable(
-                value = checked,
-                interactionSource = interactions,
-                indication = null,
-                enabled = active,
-                role = Role.Switch,
-                onValueChange = { currentChange?.invoke(it) },
+            .then(
+                if (onCheckedChange != null) {
+                    Modifier.toggleable(
+                        value = checked,
+                        interactionSource = interactions,
+                        indication = null,
+                        enabled = enabled,
+                        role = Role.Switch,
+                        onValueChange = { currentChange?.invoke(it) },
+                    )
+                } else {
+                    // A passive switch offers no action of its own, so its state merges into the parent that changes it.
+                    Modifier.semantics {
+                        toggleableState = ToggleableState(checked)
+                        role = Role.Switch
+                    }
+                },
             )
             .alpha(if (enabled) 1f else DisabledAlpha),
     ) {

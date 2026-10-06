@@ -1,6 +1,8 @@
 package tv.quven.glass
 
 import android.app.Application
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -18,7 +20,9 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
@@ -53,6 +57,22 @@ class QuvenGlassSwitchTest {
         assertEquals(28f, (bounds.bottom - bounds.top).value, 0.5f)
         compose.onNodeWithTag(SwitchTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Switch))
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
+    }
+
+    @Test
+    fun aPassiveSwitch_offersNoActionOfItsOwn_soARowThatChangesItIsTheOneTarget() {
+        var checked by mutableStateOf(false)
+        render {
+            Row(Modifier.toggleable(value = checked, role = Role.Switch) { checked = it }.testTag(RowTag)) {
+                QuvenGlassSwitch(checked = checked, onCheckedChange = null)
+            }
+        }
+
+        compose.onAllNodes(hasClickAction()).assertCountEquals(1)
+        compose.onNodeWithTag(RowTag).performClick()
+        compose.runOnIdle { assertTrue(checked) }
+        compose.onNodeWithTag(RowTag)
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.ToggleableState, ToggleableState.On))
     }
 
@@ -228,6 +248,7 @@ class QuvenGlassSwitchTest {
 
     private companion object {
         const val SwitchTag = "switch"
+        const val RowTag = "row"
         const val HeldMillis = 400L
         const val TravellingMillis = 80L
         const val FadingMillis = 64L
