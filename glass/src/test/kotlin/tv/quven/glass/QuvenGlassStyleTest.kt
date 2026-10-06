@@ -26,4 +26,14 @@ class QuvenGlassStyleTest {
         assertEquals(menu.blurFor(40f, density), menu.blurFor(900f, density), 0.001f)
         assertEquals(6f, style.withBlur(3.dp).blurFor(900f, density), 0.001f)
     }
+
+    @Test
+    fun theShade_followsTheBrightnessOnThinAndLargeGlass_andHoldsOnABar() {
+        val standard = QuvenGlassStyle.Standard
+
+        assertEquals(QuvenGlassTone.Thin.adaptation, standard.adaptationFor(44f, density), 0.001f)
+        assertEquals(0f, standard.adaptationFor(160f, density), 0.001f)
+        assertEquals(QuvenGlassTone.Large.adaptation, standard.adaptationFor(260f, density), 0.001f)
+        assertEquals(QuvenGlassTone.Large.adaptation / 2f, standard.adaptationFor(224f, density), 0.001f)
+    }
 }

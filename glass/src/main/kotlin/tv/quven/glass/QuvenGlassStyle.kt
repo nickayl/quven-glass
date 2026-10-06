@@ -8,6 +8,7 @@ import androidx.compose.ui.graphics.isSpecified
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 
 /**
  * Describes the glass material: the frosted look every API level draws, and the Liquid Glass optics drawn over a live
@@ -169,6 +170,20 @@ public data class QuvenGlassStyle(
         val end = thickBlurSize.toPx()
         val share = if (end > start) ((shorterSide - start) / (end - start)).coerceIn(0f, 1f) else if (shorterSide >= end) 1f else 0f
         blur.toPx() + (thickBlur.toPx() - blur.toPx()) * share
+    }
+
+    /**
+     * Returns how far the shade of a surface whose shorter side is [shorterSide] lightens with the mean luminance around
+     * it, its tones blended by size as the program blends them.
+     *
+     * @param shorterSide The surface's shorter side, in pixels.
+     * @param density The density the sizes are read at.
+     * @return The adaptation; 0 for a surface whose tone holds.
+     */
+    internal fun adaptationFor(shorterSide: Float, density: Density): Float = with(density) {
+        val thickness = smoothstep(thinSize.toPx(), thickSize.toPx(), shorterSide)
+        val largeness = smoothstep(largeFromSize.toPx(), largeSize.toPx(), shorterSide)
+        lerp(lerp(thinTone.adaptation, thickTone.adaptation, thickness), largeTone.adaptation, largeness)
     }
 
     /** Gets whether any of the tones lightens with the brightness of the backdrop around its surface. */

@@ -25,8 +25,6 @@ import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.node.CompositionLocalConsumerModifierNode
-import androidx.compose.ui.node.DrawModifierNode
-import androidx.compose.ui.node.GlobalPositionAwareModifierNode
 import androidx.compose.ui.node.ModifierNodeElement
 import androidx.compose.ui.node.PointerInputModifierNode
 import androidx.compose.ui.node.currentValueOf
@@ -193,6 +191,7 @@ internal class LiquidGlassNode(
     }
     private val ownAppearance = QuvenGlassAppearance()
     private val tracker = GlassAppearanceTracker(::backdropReading, ::canTurn, ::isWindowShown)
+    private val veil = Animatable(DefaultVeil)
     private var following = false
     private var probe: GlassBrightnessProbe? = null
     private var container: GlassContainerState? = null
@@ -330,8 +329,7 @@ internal class LiquidGlassNode(
         val touch = touchGlow.value.takeIf { it > 0f && style.touchLight > 0f }?.let { amount ->
             TouchLight(touchAt + offset, with(requireDensity()) { style.touchLightSpread.toPx() }, amount * style.touchLight)
         } ?: TouchLight.None
-        val shown = shownAppearance()
-        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shown.lightness, shown.veil.value, glow, style.pressWhite, touch)
+        return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, veil.value, glow, style.pressWhite, touch)
     }
 
     private fun shownAppearance(): QuvenGlassAppearance = appearance ?: ownAppearance
@@ -341,7 +339,7 @@ internal class LiquidGlassNode(
         val wanted = adapts || style.followsBrightness
         if (wanted == following) return
         following = wanted
-        if (wanted) tracker.start(coroutineScope, ::shownAppearance) { style.adaptation } else tracker.stop()
+        if (wanted) tracker.start(coroutineScope, ::shownAppearance, veil) { style.adaptation } else tracker.stop()
     }
 
     private fun isWindowShown(): Boolean = currentValueOf(LocalView).windowVisibility == View.VISIBLE
@@ -352,13 +350,14 @@ internal class LiquidGlassNode(
         return adapts && own.size.toSize().minDimension < with(requireDensity()) { style.thickSize.toPx() }
     }
 
-    // The backdrop is read under the surface and AdaptationReach around it, as far as the backdrop goes.
+    // The backdrop is read under the surface and AdaptationReach around it, as far as the backdrop goes, and only where
+    // the glass turns light or its tone follows the backdrop at its size: a probe per surface is not free.
     private suspend fun backdropReading(): GlassBackdropReading? {
-        if (!canTurn() && !style.followsBrightness) return null
         val own = coordinates?.takeIf { it.isAttached && !painter.isInsideSource } ?: return null
+        val density = requireDensity()
+        if (!canTurn() && style.adaptationFor(own.size.toSize().minDimension, density) == 0f) return null
         val source = backdrop.layer ?: return null
         val origin = backdrop.origin.takeUnless { it.isUnspecified } ?: return null
-        val density = requireDensity()
         val around = Rect(own.positionInRoot() - origin, own.size.toSize()).inflate(with(density) { AdaptationReach.toPx() })
         val area = around.intersect(Rect(Offset.Zero, source.size.toSize()))
         val probe = probe ?: GlassBrightnessProbe().also { probe = it }
@@ -386,9 +385,10 @@ internal class LiquidGlassNode(
     }
 }
 
-// Measured on Apple's interactive glass on an iPhone.
 // Measured on an iPad: a tone follows the brightness of the backdrop this far around its surface as well as under it.
 private val AdaptationReach = 40.dp
+
+// Measured on Apple's interactive glass on an iPhone.
 private val TouchLightRise = tween<Float>(35)
 private val TouchLightFade = tween<Float>(450, easing = FastOutSlowInEasing)
 

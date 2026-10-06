@@ -79,8 +79,7 @@ internal const val LiquidGlassContent = "content"
  * `largeSizes.y` thick glass turns into large glass, leaning towards `largeTone.rgb` by `largeLean.x + largeLean.y ×
  * luminance`; the saturation scales by the tone's alpha. Each shade lightens by `adapts` (thin, thick, large, light) times
  * the nearest surface's `shapeVeil`, the mean luminance of the backdrop under and around it. Thin glass turned light by
- * `shapeLight` takes `lightTone`,
- * `lightLean` and `lightPlatter` instead. Last come the rim's light,
+ * `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
  * `pressGlow` times, its saturation scaled by `pressSaturation` and up to `pressBrighten` added, the more the darker it is,
@@ -490,7 +489,7 @@ internal data class GlassSurface(
     val lift: Float,
     val pill: GlassPill?,
     val light: Float = 0f,
-    val veil: Float = QuvenGlassAppearance.DefaultVeil,
+    val veil: Float = DefaultVeil,
     val glow: Float = lift,
     val white: Float = 0f,
     val touch: TouchLight = TouchLight.None,

@@ -557,7 +557,7 @@ the cable, and the blur probe's still screenshots.
 | Menu | 223 × 38 pt rows on iPad, 247 × 42 pt on iPhone; 25 pt corners; glyph centred at 32.5 or 37 pt, name from 55 or 62 pt |
 | Menu choices | Check centred at 21 or 24 pt, name from 32 or 36 pt; a menu holding one widens by 12 or 14 pt and moves its glyphs as far |
 | Menu placement | Over its button, hanging when the room below suffices, otherwise rising with untitled rows reversed |
-| Menu glass | Thick tone, blur σ 7.4 pt, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
+| Menu glass | The tone of its size, large once its shorter side passes 124 pt, blur σ 7.4 pt at every size, no dimming behind it; a rim about 1 pt wide shows the backdrop just outside it 1.5–1.9 times brighter |
 | Menu opening | The button's glass stays as a cap, lit by the press for about 40 ms, while a drop of clear glass falls from its middle and joins it: its length on a spring with damping 0.68 and stiffness 380, its width on a slower one with damping 0.72 and stiffness 300; the near edge leaves the button last, the frost and the corners settle last, the rows come into focus from 40% of the width |
 | Menu closing | Back into its button in about 150–165 ms on an almost even ease, with no bounce; the button then stretches about 7% the way the glass came back and settles within about 250 ms |
 | Menu press | The whole menu washes about 15% whiter within 50 ms; the held row's capsule, 13 pt in from the sides, follows after 150 ms, fills in over 180 ms and goes the moment the finger lifts |

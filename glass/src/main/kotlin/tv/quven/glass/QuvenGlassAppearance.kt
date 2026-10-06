@@ -13,9 +13,6 @@ public class QuvenGlassAppearance {
 
     internal val turn: Animatable<Float, *> = Animatable(0f)
 
-    // The mean luminance of the backdrop under and around the glass, which its tone follows.
-    internal val veil: Animatable<Float, *> = Animatable(DefaultVeil)
-
     /** Gets how light the glass is, from 0, dark glass, to 1, light glass. */
     public val lightness: Float
         get() = turn.value
@@ -39,11 +36,8 @@ public class QuvenGlassAppearance {
      */
     public fun <T> pick(onDark: T, onLight: T): T = if (lightness > HalfTurn) onLight else onDark
 
-    internal companion object {
-        private const val HalfTurn = 0.5f
-
-        /** The luminance glass assumes around it before it reads any: that of a dark page. */
-        const val DefaultVeil = 0.16f
+    private companion object {
+        const val HalfTurn = 0.5f
     }
 }
 

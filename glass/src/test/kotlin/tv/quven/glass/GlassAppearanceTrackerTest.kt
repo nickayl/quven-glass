@@ -1,5 +1,6 @@
 package tv.quven.glass
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.TestMonotonicFrameClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -14,6 +15,7 @@ import org.junit.Test
 class GlassAppearanceTrackerTest {
 
     private val adaptation = QuvenGlassAdaptation()
+    private val veil = Animatable(DefaultVeil)
 
     @Test
     fun aBackdropTurningBright_turnsTheAppearanceLight_onceTheBrightnessSettles() = runTest {
@@ -22,7 +24,7 @@ class GlassAppearanceTrackerTest {
         val tracker = GlassAppearanceTracker(brightness = { reading(samples.removeFirstOrNull() ?: 1f) }, now = { currentTime })
 
         withContext(TestMonotonicFrameClock(this)) {
-            tracker.start(this, { appearance }, { adaptation })
+            tracker.start(this, { appearance }, veil, { adaptation })
             advanceTimeBy(1_000)
             assertEquals(0f, appearance.lightness)
             advanceTimeBy(5_000)
@@ -39,7 +41,7 @@ class GlassAppearanceTrackerTest {
         val tracker = GlassAppearanceTracker(brightness = { reading(1f) }, canTurn = { !thick }, now = { currentTime })
 
         withContext(TestMonotonicFrameClock(this)) {
-            tracker.start(this, { appearance }, { adaptation })
+            tracker.start(this, { appearance }, veil, { adaptation })
             advanceTimeBy(1_000)
             assertEquals(1f, appearance.lightness)
             thick = true
@@ -57,7 +59,7 @@ class GlassAppearanceTrackerTest {
         val tracker = GlassAppearanceTracker(brightness = { samples++; reading(1f) }, isShown = { false }, now = { currentTime })
 
         withContext(TestMonotonicFrameClock(this)) {
-            tracker.start(this, { appearance }, { adaptation })
+            tracker.start(this, { appearance }, veil, { adaptation })
             advanceTimeBy(5_000)
             tracker.stop()
         }
@@ -67,19 +69,21 @@ class GlassAppearanceTrackerTest {
     }
 
     @Test
-    fun theVeil_movesOnToEachReadingsLuminance_overTheTimeToTheNext_whetherOrNotTheGlassMayTurn() = runTest {
+    fun theVeil_movesOnToEachNewLuminance_overTheTimeToTheNext_whetherOrNotTheGlassMayTurn() = runTest {
         val appearance = QuvenGlassAppearance()
-        val tracker = GlassAppearanceTracker(brightness = { GlassBackdropReading(0.9f, 0.6f) }, canTurn = { false }, now = { currentTime })
+        val readings = ArrayDeque(listOf(0.6f, 0.6f, 0.601f))
+        val tracker = GlassAppearanceTracker(brightness = { GlassBackdropReading(0.9f, readings.removeFirstOrNull() ?: 0.601f) }, canTurn = { false }, now = { currentTime })
 
         withContext(TestMonotonicFrameClock(this)) {
-            tracker.start(this, { appearance }, { adaptation })
+            tracker.start(this, { appearance }, veil, { adaptation })
             advanceTimeBy(750)
-            assertEquals((QuvenGlassAppearance.DefaultVeil + 0.6f) / 2f, appearance.veil.value, 0.05f)
+            assertEquals((DefaultVeil + 0.6f) / 2f, veil.value, 0.05f)
             advanceTimeBy(1_000)
             tracker.stop()
         }
 
-        assertEquals(0.6f, appearance.veil.value, 0.001f)
+        // A change of less than a level starts no animation: the tone holds what it shows.
+        assertEquals(0.6f, veil.value, 0.0001f)
         assertEquals(0f, appearance.lightness)
     }
 

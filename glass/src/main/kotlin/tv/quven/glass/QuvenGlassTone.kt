@@ -7,15 +7,15 @@ import androidx.compose.ui.util.lerp
 
 /**
  * Describes how glass of one thickness tones the backdrop: it leans it towards [shade], lightened by [adaptation] times
- * the mean luminance of the backdrop under the surface, by [lean], plus [leanSlope] per unit of luminance, then scales
- * its saturation by [saturation].
+ * the mean luminance of the backdrop under and around the surface, by [lean], plus [leanSlope] per unit of luminance,
+ * then scales its saturation by [saturation].
  *
  * @property shade The colour the glass leans towards over a black backdrop.
  * @property lean How far the glass leans towards [shade] over a black backdrop, from 0 to 1.
  * @property leanSlope How much further it leans per unit of the backdrop's luminance, 0 for a constant lean.
  * @property saturation The saturation of the backdrop seen through the glass, 1 leaving it unchanged.
- * @property adaptation How far [shade] lightens per unit of the mean luminance of the backdrop under the surface, as
- * Apple's glass grows lighter over brighter content; 0 for a shade that holds.
+ * @property adaptation How far [shade] lightens per unit of the mean luminance of the backdrop under and around the
+ * surface, as Apple's glass grows lighter over brighter content; 0 for a shade that holds.
  */
 @Immutable
 public data class QuvenGlassTone(

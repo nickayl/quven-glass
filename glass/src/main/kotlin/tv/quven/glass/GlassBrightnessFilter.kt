@@ -51,6 +51,9 @@ internal class GlassBrightnessFilter {
  */
 internal data class GlassBackdropReading(val brightness: Float, val luminance: Float)
 
+/** The mean luminance glass assumes around it before it reads any: that of a dark page. */
+internal const val DefaultVeil = 0.16f
+
 /**
  * Returns the mean luminance of ARGB pixels, weighing their channels as the program does, from 0 to 1.
  *
