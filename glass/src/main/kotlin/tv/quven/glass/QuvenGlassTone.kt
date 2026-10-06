@@ -60,7 +60,7 @@ public data class QuvenGlassTone(
             lean = 0.88f,
             leanSlope = -0.05f,
             saturation = 2.6f,
-            adaptation = 0.16f,
+            adaptation = 0.17f,
         )
 
         /** Gets the tone of an alert, which lets more of the dimmed screen's colours through than a menu. */
