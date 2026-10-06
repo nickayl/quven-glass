@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
@@ -20,7 +20,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -60,7 +59,7 @@ private class BarEntry(val label: String, val icon: ImageVector)
  */
 internal class BarLook(val accent: Color, val glyph: Dp, val label: TextUnit, val labelDrop: Dp)
 
-/** The reference's own bar, its symbols at 24 pt and its labels at 13, marked in the sample's accent. */
+/** The reference's own bar, its stock icons drawn large enough to stand as its symbols, marked in the sample's accent. */
 internal val ReferenceBarLook = BarLook(SampleColors.Accent, 34.dp, 12.sp, 2.5.dp)
 
 /** The system's tab bar on an iPad, its symbols and labels smaller, marked in the system's blue of the dark appearance. */
@@ -264,8 +263,10 @@ internal fun phoneEntrySize(count: Int, tablet: Boolean = false): DpSize =
 /** The height of a phone's bar, the side of its Search circle. */
 internal val PhoneBarHeight: Dp = 62.dp
 
-/** The room between a phone's bar and the start, end and bottom edges of the reference's stage on an iPad. */
+/** The room between a phone's bar and the start and end edges of the reference's stage on an iPad. */
 internal val PhoneBarMargin: Dp = 10.dp
+
+/** The room between a phone's bar and the bottom edge of the reference's stage on an iPad. */
 internal val PhoneBarBottom: Dp = 11.dp
 
 /**

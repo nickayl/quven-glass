@@ -29,6 +29,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
@@ -38,7 +39,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.graphicsLayer
 
 private class Poster(val title: String, val top: Color, val bottom: Color, val mark: Color, val text: Color)
 
@@ -70,7 +70,9 @@ internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float 
     LaunchedEffect(scroll) { if (scroll > 0f) state.scrollBy(with(density) { scroll.dp.toPx() }) }
     LazyColumn(
         modifier.background(SampleColors.Ground).graphicsLayer { translationX = -shift.toPx() },
-        state = state, contentPadding = PaddingValues(top = top, bottom = 140.dp)) {
+        state = state,
+        contentPadding = PaddingValues(top = top, bottom = 140.dp),
+    ) {
         item { Header() }
         items(12) { block ->
             when (block % 4) {

@@ -42,7 +42,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MailOutline
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
@@ -449,7 +448,7 @@ private fun MaterialPanel(tuning: SampleTuning, onDone: () -> Unit) {
     Column(Modifier.padding(PanelPadding), verticalArrangement = Arrangement.spacedBy(PanelRowGap)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Material", style = PanelTitle, modifier = Modifier.weight(1f))
-            Text("Done", style = PanelBody, color = SystemBlue, modifier = Modifier.clickable(onClick = onDone))
+            Text("Done", style = PanelBody, color = SystemBlue, modifier = Modifier.clickable(role = Role.Button, onClick = onDone))
         }
         PanelSwitch("Liquid glass", tuning.liquid, tuning) { tuning.liquid = it }
         PanelSwitch("Reduce motion", tuning.reduceMotion, tuning) { tuning.reduceMotion = it }

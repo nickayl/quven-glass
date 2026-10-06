@@ -1,7 +1,7 @@
 package tv.quven.glass.sample
 
-import android.graphics.Color
 import android.content.Intent
+import android.graphics.Color
 import android.graphics.RectF
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -34,28 +34,30 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.LocalQuvenGlassAlertHost
 import tv.quven.glass.LocalQuvenGlassBackdrop
-import tv.quven.glass.ProvideQuvenGlassTextToolbar
-import tv.quven.glass.LocalQuvenGlassSheetHost
 import tv.quven.glass.LocalQuvenGlassMenuHost
+import tv.quven.glass.LocalQuvenGlassSheetHost
+import tv.quven.glass.ProvideQuvenGlassTextToolbar
 import tv.quven.glass.QuvenGlassAlertHost
 import tv.quven.glass.QuvenGlassMenuHost
 import tv.quven.glass.QuvenGlassMenuMetrics
@@ -66,8 +68,6 @@ import tv.quven.glass.rememberQuvenGlassAlertHostState
 import tv.quven.glass.rememberQuvenGlassBackdrop
 import tv.quven.glass.rememberQuvenGlassMenuHostState
 import tv.quven.glass.rememberQuvenGlassSheetHostState
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.runtime.staticCompositionLocalOf
 
 /** Shows every Liquid Glass element Apple draws, the library's own where it draws one, each over hard content. */
 class GalleryActivity : ComponentActivity() {
