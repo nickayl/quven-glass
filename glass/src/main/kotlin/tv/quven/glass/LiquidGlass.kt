@@ -195,7 +195,7 @@ internal class LiquidGlassNode(
     }
     private val ownAppearance = QuvenGlassAppearance()
     private val tracker = GlassAppearanceTracker(::backdropReading, ::canTurn, ::isWindowShown)
-    private val veil = Animatable(DefaultVeil)
+    private val veil = Animatable(DefaultVeil, VeilConverter)
     private var following = false
     private var probe: GlassBrightnessProbe? = null
     private var container: GlassContainerState? = null

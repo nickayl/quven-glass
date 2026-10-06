@@ -12,6 +12,7 @@ import androidx.annotation.RequiresApi
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.drawscope.scale
@@ -52,7 +53,7 @@ internal class GlassBrightnessProbe {
     }
 
     /**
-     * Returns what [source] shows under [area]: the mean of its channels and its mean luminance.
+     * Returns what [source] shows under [area]: the mean of its channels and its mean colour in linear light.
      *
      * @param source The layer the backdrop records into.
      * @param area The area, in the source's coordinates.
@@ -60,12 +61,12 @@ internal class GlassBrightnessProbe {
      * @return The reading; the previous one while the renderer draws nothing.
      */
     suspend fun sample(source: GraphicsLayer, area: Rect, density: Density): GlassBackdropReading {
-        if (area.width <= 0f || area.height <= 0f) return GlassBackdropReading(0f, 0f)
+        if (area.width <= 0f || area.height <= 0f) return GlassBackdropReading(0f, Color.Black)
         record(source, area, density)
         val frame = CompletableDeferred<Unit>().also { drawn = it }
         if (renderer.createRenderRequest().syncAndDraw() and NoFrame == 0) withTimeoutOrNull(ImageWaitMillis) { frame.await() }
         drawn = null
-        return synchronized(pixels) { GlassBackdropReading(meanChannels(pixels), meanLuminance(pixels)) }
+        return synchronized(pixels) { GlassBackdropReading(meanChannels(pixels), meanLight(pixels)) }
     }
 
     /** Releases the renderer and its buffer; the probe reads nothing afterwards. */

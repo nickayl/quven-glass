@@ -23,7 +23,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeRadii("shapeRadii", 4 * MaxGlassSurfaces),
     ShapeLift("shapeLift", MaxGlassSurfaces),
     ShapeLight("shapeLight", MaxGlassSurfaces),
-    ShapeVeil("shapeVeil", MaxGlassSurfaces),
+    ShapeVeil("shapeVeil", 4 * MaxGlassSurfaces),
     ShapeGlow("shapeGlow", MaxGlassSurfaces),
     ShapeWhite("shapeWhite", MaxGlassSurfaces),
     ShapeTouch("shapeTouch", 4 * MaxGlassSurfaces),
@@ -80,7 +80,7 @@ internal const val LiquidGlassContent = "content"
  * `thickTone.rgb` by `leans.x + leans.y × luminance`, and as the shorter side runs on from `largeSizes.x` to
  * `largeSizes.y` thick glass turns into large glass, leaning towards `largeTone.rgb` by `largeLean.x + largeLean.y ×
  * luminance`; the saturation scales by the tone's alpha. Each shade lightens by `adapts` (thin, thick, large, light) times
- * how far the nearest surface's `shapeVeil`, the mean luminance of the backdrop under and around it, passes `knees`.
+ * how far the nearest surface's `shapeVeil`, the mean colour of the backdrop under and around it, passes `knees`.
  * Thin glass turned light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
@@ -103,7 +103,7 @@ uniform float4 shapeRect[4];
 uniform float4 shapeRadii[4];
 uniform float shapeLift[4];
 uniform float shapeLight[4];
-uniform float shapeVeil[4];
+uniform float4 shapeVeil[4];
 uniform float shapeGlow[4];
 uniform float shapeWhite[4];
 uniform float4 shapeTouch[4];
@@ -310,16 +310,16 @@ float3 softBackdropAt(float2 p, float r) {
     return sum / 18.0;
 }
 
-// The mean luminance of the backdrop under and around the surface nearest p.
-float veilAt(float2 p) {
-    float veil = 0.0;
+// The mean colour of the backdrop under and around the surface nearest p.
+float3 veilAt(float2 p) {
+    float3 veil = float3(0.0);
     float closest = FAR;
     for (int i = 0; i < 4; i++) {
         if (i < shapeCount) {
             float d = roundBox(p, shapeRect[i], shapeRadii[i]);
             if (d < closest) {
                 closest = d;
-                veil = shapeVeil[i];
+                veil = shapeVeil[i].rgb;
             }
         }
     }
@@ -502,7 +502,7 @@ internal data class GlassPill(val rect: Rect, val radius: Float, val alpha: Floa
  * @property lift How far the surface is pressed, from 0 to 1.
  * @property pill The pill inside the surface, or `null` for none.
  * @property light How light the surface has turned, from 0 to 1.
- * @property veil The mean luminance of the backdrop under and around the surface, from 0 to 1, which its tone follows.
+ * @property veil The mean colour of the backdrop under and around the surface, which its tone follows.
  * @property glow How brightly the surface lights under the finger, from 0 to 1; as far as it is pressed unless a press
  * lights it on a timing of its own.
  * @property white The share of white the surface turns towards at least while lit, its material's
@@ -514,7 +514,7 @@ internal data class GlassSurface(
     val lift: Float,
     val pill: GlassPill?,
     val light: Float = 0f,
-    val veil: Float = DefaultVeil,
+    val veil: Color = DefaultVeil,
     val glow: Float = lift,
     val white: Float = 0f,
     val touch: TouchLight = TouchLight.None,
@@ -596,7 +596,9 @@ internal class LiquidGlassShader private constructor() {
             radii[at + 3] = form.bottomLeft
             lifts[index] = surface.lift
             lights[index] = surface.light
-            veils[index] = surface.veil
+            veils[at] = surface.veil.red
+            veils[at + 1] = surface.veil.green
+            veils[at + 2] = surface.veil.blue
             glows[index] = surface.glow
             whites[index] = surface.white
             touches[at] = surface.touch.at.x

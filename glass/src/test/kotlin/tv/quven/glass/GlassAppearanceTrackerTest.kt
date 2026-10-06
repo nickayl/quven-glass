@@ -1,6 +1,7 @@
 package tv.quven.glass
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.TestMonotonicFrameClock
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -15,7 +16,7 @@ import org.junit.Test
 class GlassAppearanceTrackerTest {
 
     private val adaptation = QuvenGlassAdaptation()
-    private val veil = Animatable(DefaultVeil)
+    private val veil = Animatable(DefaultVeil, VeilConverter)
 
     @Test
     fun aBackdropTurningBright_turnsTheAppearanceLight_onceTheBrightnessSettles() = runTest {
@@ -69,23 +70,30 @@ class GlassAppearanceTrackerTest {
     }
 
     @Test
-    fun theVeil_movesOnToEachNewLuminance_overTheTimeToTheNext_whetherOrNotTheGlassMayTurn() = runTest {
+    fun theVeil_movesOnToEachNewColour_overTheTimeToTheNext_whetherOrNotTheGlassMayTurn() = runTest {
         val appearance = QuvenGlassAppearance()
-        val readings = ArrayDeque(listOf(0.6f, 0.6f, 0.601f))
-        val tracker = GlassAppearanceTracker(brightness = { GlassBackdropReading(0.9f, readings.removeFirstOrNull() ?: 0.601f) }, canTurn = { false }, now = { currentTime })
+        val red = Color(0.6f, 0.2f, 0.1f)
+        val readings = ArrayDeque(listOf(red, red, Color(0.601f, 0.2f, 0.1f)))
+        val tracker = GlassAppearanceTracker(
+            brightness = { GlassBackdropReading(0.9f, readings.removeFirstOrNull() ?: Color(0.601f, 0.2f, 0.1f)) },
+            canTurn = { false },
+            now = { currentTime },
+        )
 
         withContext(TestMonotonicFrameClock(this)) {
             tracker.start(this, { appearance }, veil, { adaptation })
             advanceTimeBy(750)
-            assertEquals((DefaultVeil + 0.6f) / 2f, veil.value, 0.05f)
+            assertEquals((DefaultVeil.red + 0.6f) / 2f, veil.value.red, 0.05f)
+            assertEquals((DefaultVeil.blue + 0.1f) / 2f, veil.value.blue, 0.05f)
             advanceTimeBy(1_000)
             tracker.stop()
         }
 
         // A change of less than a level starts no animation: the tone holds what it shows.
-        assertEquals(0.6f, veil.value, 0.0001f)
+        assertEquals(0.6f, veil.value.red, 1f / 255f)
+        assertEquals(0.1f, veil.value.blue, 1f / 255f)
         assertEquals(0f, appearance.lightness)
     }
 
-    private fun reading(brightness: Float) = GlassBackdropReading(brightness, brightness)
+    private fun reading(brightness: Float) = GlassBackdropReading(brightness, Color(brightness, brightness, brightness))
 }

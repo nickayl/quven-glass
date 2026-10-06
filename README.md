@@ -538,9 +538,9 @@ the cable, and the blur probe's still screenshots.
 |---|---|
 | Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt, turning large from 100 pt to 124 pt; interactive or still alike |
 | Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB; the same over dark and bright content |
-| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the mean luminance of what lies under and around the surface, taken in linear light, passes 0.25, saturation 2; over black it reads 19 levels until the content around it is bright; read over a palette at four brightnesses |
-| Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.144 times the mean luminance under and around it in linear light, saturation 2.6; a panel or a sidebar veils more than a bar |
-| Menu tone | Lean 0.88, less 0.05 per unit of luminance, towards `0x0C`, which picks up 0.16 times the mean luminance under and around it in linear light as the screen shows it, dimmed or not, saturation 2.6; a menu or a sheet veils more than a panel |
+| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the mean colour of what lies under and around the surface, taken in linear light, passes 0.25, so it takes on that colour, saturation 2; over black it reads 19 levels until the content around it is bright; read over a palette at four brightnesses |
+| Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.144 times the mean colour under and around it in linear light, saturation 2.6; a panel or a sidebar veils more than a bar |
+| Menu tone | Lean 0.88, less 0.05 per unit of luminance, towards `0x0C`, which picks up 0.16 times the mean colour under and around it in linear light as the screen shows it, dimmed or not, saturation 2.6; a menu or a sheet veils more than a panel |
 | Platter | White at 11%; black at 7% on light glass; a tab bar's white at 15% |
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 2.5 pt up to a shorter side of 63 pt, building up in proportion to σ 5.3 pt at 136 pt and levelling off there |

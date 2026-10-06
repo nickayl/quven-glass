@@ -4,6 +4,7 @@ import android.os.SystemClock
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -12,7 +13,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 
 /**
- * Keeps a surface in step with the backdrop under and around it: its veil with the luminance, which the tone follows,
+ * Keeps a surface in step with the backdrop under and around it: its veil with the mean colour, which the tone follows,
  * and its [QuvenGlassAppearance] with the brightness, which turns thin glass light.
  *
  * @param brightness Reads the backdrop, or `null` while the surface neither turns light nor follows its luminance.
@@ -35,13 +36,13 @@ internal class GlassAppearanceTracker(
      *
      * @param scope The scope the samples are taken and the turns animated in.
      * @param appearance Reads the appearance to keep in step.
-     * @param veil The surface's own mean luminance of the backdrop, which its tone follows.
+     * @param veil The surface's own mean colour of the backdrop, which its tone follows.
      * @param adaptation Reads the thresholds and times.
      */
     fun start(
         scope: CoroutineScope,
         appearance: () -> QuvenGlassAppearance,
-        veil: Animatable<Float, *>,
+        veil: Animatable<Color, *>,
         adaptation: () -> QuvenGlassAdaptation,
     ) {
         sampling?.cancel()
@@ -58,8 +59,8 @@ internal class GlassAppearanceTracker(
                 val turned = if (reading == null || !canTurn()) filter.reset() else filter.take(reading.brightness, time - last, adaptation())
                 // The tone moves on to each new reading over the time to the next, so it never steps; a reading it already
                 // holds starts no animation, which would redraw the glass for nothing.
-                if (reading != null && abs(reading.luminance - veil.targetValue) > VeilStep) {
-                    launch { veil.animateTo(reading.luminance, tween(SampleMillis.toInt(), easing = LinearEasing)) }
+                if (reading != null && reading.veil.differsFrom(veil.targetValue)) {
+                    launch { veil.animateTo(reading.veil, tween(SampleMillis.toInt(), easing = LinearEasing)) }
                 }
                 if (turned) {
                     val target = if (filter.isLight) 1f else 0f
@@ -75,6 +76,10 @@ internal class GlassAppearanceTracker(
         sampling?.cancel()
         sampling = null
     }
+
+    // Whether a veil differs from another by more than a step in any channel.
+    private fun Color.differsFrom(other: Color): Boolean =
+        maxOf(abs(red - other.red), abs(green - other.green), abs(blue - other.blue)) > VeilStep
 
     private companion object {
         const val SampleMillis = 500L

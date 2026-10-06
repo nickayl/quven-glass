@@ -72,14 +72,25 @@ class GlassBrightnessFilterTest {
     }
 
     @Test
-    fun theLuminance_isTakenInLinearLight_andEncodedBackAsSrgb() {
-        assertEquals(1f, meanLuminance(IntArray(4) { 0xFFFFFFFF.toInt() }), 1e-6f)
-        assertEquals(0f, meanLuminance(IntArray(4) { 0xFF000000.toInt() }), 1e-6f)
-        assertEquals(srgb(0.0722), meanLuminance(intArrayOf(0xFF0000FF.toInt())), 1e-4f)
-        assertEquals(srgb((0.2126 + 0.7152) / 2.0), meanLuminance(intArrayOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt())), 1e-4f)
+    fun theVeil_isTheMeanColourInLinearLight_encodedBackAsSrgb() {
+        assertColour(1f, 1f, 1f, meanLight(IntArray(4) { 0xFFFFFFFF.toInt() }))
+        assertColour(0f, 0f, 0f, meanLight(IntArray(4) { 0xFF000000.toInt() }))
+        assertColour(0f, 0f, 1f, meanLight(intArrayOf(0xFF0000FF.toInt())))
+        assertColour(srgb(0.5), srgb(0.5), 0f, meanLight(intArrayOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt())))
         // Half white over black gives half the light, which reads brighter than the middle grey.
-        assertEquals(srgb(0.5), meanLuminance(intArrayOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt())), 1e-4f)
+        assertColour(srgb(0.5), srgb(0.5), srgb(0.5), meanLight(intArrayOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt())))
+    }
+
+    // A colour holds each channel in eight bits.
+    private fun assertColour(red: Float, green: Float, blue: Float, actual: Color) {
+        assertEquals(red, actual.red, ChannelStep)
+        assertEquals(green, actual.green, ChannelStep)
+        assertEquals(blue, actual.blue, ChannelStep)
     }
 
     private fun srgb(light: Double): Float = (1.055 * Math.pow(light, 1.0 / 2.4) - 0.055).toFloat()
+
+    private companion object {
+        const val ChannelStep = 1f / 255f
+    }
 }
