@@ -357,7 +357,7 @@ internal fun MenuPalette(actions: List<PaletteAction>, modifier: Modifier = Modi
  * @param turn Reads how far the chevron has turned down.
  */
 @Composable
-private fun MenuChevron(color: Color, turn: () -> Float) {
+internal fun MenuChevron(color: Color, turn: () -> Float) {
     Canvas(Modifier.size(ChevronSize).graphicsLayer { rotationZ = QuarterTurn * turn() }) {
         val path = Path().apply {
             moveTo(size.width * ChevronStart.x, size.height * ChevronStart.y)

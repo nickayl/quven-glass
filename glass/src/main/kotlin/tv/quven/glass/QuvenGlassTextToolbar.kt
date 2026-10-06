@@ -3,7 +3,6 @@ package tv.quven.glass
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,11 +38,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
@@ -278,12 +273,12 @@ private fun EditMenu(
     LaunchedEffect(request, expanded) { appear.animateTo(1f, tween(AppearMillis)) }
     val density = LocalDensity.current
     val window = LocalWindowInfo.current.containerSize
-    val metrics = if (with(density) { minOf(window.width, window.height).toDp() } >= TabletSide) EditMenuMetrics.Tablet else EditMenuMetrics.Phone
+    val metrics = if (with(density) { isTabletWindow(window.width.toFloat(), window.height.toFloat()) }) EditMenuMetrics.Tablet else EditMenuMetrics.Phone
     val gap = with(density) { MenuGap.toPx() }
     val margin = with(density) { MenuMargin.roundToPx() }
     val room = minOf(window.width - margin * 2, with(density) { metrics.maxWidth.roundToPx() })
-    val hairlines = remember { HairlineStops() }
-    val bar = remember(request) { BarBounds() }
+    val hairlines = remember { LaidOut(emptyList<Float>()) }
+    val bar = remember(request) { LaidOut(Rect.Zero) }
     val run: (EditAction) -> Unit = { action ->
         action.run()
         onDone()
@@ -315,12 +310,12 @@ private fun EditMenu(
             val above = selection.top - gap - menu.height
             val top = if (origin.y + above >= 0f) above else selection.bottom + gap
             val left = (selection.center.x - menu.width / 2f).coerceAtLeast(margin - origin.x)
-            bar.bounds = Rect(Offset(left, top), Size(menu.width.toFloat(), menu.height.toFloat()))
+            bar.value = Rect(Offset(left, top), Size(menu.width.toFloat(), menu.height.toFloat()))
             layout(0, 0) { menu.place(IntOffset(left.roundToInt(), top.roundToInt())) }
         } else {
             // The expanded menu keeps the capsule's top and end, within the window.
             val menu = measurables.single().measure(Constraints(maxHeight = (window.height - margin * 2).coerceAtLeast(0)))
-            val from = bar.bounds
+            val from = bar.value
             val left = (from.right - menu.width).coerceAtLeast(margin - origin.x)
             val top = from.top.coerceIn(margin - origin.y, (window.height - margin - menu.height - origin.y).coerceAtLeast(margin - origin.y))
             layout(0, 0) { menu.place(IntOffset(left.roundToInt(), top.roundToInt())) }
@@ -353,7 +348,7 @@ private fun EditMenuBar(
     page: Int,
     onPage: (Int) -> Unit,
     onExpand: () -> Unit,
-    hairlines: HairlineStops,
+    hairlines: LaidOut<List<Float>>,
     style: QuvenGlassStyle,
     backdrop: QuvenGlassBackdrop?,
     textStyle: TextStyle,
@@ -375,7 +370,7 @@ private fun EditMenuBar(
             .liquidGlass(backdrop, style, CircleShape, null, reduceMotion, lift = null, pill = null)
             .drawBehind {
                 val tall = metrics.hairlineHeight.toPx()
-                hairlines.stops.forEach { x ->
+                hairlines.value.forEach { x ->
                     drawRect(metrics.hairlineColor, Offset(x, (size.height - tall) / 2f), Size(HairlineWidth.toPx(), tall))
                 }
             },
@@ -406,7 +401,7 @@ private fun EditMenuBar(
             parted = row.size - 1
         }
         val starts = row.runningFold(0) { x, piece -> x + piece.width + hairline }
-        hairlines.stops = (1..parted).map { (starts[it] - hairline).toFloat() }
+        hairlines.value = (1..parted).map { (starts[it] - hairline).toFloat() }
         val width = row.sumOf { it.width } + hairline * parted
         layout(width, tall) {
             var x = 0
@@ -482,28 +477,20 @@ private fun EditMenuMore(metrics: EditMenuMetrics, onClick: () -> Unit) {
             .width(MoreDiameter + inset)
             .clickable(interactionSource = null, indication = null, role = Role.Button, onClick = onClick),
     ) {
-        Canvas(Modifier.align(Alignment.CenterStart).size(MoreDiameter)) {
-            drawCircle(MoreFill)
-            val half = MoreChevron.toPx() / 2f
-            val path = Path().apply {
-                moveTo(center.x - half / 2f, center.y - half)
-                lineTo(center.x + half / 2f, center.y)
-                lineTo(center.x - half / 2f, center.y + half)
-            }
-            drawPath(path, Color.White, style = Stroke(width = MoreStroke.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round))
+        Box(Modifier.align(Alignment.CenterStart).size(MoreDiameter).background(MoreFill, CircleShape), contentAlignment = Alignment.Center) {
+            MenuChevron(Color.White, turn = { 0f })
         }
     }
 }
 
-/** Where the hairlines between an edit menu's actions stand, from its start, as its last layout placed them. */
-private class HairlineStops {
-    var stops: List<Float> = emptyList()
-}
-
-/** Where the edit menu's capsule last stood, in the provider's coordinates, which the expanded menu grows from. */
-private class BarBounds {
-    var bounds: Rect = Rect.Zero
-}
+/**
+ * A value a layout writes and a later pass reads, unobserved, such as where the hairlines stand or where the capsule
+ * last stood.
+ *
+ * @param T The type of the value.
+ * @property value The value, as the last layout wrote it.
+ */
+private class LaidOut<T>(var value: T)
 
 /**
  * The layout of an edit menu's capsule, as the system lays it out on a phone and on a tablet.
@@ -641,9 +628,6 @@ private const val AppearMillis = 200
 private const val AppearScale = 0.9f
 
 // Measured on the system's edit menu on an iPad: the chevron's circle within the capsule's end, white at 6%.
-private val TabletSide: Dp = 600.dp
 private val MoreDiameter: Dp = 36.dp
 private val MoreFill = Color(0x0FFFFFFF)
-private val MoreChevron: Dp = 13.dp
-private val MoreStroke: Dp = 2.dp
 private val ClipboardKinds = setOf(EditKind.Cut, EditKind.Copy, EditKind.Paste)

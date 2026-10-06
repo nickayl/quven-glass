@@ -284,7 +284,7 @@ internal class SheetFloat(val width: Float, val bottomGap: Float, val mediumTop:
  * @return The floating card, or `null`.
  */
 internal fun floatingSheet(width: Float, height: Float, density: Density): SheetFloat? = with(density) {
-    if (width < FloatingMinSide.toPx() || height < FloatingMinSide.toPx()) return null
+    if (!isTabletWindow(width, height)) return null
     val bottom = FloatingBottomGap.toPx()
     SheetFloat(FloatingWidth.toPx(), bottom, height - bottom - FloatingMediumHeight.toPx(), FloatingLargeTop.toPx())
 }
@@ -517,7 +517,6 @@ private const val FlingProjectionSeconds = 0.15f
 private const val CloseShare = 0.5f
 
 // Measured on the system's sheet on an iPad, in a window 1180 by 820.
-private val FloatingMinSide = 600.dp
 private val FloatingWidth = 580.dp
 private val FloatingBottomGap = 92.5.dp
 private val FloatingMediumHeight = 357.5.dp
