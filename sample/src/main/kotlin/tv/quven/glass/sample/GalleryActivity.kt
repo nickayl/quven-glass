@@ -87,8 +87,16 @@ class GalleryActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f), LocalBackdropOffset provides backdropOffset) {
                 MaterialTheme(colorScheme = darkColorScheme()) {
-                    probe?.let { BlurProbe(it.endsWith(ProbeBare), it.startsWith(ProbePalette), probeScale, it.contains(ProbeThin)) }
-                        ?: GalleryScreen(shown)
+                    probe?.let {
+                        BlurProbe(
+                            bare = it.endsWith(ProbeBare),
+                            palette = it.startsWith(ProbePalette),
+                            scale = probeScale,
+                            thin = it.contains(ProbeThin),
+                            menu = it.startsWith(ProbeMenu),
+                            sheet = it.startsWith(ProbeSheet),
+                        )
+                    } ?: GalleryScreen(shown)
                 }
             }
         }
@@ -134,11 +142,13 @@ class GalleryActivity : ComponentActivity() {
         const val CapturePixelsPerDp = 2f
 
         // The blur probe in place of the gallery: "blur" with its glass, "bare" without, "palette" and "palette-bare"
-        // with its cells in colours, "palette-thin" with capsules of thin glass along them.
+        // with its cells in colours, "palette-thin" with capsules of thin glass along them, "menu" with a menu's panel, "sheet" with a sheet raised.
         const val ExtraProbe = "probe"
         const val ProbeBare = "bare"
         const val ProbePalette = "palette"
         const val ProbeThin = "thin"
+        const val ProbeMenu = "menu"
+        const val ProbeSheet = "sheet"
 
         // The factor the probe's palette is scaled by, 1 unless named.
         const val ExtraProbeScale = "probeScale"

@@ -8,16 +8,22 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import tv.quven.glass.LocalQuvenGlassSheetHost
+import tv.quven.glass.QuvenGlassSheet
+import tv.quven.glass.QuvenGlassSheetDetent
+import tv.quven.glass.QuvenGlassSheetHost
 import tv.quven.glass.QuvenGlassStyle
 import tv.quven.glass.quvenGlassSource
 import tv.quven.glass.quvenLiquidGlass
 import tv.quven.glass.rememberQuvenGlassBackdrop
+import tv.quven.glass.rememberQuvenGlassSheetHostState
 
 /**
  * A piece of the blur probe: its frame in the window and its corner radius, half its height for a capsule.
@@ -52,6 +58,9 @@ private val ThinProbePieces = listOf(80, 200, 320, 440, 560, 680).flatMap { y ->
     listOf(200, 600, 960).map { x -> ProbePiece((x - 150).dp, (y - 28).dp, 300.dp, 56.dp, 28.dp) }
 }
 
+// A system menu's panel where the reference's menu probe opens it, so the menu's blur is read over the same cells.
+private val MenuProbePiece = ProbePiece(72.dp, 72.dp, 223.5.dp, 252.dp, 34.dp)
+
 /** The side of the probe's checkerboard cells. */
 private val ProbeCell = 40.dp
 
@@ -70,9 +79,11 @@ private val ProbePalette = listOf(
  * every colour is read at the cells' centres.
  * @param scale The factor the palette's colours are scaled by, so the tone is read over a darker backdrop as well.
  * @param thin Whether to draw capsules of thin glass along the palette's rows in place of pieces of every size.
+ * @param menu Whether to draw a menu's panel in its material in place of pieces of every size.
+ * @param sheet Whether to raise an empty sheet at its medium height in place of pieces of every size.
  */
 @Composable
-internal fun BlurProbe(bare: Boolean, palette: Boolean, scale: Float, thin: Boolean) {
+internal fun BlurProbe(bare: Boolean, palette: Boolean, scale: Float, thin: Boolean, menu: Boolean, sheet: Boolean) {
     val backdrop = rememberQuvenGlassBackdrop()
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         Canvas(Modifier.fillMaxSize().quvenGlassSource(backdrop)) {
@@ -90,13 +101,25 @@ internal fun BlurProbe(bare: Boolean, palette: Boolean, scale: Float, thin: Bool
                 }
             }
         }
-        if (!bare) {
-            (if (thin) ThinProbePieces else ProbePieces).forEach { piece ->
+        if (sheet && !bare) {
+            val sheets = rememberQuvenGlassSheetHostState()
+            CompositionLocalProvider(LocalQuvenGlassSheetHost provides sheets) {
+                QuvenGlassSheet(onDismissRequest = {}, detents = listOf(QuvenGlassSheetDetent.Medium)) {}
+            }
+            QuvenGlassSheetHost(sheets, backdrop = backdrop)
+        } else if (!bare) {
+            val style = if (menu) QuvenGlassStyle.Standard.forMenus() else QuvenGlassStyle.Standard
+            val pieces = when {
+                menu -> listOf(MenuProbePiece)
+                thin -> ThinProbePieces
+                else -> ProbePieces
+            }
+            pieces.forEach { piece ->
                 Box(
                     Modifier
                         .offset(piece.x, piece.y)
                         .size(piece.width, piece.height)
-                        .quvenLiquidGlass(backdrop, QuvenGlassStyle.Standard, RoundedCornerShape(piece.radius)),
+                        .quvenLiquidGlass(backdrop, style, RoundedCornerShape(piece.radius)),
                 )
             }
         }

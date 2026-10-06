@@ -93,6 +93,12 @@ enum ReferenceLaunch {
     /// Whether the blur probe draws `BlurProbe.thinPieces`, capsules of thin glass along the palette's rows, in place of
     /// its pieces of every size (`GLASS_PROBE_SET=thin`).
     static let probeThin = ProcessInfo.processInfo.environment["GLASS_PROBE_SET"] == "thin"
+    /// Whether the blur probe draws a system menu's control over its checkerboard in place of its pieces, so the menu's
+    /// blur is read once a UI test opens it (`GLASS_PROBE_SET=menu`).
+    static let probeMenu = ProcessInfo.processInfo.environment["GLASS_PROBE_SET"] == "menu"
+    /// Whether the blur probe draws a control presenting an empty sheet at its medium height over its checkerboard, so
+    /// the sheet's blur is read once a UI test opens it (`GLASS_PROBE_SET=sheet`).
+    static let probeSheet = ProcessInfo.processInfo.environment["GLASS_PROBE_SET"] == "sheet"
     /// The circle sizes the probe draws, in points (`GLASS_PROBE_SIZES=36,51,...`).
     static let probeSizes: [CGFloat] = (ProcessInfo.processInfo.environment["GLASS_PROBE_SIZES"] ?? "36,51,70,100")
         .split(separator: ",")
@@ -828,7 +834,21 @@ struct BlurProbe: View {
                 }
             }
             .background(Color.black)
-            if !ReferenceLaunch.probeBare {
+            if ReferenceLaunch.probeMenu, !ReferenceLaunch.probeBare {
+                // Short entries, so the menu's right half stands over the checkerboard with no text of its own.
+                Menu {
+                    ForEach(["One", "Two", "Three", "Four", "Five", "Six"], id: \.self) { entry in
+                        Button(entry) {}
+                    }
+                } label: {
+                    GlassDisc(symbol: "ellipsis")
+                }
+                .accessibilityIdentifier("probe.menu")
+                .offset(x: 72, y: 72)
+            } else if ReferenceLaunch.probeSheet, !ReferenceLaunch.probeBare {
+                ProbeSheetControl()
+                    .offset(x: 72, y: 72)
+            } else if !ReferenceLaunch.probeBare {
                 ForEach(ReferenceLaunch.probeThin ? Self.thinPieces : Self.pieces, id: \.self) { piece in
                     Color.clear
                         .frame(width: piece.width, height: piece.height)
@@ -840,6 +860,19 @@ struct BlurProbe: View {
         .ignoresSafeArea()
         .preferredColorScheme(.dark)
         .statusBarHidden()
+    }
+}
+
+/// A glass control presenting an empty sheet at its medium height, so only the sheet's glass stands over the probe.
+struct ProbeSheetControl: View {
+    @State private var presented = false
+
+    var body: some View {
+        Button { presented = true } label: { GlassDisc(symbol: "rectangle.bottomhalf.inset.filled") }
+            .accessibilityIdentifier("probe.sheet")
+            .sheet(isPresented: $presented) {
+                Color.clear.presentationDetents([.medium])
+            }
     }
 }
 
