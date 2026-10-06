@@ -3,6 +3,7 @@ package tv.quven.glass
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class QuvenGlassStyleTest {
@@ -25,6 +26,18 @@ class QuvenGlassStyleTest {
 
         assertEquals(menu.blurFor(40f, density), menu.blurFor(900f, density), 0.001f)
         assertEquals(6f, style.withBlur(3.dp).blurFor(900f, density), 0.001f)
+    }
+
+    @Test
+    fun aContextMenu_isAMenuOverTheScreenItDims_aShadeLighter() {
+        val menu = QuvenGlassStyle.Standard.forMenus()
+        val context = menu.forContextMenus()
+
+        assertEquals(menu.blurFor(400f, density), context.blurFor(400f, density), 0.001f)
+        assertEquals(ScreenDim, context.backdropDim, 0f)
+        assertEquals(QuvenGlassTone.ContextMenu, context.largeTone)
+        assertEquals(QuvenGlassTone.Menu.lean, context.largeTone.lean, 0f)
+        assertTrue(context.largeTone.shade.red > QuvenGlassTone.Menu.shade.red)
     }
 
     @Test

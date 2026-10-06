@@ -81,6 +81,20 @@ class GlassBrightnessFilterTest {
         assertColour(srgb(0.5), srgb(0.5), srgb(0.5), meanLight(intArrayOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt())))
     }
 
+    @Test
+    fun theVeil_ofAPartOfAGrid_readsThatPartAlone() {
+        // A grid of three columns and two rows: red, green, blue over black, white, blue.
+        val red = 0xFFFF0000.toInt()
+        val green = 0xFF00FF00.toInt()
+        val blue = 0xFF0000FF.toInt()
+        val grid = intArrayOf(red, green, blue, 0xFF000000.toInt(), 0xFFFFFFFF.toInt(), blue)
+
+        assertColour(0f, 0f, 1f, meanLight(grid, stride = 3, columns = 2..2, rows = 0..1))
+        assertColour(srgb(0.5), srgb(0.5), 0f, meanLight(grid, stride = 3, columns = 0..1, rows = 0..0))
+        assertColour(0f, 0f, 0f, meanLight(grid, stride = 3, columns = 0..0, rows = 1..1))
+        assertColour(0f, 0f, 0f, meanLight(grid, stride = 3, columns = IntRange.EMPTY, rows = 0..1))
+    }
+
     // A colour holds each channel in eight bits.
     private fun assertColour(red: Float, green: Float, blue: Float, actual: Color) {
         assertEquals(red, actual.red, ChannelStep)

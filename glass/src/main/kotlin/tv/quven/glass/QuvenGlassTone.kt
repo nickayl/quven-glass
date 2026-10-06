@@ -7,16 +7,16 @@ import androidx.compose.ui.util.lerp
 
 /**
  * Describes how glass of one thickness tones the backdrop: it leans it towards [shade], lightened by [adaptation] times
- * how far the mean luminance of the backdrop under and around the surface passes [knee], by [lean], plus [leanSlope] per
- * unit of luminance, then scales its saturation by [saturation].
+ * how far the luminance of the mean colour of the backdrop under and just about the surface passes [knee], in that
+ * colour, by [lean], plus [leanSlope] per unit of luminance, then scales its saturation by [saturation].
  *
  * @property shade The colour the glass leans towards over a black backdrop.
  * @property lean How far the glass leans towards [shade] over a black backdrop, from 0 to 1.
  * @property leanSlope How much further it leans per unit of the backdrop's luminance, 0 for a constant lean.
  * @property saturation The saturation of the backdrop seen through the glass, 1 leaving it unchanged.
- * @property adaptation How far [shade] lightens per unit of the mean luminance of the backdrop under and around the
- * surface past [knee], taken in linear light, as Apple's glass grows lighter over brighter content; 0 for a shade that
- * holds.
+ * @property adaptation How far [shade] lightens per unit of the luminance of the mean colour of the backdrop under and
+ * just about the surface past [knee], taken in linear light, as Apple's glass grows lighter over brighter content; 0 for
+ * a shade that holds.
  * @property knee The mean luminance up to which [shade] holds, from 0 to 1.
  */
 @Immutable
@@ -60,14 +60,17 @@ public data class QuvenGlassTone(
             lean = 0.88f,
             leanSlope = -0.05f,
             saturation = 2.6f,
-            adaptation = 0.17f,
+            adaptation = 0.185f,
         )
+
+        /** Gets the tone of a context menu's glass over the screen it dims, a shade lighter than a pull-down menu's. */
+        internal val ContextMenu: QuvenGlassTone = Menu.copy(shade = Color(0xFF191919))
 
         /** Gets the tone of an alert, which lets more of the dimmed screen's colours through than a menu. */
         internal val Alert: QuvenGlassTone = QuvenGlassTone(
             shade = Color(0xFF1A1A1A),
             lean = 0.76f,
-            leanSlope = -0.05f,
+            leanSlope = 0.45f,
             saturation = 2.6f,
             adaptation = 0.16f,
         )

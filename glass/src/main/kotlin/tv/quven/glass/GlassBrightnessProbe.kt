@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.math.ceil
+import kotlin.math.floor
 
 /**
  * Reads how bright a backdrop is under an area: a renderer of its own draws the area into a few pixels of a buffer the
@@ -53,20 +55,24 @@ internal class GlassBrightnessProbe {
     }
 
     /**
-     * Returns what [source] shows under [area]: the mean of its channels and its mean colour in linear light.
+     * Returns what [source] shows under [area]: the mean of its channels, and the mean colour in linear light of the part
+     * of it under [tinted].
      *
      * @param source The layer the backdrop records into.
      * @param area The area, in the source's coordinates.
+     * @param tinted The part of [area] whose colour is read, in the source's coordinates.
      * @param density The density the area is drawn at.
      * @return The reading; the previous one while the renderer draws nothing.
      */
-    suspend fun sample(source: GraphicsLayer, area: Rect, density: Density): GlassBackdropReading {
+    suspend fun sample(source: GraphicsLayer, area: Rect, tinted: Rect, density: Density): GlassBackdropReading {
         if (area.width <= 0f || area.height <= 0f) return GlassBackdropReading(0f, Color.Black)
         record(source, area, density)
         val frame = CompletableDeferred<Unit>().also { drawn = it }
         if (renderer.createRenderRequest().syncAndDraw() and NoFrame == 0) withTimeoutOrNull(ImageWaitMillis) { frame.await() }
         drawn = null
-        return synchronized(pixels) { GlassBackdropReading(meanChannels(pixels), meanLight(pixels)) }
+        val columns = cells(tinted.left - area.left, tinted.right - area.left, area.width)
+        val rows = cells(tinted.top - area.top, tinted.bottom - area.top, area.height)
+        return synchronized(pixels) { GlassBackdropReading(meanChannels(pixels), meanLight(pixels, Side, columns, rows)) }
     }
 
     /** Releases the renderer and its buffer; the probe reads nothing afterwards. */
@@ -90,6 +96,12 @@ internal class GlassBrightnessProbe {
         } finally {
             node.endRecording()
         }
+    }
+
+    // The probe's cells a span from start to end of an extent covers, at least one.
+    private fun cells(start: Float, end: Float, extent: Float): IntRange {
+        val first = floor(start / extent * Side).toInt().coerceIn(0, Side - 1)
+        return first..(ceil(end / extent * Side).toInt() - 1).coerceIn(first, Side - 1)
     }
 
     private fun read(image: Image) {

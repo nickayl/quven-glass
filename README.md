@@ -428,10 +428,10 @@ QuvenGlassSubmenu("Share", icon = sharePainter) {
 ## Context menus
 
 `QuvenGlassContextMenuBox` turns a card into one with a context menu, as a long press on iOS does. The card grows a
-little while it's held, then lifts out of the screen as everything behind it darkens, and the menu's glass flows out
-of its edge to stand below it, or above it where there's no room below. How far does the card lift? About a tenth on a
-phone and more than half again on a tablet, which `QuvenGlassMenuMetrics` holds. A press still runs the card's own action. It opens in the
-same `QuvenGlassMenuHost` as every other menu.
+little while it is held, then lifts out of the screen as everything behind it darkens, and the menu's glass flows out
+of its edge to stand below it, or above it where there's no room below. How far does the card lift? About a tenth, on a
+phone and on a tablet alike, and you can change that share in `QuvenGlassMenuMetrics`. A press still runs the card's
+own action. It opens in the same `QuvenGlassMenuHost` as every other menu.
 
 ```kotlin
 QuvenGlassContextMenuBox(
@@ -541,9 +541,9 @@ the cable, and the blur probe's still screenshots.
 |---|---|
 | Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt, turning large from 100 pt to 124 pt; interactive or still alike |
 | Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB; the same over dark and bright content |
-| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the mean colour of what lies under and around the surface, taken in linear light, passes 0.25, so it takes on that colour, saturation 2; over black it reads 19 levels until the content around it is bright; read over a palette at four brightnesses |
-| Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.144 times the mean colour under and around it in linear light, saturation 2.6; a panel or a sidebar veils more than a bar |
-| Menu tone | Lean 0.88, less 0.05 per unit of luminance, towards `0x0C`, which picks up 0.17 times the mean colour under and around it in linear light as the screen shows it, dimmed or not, saturation 2.6; a menu or a sheet veils more than a panel |
+| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the luminance of the mean colour of what lies under the surface and 12 pt around it, taken in linear light, passes 0.25, in that colour, saturation 2; over black it reads 19 levels until the content under it is bright; read over a palette at four brightnesses |
+| Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.144 times the mean colour under it and 12 pt around in linear light, saturation 2.6; a panel or a sidebar veils more than a bar |
+| Menu tone | Lean 0.88, less 0.05 per unit of luminance, towards `0x0C`, which picks up 0.185 times the mean colour under it and 12 pt around in linear light as the screen shows it, dimmed or not, saturation 2.6; a menu or a sheet veils more than a panel; a context menu leans towards `0x19` |
 | Platter | White at 11%; black at 7% on light glass; a tab bar's white at 15% |
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 2.5 pt up to a shorter side of 63 pt, building up in proportion to σ 5.3 pt at 136 pt and levelling off there |
@@ -572,12 +572,12 @@ the cable, and the blur probe's still screenshots.
 | Popover | A panel beyond its control on the side with more room, centred on it, 14 pt away; an 18 pt drop of glass 13 pt beyond the control's edge grows into it and stays joined to it over 8 pt as its point; the screen is not dimmed |
 | Sheet | Half the window at rest, floating 9 pt inside the window's edges with corners of 39 on glass blurred by σ 5.2 pt over the screen dimmed by 0.48; drawn to full height (the top inset) it reaches the edges and turns opaque (`0x1B1A1D`) between 45% and 85% of the way, the screen above it darkening to 0.85; a drag past full height moves it a third as far. On a tablet it floats as a card 580 pt wide in the middle, its foot 92.5 pt above the window's, 357.5 pt tall at rest and from 84.5 pt below the top at full height, and slides down whole as it closes |
 | Alert | 319 pt wide with corners of 33, centred, its title 23 pt below its top and its message 8 pt below the title, on glass letting more of the dimmed screen's colours through than a menu; the screen dims by 0.48 within about 250 ms while the alert settles from 1.1 times its size over about 300 ms and turns opaque in about 180 ms; actions 48 pt capsules 8 apart, inset 15.5, greyed glass under 11% white; a press grows the alert by 1.6%; closing fades it in about 80 ms at its own size |
-| Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends |
+| Switch | 62 × 28 pt track, `#30D158` while on and a pale fill (`#DFDFEC` at 31%) while off; a 36 × 24 pt white thumb 2 pt in from the ends, casting a shadow of black at 12% blurred 8 pt and dropped 2 pt |
 | Switch lens | 57 × 37.5 pt of clear glass about the thumb's centre, showing the track 1.25 times smaller and folding it at the rim; the thumb blurs into it in about 60 ms, it travels about 150 ms while the track's colour fades, and blurs back into a white thumb over about 200 ms once it rests |
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
 | Clear glass | No tone, lightened by about 0.086; blurred about 2 pt and shown 1.25 times larger, its rim lit nearly white |
-| Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110% on an iPhone and 160% on an iPad, and the menu's glass flows out of the card's edge to stand 22 pt below it wherever it fits there and above it otherwise, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
+| Context menu | The card grows about 6% while held; once the long press holds, the screen darkens to 52% and the card lifts to 110% on an iPhone and an iPad alike, and the menu's glass flows out of the card's edge to stand 22 pt below it wherever it fits there and above it otherwise, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a

@@ -174,7 +174,7 @@ public fun QuvenGlassMenuHost(
             placement = placement,
             modifier = Modifier.fillMaxSize(),
             style = when {
-                preview != null -> remember(style) { style.dimmed(ScreenDim) }
+                preview != null -> remember(style) { style.forContextMenus() }
                 point != null -> remember(style) { style.copy(pressGlow = 0f) }
                 else -> style
             },

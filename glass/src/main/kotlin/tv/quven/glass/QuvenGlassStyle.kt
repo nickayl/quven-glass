@@ -274,6 +274,14 @@ public data class QuvenGlassStyle(
         copy(blur = SidebarBlur, thickBlur = SidebarBlur, largeTone = QuvenGlassTone.Sidebar, rimLight = SidebarRimLight)
 
     /**
+     * Returns this material as a context menu draws it over the screen it dims, as Apple's: a menu's glass, a shade
+     * lighter.
+     *
+     * @return The context menu's material.
+     */
+    internal fun forContextMenus(): QuvenGlassStyle = dimmed(ScreenDim).copy(largeTone = QuvenGlassTone.ContextMenu)
+
+    /**
      * Returns this material as an alert draws it over the screen it dims, as Apple's alerts: a menu's glass, letting more
      * of the screen's colours through, its rim faintly lit.
      *

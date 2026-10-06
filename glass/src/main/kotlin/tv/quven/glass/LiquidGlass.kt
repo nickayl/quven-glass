@@ -392,18 +392,20 @@ internal class LiquidGlassNode(
         return adapts && own.size.toSize().minDimension < with(requireDensity()) { style.thickSize.toPx() }
     }
 
-    // The backdrop is read under the surface and AdaptationReach around it, as far as the backdrop goes, and only where
-    // the glass turns light or its tone follows the backdrop at its size: a probe per surface is not free.
+    // The backdrop's brightness is read under the surface and AdaptationReach around it, its colour TintReach around it,
+    // as far as the backdrop goes, and only where the glass turns light or its tone follows the backdrop at its size: a
+    // probe per surface is not free.
     private suspend fun backdropReading(): GlassBackdropReading? {
         val own = coordinates?.takeIf { it.isAttached && !painter.isInsideSource } ?: return null
         val density = requireDensity()
         if (!canTurn() && style.adaptationFor(own.size.toSize().minDimension, density) == 0f) return null
         val source = backdrop.layer ?: return null
         val origin = backdrop.origin.takeUnless { it.isUnspecified } ?: return null
-        val around = Rect(own.positionInRoot() - origin, own.size.toSize()).inflate(with(density) { AdaptationReach.toPx() })
-        val area = around.intersect(Rect(Offset.Zero, source.size.toSize()))
+        val surface = Rect(own.positionInRoot() - origin, own.size.toSize())
+        val area = surface.inflate(with(density) { AdaptationReach.toPx() }).intersect(Rect(Offset.Zero, source.size.toSize()))
+        val tinted = surface.inflate(with(density) { TintReach.toPx() }).intersect(area)
         val probe = probe ?: GlassBrightnessProbe().also { probe = it }
-        return probe.sample(source, area, density)
+        return probe.sample(source, area, tinted, density)
     }
 
     private fun register() {
@@ -429,6 +431,9 @@ internal class LiquidGlassNode(
 
 // Measured on an iPad: a tone follows the brightness of the backdrop this far around its surface as well as under it.
 private val AdaptationReach = 40.dp
+
+// Measured on an iPad: a tone takes its colour from the backdrop this far around its surface as well as under it.
+private val TintReach = 12.dp
 
 // Measured on Apple's interactive glass on an iPhone.
 private val TouchLightRise = tween<Float>(80)

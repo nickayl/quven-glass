@@ -50,8 +50,10 @@ internal class GlassBrightnessFilter {
 /**
  * What a glass surface reads of the backdrop under and around it.
  *
- * @property brightness The mean of the colour channels, from 0 to 1, which turns thin glass light.
- * @property veil The mean colour, taken in linear light and encoded back as sRGB, which the glass's tone follows.
+ * @property brightness The mean of the colour channels under and around the surface, from 0 to 1, which turns thin glass
+ * light.
+ * @property veil The mean colour under and just about the surface, taken in linear light and encoded back as sRGB, which
+ * the glass's tone follows.
  */
 internal data class GlassBackdropReading(val brightness: Float, val veil: Color)
 
@@ -68,20 +70,32 @@ internal val VeilConverter: TwoWayConverter<Color, AnimationVector3D> = TwoWayCo
  * Returns the mean colour of ARGB pixels taken in linear light and encoded back as sRGB, so bright content weighs as
  * much as the light it gives and its colour carries, as the tone of Apple's glass follows it.
  *
- * @param pixels The pixels, as packed ARGB integers.
+ * @param pixels The pixels, as packed ARGB integers, row after row.
+ * @param stride The number of pixels in a row.
+ * @param columns The columns read.
+ * @param rows The rows read.
  * @return The mean, or black for no pixels.
  */
-internal fun meanLight(pixels: IntArray): Color {
-    if (pixels.isEmpty()) return Color.Black
+internal fun meanLight(
+    pixels: IntArray,
+    stride: Int = pixels.size,
+    columns: IntRange = 0 until stride,
+    rows: IntRange = 0 until (if (stride == 0) 0 else pixels.size / stride),
+): Color {
+    val count = columns.count() * rows.count()
+    if (count == 0) return Color.Black
     var red = 0.0
     var green = 0.0
     var blue = 0.0
-    for (pixel in pixels) {
-        red += LinearLight[pixel shr 16 and 0xFF]
-        green += LinearLight[pixel shr 8 and 0xFF]
-        blue += LinearLight[pixel and 0xFF]
+    for (row in rows) {
+        for (column in columns) {
+            val pixel = pixels[row * stride + column]
+            red += LinearLight[pixel shr 16 and 0xFF]
+            green += LinearLight[pixel shr 8 and 0xFF]
+            blue += LinearLight[pixel and 0xFF]
+        }
     }
-    return Color(encoded(red / pixels.size), encoded(green / pixels.size), encoded(blue / pixels.size))
+    return Color(encoded(red / count), encoded(green / count), encoded(blue / count))
 }
 
 // Encodes linear light as an sRGB channel.
