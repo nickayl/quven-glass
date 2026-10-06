@@ -9,12 +9,11 @@ import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.drawscope.translate
+import androidx.compose.ui.graphics.layer.CompositingStrategy
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.node.DrawModifierNode
@@ -24,6 +23,7 @@ import androidx.compose.ui.platform.InspectorInfo
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 /** How content meets the bars standing over its edges, as Apple's scroll edge effects draw it. */
 public enum class QuvenGlassScrollEdgeStyle {
@@ -114,23 +114,27 @@ private class ScrollEdgeNode(
 ) : Modifier.Node(), DrawModifierNode {
 
     private var content: GraphicsLayer? = null
-    private var blurred: GraphicsLayer? = null
+    private var topBand: BlurredBand? = null
+    private var bottomBand: BlurredBand? = null
 
     override fun onAttach() {
-        content = requireGraphicsContext().createGraphicsLayer()
-        blurred = requireGraphicsContext().createGraphicsLayer()
+        val context = requireGraphicsContext()
+        content = context.createGraphicsLayer()
+        topBand = BlurredBand(context.createGraphicsLayer(), context.createGraphicsLayer())
+        bottomBand = BlurredBand(context.createGraphicsLayer(), context.createGraphicsLayer())
     }
 
     override fun onDetach() {
-        listOfNotNull(content, blurred).forEach(requireGraphicsContext()::releaseGraphicsLayer)
+        val context = requireGraphicsContext()
+        listOfNotNull(content, topBand?.blur, topBand?.faded, bottomBand?.blur, bottomBand?.faded).forEach(context::releaseGraphicsLayer)
         content = null
-        blurred = null
+        topBand = null
+        bottomBand = null
     }
 
     override fun ContentDrawScope.draw() {
         val recording = content
-        val blur = blurred
-        if (recording == null || blur == null || (top <= 0.dp && bottom <= 0.dp)) return drawContent()
+        if (recording == null || (top <= 0.dp && bottom <= 0.dp)) return drawContent()
         recording.record { this@draw.drawContent() }
         drawLayer(recording)
         when (style) {
@@ -138,9 +142,9 @@ private class ScrollEdgeNode(
                 val reaches = listOf(top.toPx() * SoftReach to true, bottom.toPx() * SoftReach to false).filter { it.first > 0f }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     val sigma = EdgeBlur.toPx()
-                    blur.renderEffect = BlurEffect(sigma, sigma, TileMode.Clamp)
-                    blur.record(IntSize(size.width.toInt(), size.height.toInt())) { drawLayer(recording) }
-                    reaches.forEach { (reach, atTop) -> softBlur(blur, reach, atTop) }
+                    reaches.forEach { (reach, atTop) ->
+                        (if (atTop) topBand else bottomBand)?.let { band -> softBlur(band, recording, sigma, reach, atTop) }
+                    }
                 }
                 reaches.forEach { (reach, atTop) -> drawRect(edgeBrush(reach, atTop, ::softEdgeDim), band(reach, atTop).topLeft, band(reach, atTop).size) }
             }
@@ -156,17 +160,24 @@ private class ScrollEdgeNode(
         }
     }
 
-    /** Draws [blur] over the band [reach] tall at the top or bottom edge, faded out away from the edge. */
-    private fun DrawScope.softBlur(blur: GraphicsLayer, reach: Float, atTop: Boolean) {
+    /**
+     * Draws [recording] blurred by [sigma] over the band [reach] tall at the top or bottom edge, faded out away from the
+     * edge. Only the band and the reach of its blur are blurred, into [band]'s blur layer, and the faded result is kept in
+     * an offscreen layer the renderer reuses while the content stands still, so glass animating over it blurs nothing.
+     */
+    private fun DrawScope.softBlur(band: BlurredBand, recording: GraphicsLayer, sigma: Float, reach: Float, atTop: Boolean) {
         val rect = band(reach, atTop)
-        clipRect(rect.left, rect.top, rect.right, rect.bottom) {
-            drawIntoCanvas { canvas ->
-                canvas.saveLayer(rect, Paint())
-                drawLayer(blur)
-                drawRect(edgeBrush(reach, atTop, ::softEdgeBlur), rect.topLeft, rect.size, blendMode = BlendMode.DstIn)
-                canvas.restore()
-            }
+        val from = (rect.top - sigma * BlurMarginSigmas).coerceAtLeast(0f)
+        val to = (rect.bottom + sigma * BlurMarginSigmas).coerceAtMost(size.height)
+        band.blur.renderEffect = BlurEffect(sigma, sigma, TileMode.Clamp)
+        band.blur.record(IntSize(size.width.roundToInt(), (to - from).roundToInt())) { translate(top = -from) { drawLayer(recording) } }
+        val brush = edgeBrush(reach, atTop, ::softEdgeBlur)
+        band.faded.compositingStrategy = CompositingStrategy.Offscreen
+        band.faded.record(IntSize(rect.width.roundToInt(), rect.height.roundToInt())) {
+            translate(top = from - rect.top) { drawLayer(band.blur) }
+            translate(top = -rect.top) { drawRect(brush, rect.topLeft, rect.size, blendMode = BlendMode.DstIn) }
         }
+        translate(top = rect.top) { drawLayer(band.faded) }
     }
 
     private fun DrawScope.band(height: Float, atTop: Boolean): Rect =
@@ -198,3 +209,14 @@ private const val LipEnd = 0.17f
 private const val BlurReach = 0.8f
 private const val HardLip = 0.45f
 private const val GradientStops = 12
+
+// How far beyond a band its blur reads, in standard deviations, so the band blurs as the whole content would.
+private const val BlurMarginSigmas = 3f
+
+/**
+ * The layers of one soft edge's blurred band.
+ *
+ * @property blur The content about the band, blurred.
+ * @property faded The blurred band faded out away from the edge, kept offscreen.
+ */
+private class BlurredBand(val blur: GraphicsLayer, val faded: GraphicsLayer)

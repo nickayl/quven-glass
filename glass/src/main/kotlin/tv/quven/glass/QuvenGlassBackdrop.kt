@@ -14,6 +14,7 @@ import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -142,11 +143,12 @@ public val LocalQuvenGlassBackdrop: ProvidableCompositionLocal<QuvenGlassBackdro
 /**
  * Records this node's content into [backdrop] while drawing it as usual, so glass surfaces drawn after it can stand
  * over it. A glass surface inside the source would draw itself into its own backdrop, so it draws the static material.
+ * The source stands in a layer of its own, so glass redrawing beside it, as it animates, records nothing again.
  *
  * @param backdrop The backdrop to record into.
  * @return The decorated modifier.
  */
-public fun Modifier.quvenGlassSource(backdrop: QuvenGlassBackdrop): Modifier = this then GlassSourceElement(backdrop)
+public fun Modifier.quvenGlassSource(backdrop: QuvenGlassBackdrop): Modifier = graphicsLayer() then GlassSourceElement(backdrop)
 
 private data class GlassSourceElement(val backdrop: QuvenGlassBackdrop) : ModifierNodeElement<GlassSourceNode>() {
     override fun create(): GlassSourceNode = GlassSourceNode(backdrop)
