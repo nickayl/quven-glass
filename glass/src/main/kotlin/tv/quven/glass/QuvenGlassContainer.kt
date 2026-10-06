@@ -41,7 +41,8 @@ public fun QuvenGlassContainer(
         return
     }
     val state = remember(backdrop) { GlassContainerState(backdrop) }
-    CompositionLocalProvider(LocalGlassContainer provides state) {
+    // The surfaces inside stand over the container's backdrop unless they name another, so they join its glass.
+    CompositionLocalProvider(LocalGlassContainer provides state, LocalQuvenGlassBackdrop provides backdrop) {
         Box(modifier.then(GlassContainerElement(state, style, spacing)), content = content)
     }
 }
@@ -111,7 +112,7 @@ private data class GlassContainerElement(
 
     @RequiresApi(33)
     override fun update(node: GlassContainerNode) {
-        node.update(style, spacing)
+        node.update(state, style, spacing)
     }
 
     override fun InspectorInfo.inspectableProperties() {
@@ -130,33 +131,46 @@ private data class GlassContainerElement(
  */
 @RequiresApi(33)
 internal class GlassContainerNode(
-    private val state: GlassContainerState,
+    private var state: GlassContainerState,
     private var style: QuvenGlassStyle,
     private var spacing: Dp,
 ) : GlassPaintingNode() {
 
     /**
-     * Applies the arguments of a recomposed container.
+     * Applies the arguments of a recomposed container; a container whose backdrop changed hands over a new state, whose
+     * surfaces it draws from then on.
      *
+     * @param state The container's surfaces.
      * @param style The material.
      * @param spacing The distance below which two surfaces start to join.
      */
-    fun update(style: QuvenGlassStyle, spacing: Dp) {
+    fun update(state: GlassContainerState, style: QuvenGlassStyle, spacing: Dp) {
+        if (state !== this.state) {
+            if (isAttached) release()
+            this.state = state
+            if (isAttached) adopt()
+        }
         this.style = style
         this.spacing = spacing
         invalidateDraw()
     }
 
-    override fun onAttach() {
+    override fun onAttach() = adopt()
+
+    override fun onDetach() {
+        release()
+        releasePainter()
+    }
+
+    private fun adopt() {
         state.node = this
         painter.attach(state.backdrop)
         state.backdrop.addReader(this)
     }
 
-    override fun onDetach() {
+    private fun release() {
         if (state.node === this) state.node = null
         state.backdrop.removeReader(this)
-        releasePainter()
     }
 
     override fun ContentDrawScope.draw() {

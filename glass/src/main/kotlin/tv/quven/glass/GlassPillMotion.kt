@@ -7,6 +7,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -159,7 +160,12 @@ internal data class PillFrame(
     val bottom: Float,
     val restWidth: Float,
     val restHeight: Float,
-)
+) {
+
+    /** Gets the rectangle the pill is drawn in. */
+    val rect: Rect
+        get() = Rect(left, top, right, bottom)
+}
 
 /**
  * The motion of the pill of a [QuvenGlassSegmentedTrack]: its two edges, in density-independent pixels from the first

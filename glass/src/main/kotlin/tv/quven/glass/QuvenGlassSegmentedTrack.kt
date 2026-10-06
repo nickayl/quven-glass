@@ -21,14 +21,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.ClipOp
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -122,8 +116,11 @@ public fun <T> QuvenGlassSegmentedTrack(
                 presses.pressed in options.indices -> presses.pressed
                 else -> held
             }
-            OptionRow(options, optionSize, gap, Modifier.pillClip(motion, optionSize, inside = false), { it == shownHeld }, option)
-            OptionRow(options, optionSize, gap, Modifier.pillClip(motion, optionSize, inside = true).clearAndSetSemantics {}, { true }, option)
+            // The held look shows inside the pill as far as the pill itself shows.
+            val pillShown = { motion.alpha.value }
+            val pill: Density.() -> Rect = { motion.frame(optionSize, this).rect }
+            OptionRow(options, optionSize, gap, Modifier.capsuleHole(pillShown, pill), { it == shownHeld }, option)
+            OptionRow(options, optionSize, gap, Modifier.insideCapsule(pillShown, pill).clearAndSetSemantics {}, { true }, option)
         }
         with(lifting) { Lens(motion, optionSize) }
     }
@@ -380,26 +377,10 @@ internal fun rememberGlassPillSource(
 internal fun GlassTrackPill(motion: GlassPillMotion, optionSize: DpSize, tag: String?, drawsStaticPill: Boolean, style: QuvenGlassStyle, shape: Shape) {
     Box(
         Modifier
-            .standingAt { motion.frame(optionSize, this).let { Rect(it.left, it.top, it.right, it.bottom) } }
+            .standingAt { motion.frame(optionSize, this).rect }
             .then(if (tag != null) Modifier.testTag(tag) else Modifier)
             .then(if (drawsStaticPill) Modifier.graphicsLayer { alpha = motion.alpha.value }.quvenGlassPill(style, shape) else Modifier),
     )
-}
-
-/**
- * Draws the content only inside the pill where its motion stands, or only outside it.
- *
- * @param motion The pill's motion.
- * @param optionSize The size every option takes.
- * @param inside Whether the content shows inside the pill, rather than outside it.
- * @return The decorated modifier.
- */
-private fun Modifier.pillClip(motion: GlassPillMotion, optionSize: DpSize, inside: Boolean): Modifier = drawWithContent {
-    val frame = motion.frame(optionSize, this)
-    val pill = Path().apply {
-        addRoundRect(RoundRect(frame.left, frame.top, frame.right, frame.bottom, CornerRadius((frame.bottom - frame.top) / 2f)))
-    }
-    clipPath(pill, if (inside) ClipOp.Intersect else ClipOp.Difference) { this@drawWithContent.drawContent() }
 }
 
 /** The share of the material's press growth a pressed pill swells by, past the track it lies in. */

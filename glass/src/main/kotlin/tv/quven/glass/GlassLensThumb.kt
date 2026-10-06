@@ -14,17 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
-import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -153,19 +146,7 @@ internal class GlassLensThumb(
  * @return The decorated modifier.
  */
 internal fun Modifier.lensSource(backdrop: QuvenGlassBackdrop, opacity: () -> Float = { 1f }, frame: Density.() -> Rect?): Modifier =
-    drawWithContent {
-        val hole = frame() ?: return@drawWithContent drawContent()
-        val path = Path().apply { addRoundRect(RoundRect(hole, CornerRadius(hole.height / 2f))) }
-        clipPath(path, ClipOp.Difference) { this@drawWithContent.drawContent() }
-        val showing = 1f - opacity().coerceIn(0f, 1f)
-        if (showing > 0f) {
-            clipPath(path) {
-                drawContext.canvas.saveLayer(hole, Paint().apply { alpha = showing })
-                this@drawWithContent.drawContent()
-                drawContext.canvas.restore()
-            }
-        }
-    }.quvenGlassSource(backdrop)
+    capsuleHole(opacity, frame).quvenGlassSource(backdrop)
 
 /**
  * Draws a lens of [material] over [backdrop], which the content it bends records into through [lensSource].
