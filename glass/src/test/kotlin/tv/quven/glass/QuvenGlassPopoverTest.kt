@@ -74,9 +74,22 @@ class QuvenGlassPopoverTest {
         val below = popoverPoint(control, spaceHeight = 600f, density = Density(1f))
         val above = popoverPoint(control.translate(0f, 400f), spaceHeight = 600f, density = Density(1f))
 
-        assertEquals(Rect(Offset(150f, 153f), 9f), below)
-        assertEquals(Rect(Offset(150f, 487f), 9f), above)
-        assertEquals(below, morphGeometry(below, Rect(0f, 154f, 300f, 254f), 1f, 1f, 25f, keepsSource = true).source)
+        assertEquals(Rect(Offset(150f, 149f), 9f), below)
+        assertEquals(Rect(Offset(150f, 491f), 9f), above)
+    }
+
+    @Test
+    fun theDrop_turnsIntoAWedge_fromInsideThePanelToTheControlsEdge_pointingAtTheControl() {
+        val control = Rect(100f, 100f, 200f, 140f)
+        val below = popoverPoint(control, spaceHeight = 600f, density = Density(1f))
+        val opening = morphGeometry(below, Rect(0f, 154f, 300f, 254f), 0.2f, 0.2f, 25f, keepsSource = true, pointBase = 30f)
+        val open = morphGeometry(below, Rect(0f, 154f, 300f, 254f), 1f, 1f, 25f, keepsSource = true, pointBase = 30f)
+
+        assertEquals(below, opening.source)
+        assertEquals(0f, opening.sourceWedge, 0f)
+        // Below its control the panel's point turns up, its apex on the control's edge.
+        assertEquals(Rect(135f, 140f, 165f, 163f), open.source)
+        assertEquals(-1f, open.sourceWedge, 0f)
     }
 
     private fun render(top: Float) {

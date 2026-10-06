@@ -24,6 +24,8 @@ import kotlin.math.min
  * @property topRight The radius of the top-right corner.
  * @property bottomRight The radius of the bottom-right corner.
  * @property bottomLeft The radius of the bottom-left corner.
+ * @property wedge How far the form turns into a wedge filling [rect], its apex on the bottom edge's middle for a
+ * positive value and the top edge's for a negative one, from -1 to 1; 0 for the rounded rectangle alone.
  */
 @Immutable
 internal data class GlassForm(
@@ -32,6 +34,7 @@ internal data class GlassForm(
     val topRight: Float,
     val bottomRight: Float,
     val bottomLeft: Float,
+    val wedge: Float = 0f,
 ) {
 
     /**
@@ -45,7 +48,7 @@ internal data class GlassForm(
         val grown = rect.inflate(amount)
         val cap = min(grown.width, grown.height) / 2f
         fun radius(r: Float) = if (r <= 0f) 0f else (r + amount).coerceIn(0f, cap)
-        return GlassForm(grown, radius(topLeft), radius(topRight), radius(bottomRight), radius(bottomLeft))
+        return GlassForm(grown, radius(topLeft), radius(topRight), radius(bottomRight), radius(bottomLeft), wedge)
     }
 
     /**
@@ -64,6 +67,7 @@ internal data class GlassForm(
             topRight * factor,
             bottomRight * factor,
             bottomLeft * factor,
+            wedge,
         )
     }
 
@@ -101,6 +105,9 @@ internal data class GlassForm(
          * @return The form, its radii no larger than half its shorter side; `null` for a shape outlined by a path.
          */
         fun of(shape: Shape, size: Size, layoutDirection: LayoutDirection, density: Density): GlassForm? =
+            if (shape is GlassFormShape) shape.form(size, layoutDirection, density) else outlined(shape, size, layoutDirection, density)
+
+        private fun outlined(shape: Shape, size: Size, layoutDirection: LayoutDirection, density: Density): GlassForm? =
             when (val outline = shape.createOutline(size, layoutDirection, density)) {
                 is Outline.Rectangle -> GlassForm(outline.rect, 0f, 0f, 0f, 0f)
                 is Outline.Rounded -> {
@@ -117,6 +124,20 @@ internal data class GlassForm(
                 is Outline.Generic -> null
             }
     }
+}
+
+/** A shape that gives glass a form of its own, beyond the rounded rectangle its outline draws. */
+internal interface GlassFormShape : Shape {
+
+    /**
+     * Returns the form the glass takes at [size].
+     *
+     * @param size The size the shape is laid out at.
+     * @param layoutDirection The layout direction the shape is laid out in.
+     * @param density The density the shape is laid out at.
+     * @return The form.
+     */
+    fun form(size: Size, layoutDirection: LayoutDirection, density: Density): GlassForm
 }
 
 /**

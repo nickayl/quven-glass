@@ -491,8 +491,8 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
 }
 
 /**
- * Returns the drop of glass a popover grows from: a circle beyond [control]'s edge on the side the popover opens to,
- * centred on it, which stays joined to the open panel as its point.
+ * Returns the drop of glass a popover grows from: a circle touching [control]'s edge on the side the popover opens to,
+ * centred on it, which stays joined to the open panel and turns into its point.
  *
  * @param control The control's bounds.
  * @param spaceHeight The height of the space the popover stands in.
@@ -501,8 +501,7 @@ internal class DropdownRequest(val morph: QuvenGlassMorphState) {
  */
 internal fun popoverPoint(control: Rect, spaceHeight: Float, density: Density): Rect = with(density) {
     val radius = PopoverPointDiameter.toPx() / 2f
-    val reach = PopoverPointReach.toPx()
-    val centreY = if (opensAbove(control.top, control.bottom, spaceHeight)) control.top - reach else control.bottom + reach
+    val centreY = if (opensAbove(control.top, control.bottom, spaceHeight)) control.top - radius else control.bottom + radius
     Rect(Offset(control.center.x, centreY), radius)
 }
 
@@ -561,9 +560,6 @@ internal suspend fun PointerInputScope.keepPresses(onPress: () -> Unit = {}) = a
 
 /** The diameter of the drop of glass a popover grows from, and keeps as its point. */
 private val PopoverPointDiameter = 18.dp
-
-/** How far beyond its control's edge the centre of a popover's point stands. */
-private val PopoverPointReach = 13.dp
 
 /** The room between a popover's panel and its control, which its point spans. */
 internal val PopoverGap = 14.dp

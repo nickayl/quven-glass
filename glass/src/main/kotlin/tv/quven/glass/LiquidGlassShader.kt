@@ -22,6 +22,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     ShapeRect("shapeRect", 4 * MaxGlassSurfaces),
     ShapeRadii("shapeRadii", 4 * MaxGlassSurfaces),
     ShapeLift("shapeLift", MaxGlassSurfaces),
+    ShapeWedge("shapeWedge", MaxGlassSurfaces),
     ShapeLight("shapeLight", MaxGlassSurfaces),
     ShapeVeil("shapeVeil", 4 * MaxGlassSurfaces),
     ShapeGlow("shapeGlow", MaxGlassSurfaces),
@@ -104,6 +105,7 @@ uniform shader content;
 uniform float4 shapeRect[4];
 uniform float4 shapeRadii[4];
 uniform float shapeLift[4];
+uniform float shapeWedge[4];
 uniform float shapeLight[4];
 uniform float4 shapeVeil[4];
 uniform float shapeGlow[4];
@@ -150,6 +152,7 @@ const float FAR = 100000.0;
 const float EPSILON = 0.0001;
 const float3 LUMA = float3(0.2126, 0.7152, 0.0722);
 const float EDGE_FEATHER = 2.0;
+const float WEDGE_TIP_DP = 1.5;
 const float PILL_JOIN_DP = 6.0;
 const float BAND_SLACK_DP = 2.0;
 const float LIFT_REACH_GAIN = 0.3;
@@ -175,6 +178,24 @@ float roundBox(float2 p, float4 rect, float4 radii) {
     return min(max(d.x, d.y), 0.0) + length(max(d, 0.0)) - r;
 }
 
+// The signed distance from p to an isosceles wedge filling rect, its apex in the middle of the bottom edge for a positive
+// apex and of the top edge for a negative one, its tip rounded by tip.
+float wedgeBox(float2 p, float4 rect, float apex, float tip) {
+    float2 q = float2(0.5 * (rect.z - rect.x), rect.w - rect.y);
+    float2 d = float2(abs(p.x - 0.5 * (rect.x + rect.z)), apex > 0.0 ? rect.w - tip - p.y : p.y - rect.y - tip);
+    float2 a = d - q * clamp(dot(d, q) / dot(q, q), 0.0, 1.0);
+    float2 b = d - q * float2(clamp(d.x / q.x, 0.0, 1.0), 1.0);
+    float k = -sign(q.y);
+    float2 m = min(float2(dot(a, a), k * (d.x * q.y - d.y * q.x)), float2(dot(b, b), k * (d.y - q.y)));
+    return -sqrt(m.x) * sign(m.y) - tip;
+}
+
+// The signed distance from p to a surface's rounded rectangle, turned as far as its wedge into a wedge.
+float shapeDistance(float2 p, float4 rect, float4 radii, float wedge) {
+    float box = roundBox(p, rect, radii);
+    return wedge == 0.0 ? box : mix(box, wedgeBox(p, rect, wedge, WEDGE_TIP_DP * detail.y), abs(wedge));
+}
+
 float smoothUnion(float a, float b, float k) {
     float h = max(k - abs(a - b), 0.0) / max(k, EPSILON);
     return min(a, b) - h * h * k * 0.25;
@@ -197,7 +218,7 @@ float field(float2 p, out float lift, out float glow, out float radius, out floa
     for (int i = 0; i < 4; i++) {
         if (i < shapeCount) {
             float4 rect = shapeRect[i];
-            float s = roundBox(p, rect, shapeRadii[i]);
+            float s = shapeDistance(p, shapeRect[i], shapeRadii[i], shapeWedge[i]);
             d = smoothUnion(d, s, blend);
             if (s < closest) {
                 closest = s;
@@ -249,7 +270,7 @@ float pressWhiteAt(float2 p) {
     float white = 0.0;
     for (int i = 0; i < 4; i++) {
         if (i < shapeCount) {
-            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, roundBox(p, shapeRect[i], shapeRadii[i]));
+            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, shapeDistance(p, shapeRect[i], shapeRadii[i], shapeWedge[i]));
             white = max(white, shapeWhite[i] * shapeGlow[i] * within);
         }
     }
@@ -261,7 +282,7 @@ float touchLightAt(float2 p) {
     float light = 0.0;
     for (int i = 0; i < 4; i++) {
         if (i < shapeCount && shapeTouch[i].w > 0.0) {
-            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, roundBox(p, shapeRect[i], shapeRadii[i]));
+            float within = 1.0 - smoothstep(-EDGE_FEATHER, EDGE_FEATHER, shapeDistance(p, shapeRect[i], shapeRadii[i], shapeWedge[i]));
             float2 away = p - shapeTouch[i].xy;
             float sigma = shapeTouch[i].z;
             light += within * shapeTouch[i].w * exp(-dot(away, away) / (2.0 * sigma * sigma));
@@ -319,7 +340,7 @@ float3 veilAt(float2 p) {
     float closest = FAR;
     for (int i = 0; i < 4; i++) {
         if (i < shapeCount) {
-            float d = roundBox(p, shapeRect[i], shapeRadii[i]);
+            float d = shapeDistance(p, shapeRect[i], shapeRadii[i], shapeWedge[i]);
             if (d < closest) {
                 closest = d;
                 veil = shapeVeil[i].rgb;
@@ -332,7 +353,7 @@ float3 veilAt(float2 p) {
 // The mean luminance of the backdrop under the surface holding p, read on a grid of three by three inside it.
 float surfaceLuma(float2 p) {
     for (int i = 0; i < 4; i++) {
-        if (i < shapeCount && roundBox(p, shapeRect[i], shapeRadii[i]) < 0.0) {
+        if (i < shapeCount && shapeDistance(p, shapeRect[i], shapeRadii[i], shapeWedge[i]) < 0.0) {
             float4 rect = shapeRect[i];
             float sum = 0.0;
             for (int x = 0; x < 3; x++) {
@@ -376,7 +397,7 @@ half4 main(float2 coord) {
     float zoomed = mix(zoom, zoom * pressZoom, glow);
     if (zoomed != 1.0) {
         for (int i = 0; i < 4; i++) {
-            if (i < shapeCount && roundBox(coord, shapeRect[i], shapeRadii[i]) < 0.0) {
+            if (i < shapeCount && shapeDistance(coord, shapeRect[i], shapeRadii[i], shapeWedge[i]) < 0.0) {
                 float2 centre = (shapeRect[i].xy + shapeRect[i].zw) * 0.5;
                 at = centre + (at - centre) * zoomed;
             }
@@ -559,6 +580,7 @@ internal class LiquidGlassShader private constructor() {
     private val rects = FloatArray(LiquidGlassUniform.ShapeRect.floats)
     private val radii = FloatArray(LiquidGlassUniform.ShapeRadii.floats)
     private val lifts = FloatArray(LiquidGlassUniform.ShapeLift.floats)
+    private val wedges = FloatArray(LiquidGlassUniform.ShapeWedge.floats)
     private val lights = FloatArray(LiquidGlassUniform.ShapeLight.floats)
     private val veils = FloatArray(LiquidGlassUniform.ShapeVeil.floats)
     private val glows = FloatArray(LiquidGlassUniform.ShapeGlow.floats)
@@ -583,6 +605,7 @@ internal class LiquidGlassShader private constructor() {
         rects.fill(0f)
         radii.fill(0f)
         lifts.fill(0f)
+        wedges.fill(0f)
         lights.fill(0f)
         veils.fill(0f)
         glows.fill(0f)
@@ -603,6 +626,7 @@ internal class LiquidGlassShader private constructor() {
             radii[at + 2] = form.bottomRight
             radii[at + 3] = form.bottomLeft
             lifts[index] = surface.lift
+            wedges[index] = form.wedge
             lights[index] = surface.light
             veils[at] = surface.veil.red
             veils[at + 1] = surface.veil.green
@@ -629,6 +653,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.ShapeRect.uniform, rects)
             setFloatUniform(LiquidGlassUniform.ShapeRadii.uniform, radii)
             setFloatUniform(LiquidGlassUniform.ShapeLift.uniform, lifts)
+            setFloatUniform(LiquidGlassUniform.ShapeWedge.uniform, wedges)
             setFloatUniform(LiquidGlassUniform.ShapeLight.uniform, lights)
             setFloatUniform(LiquidGlassUniform.ShapeVeil.uniform, veils)
             setFloatUniform(LiquidGlassUniform.ShapeGlow.uniform, glows)

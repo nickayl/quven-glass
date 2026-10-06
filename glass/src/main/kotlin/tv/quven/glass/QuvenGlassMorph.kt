@@ -27,6 +27,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Path
@@ -286,8 +287,9 @@ public fun rememberQuvenGlassMorphState(): QuvenGlassMorphState = remember { Quv
  * @param face Draws the control's own face inside the glass while it starts to grow.
  * @param fromControl Whether the control's own glass stays as a lit cap the panel drops from, as a menu drops out of its
  * button; `false` grows the panel's glass alone, as a context menu flows out of the card it lifts.
- * @param keepsSource Whether the cap stays whole, joined to the open panel as its point, as a popover points at its
- * control, rather than sinking into the panel as it opens.
+ * @param keepsSource Whether the cap stays, joined to the open panel as its point, as a popover points at its control:
+ * it turns into a wedge from the panel's edge to the far edge of [anchor], rather than sinking into the panel as it
+ * opens.
  * @param content Draws the open panel.
  */
 @Composable
@@ -344,7 +346,7 @@ public fun QuvenGlassMorph(
                         Modifier
                             .standingAt { frame.source }
                             .liquidGlass(
-                                backdrop, glassStyle, CircleShape, null, reduceMotion = false, lift = carriedPress, pill = null,
+                                backdrop, glassStyle, SourceShape(frame), null, reduceMotion = false, lift = carriedPress, pill = null,
                                 adapts = false,
                             ),
                     )
@@ -388,8 +390,8 @@ public fun QuvenGlassMorph(
         state.rises = open.top < anchor.top && abs(open.bottom - anchor.bottom) < 1f
         state.openBounds = open
         frame.update(
-            if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx(), anchor.takeIf { keepsSource })
-            else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx(), keepsSource),
+            if (reduceMotion) MorphGeometry.settled(open, cornerRadius.toPx(), anchor.takeIf { keepsSource }, PointBase.toPx())
+            else morphGeometry(anchor, open, state.progress.value, state.reach.value, cornerRadius.toPx(), keepsSource, PointBase.toPx()),
             open,
         )
         val glassPlaceable = measurables[0].measure(Constraints.fixed(space.width, space.height))
@@ -423,6 +425,10 @@ private class MorphFrame {
     var bodyRadius: Float by mutableFloatStateOf(0f)
         private set
 
+    /** Gets how far the control's glass has turned into a point at this frame, signed as [GlassForm.wedge]. */
+    var sourceWedge: Float by mutableFloatStateOf(0f)
+        private set
+
     private var open: Rect = Rect.Zero
     private val clip = Path()
 
@@ -436,6 +442,7 @@ private class MorphFrame {
         source = geometry.source
         body = geometry.body
         bodyRadius = geometry.bodyRadius
+        sourceWedge = geometry.sourceWedge
         this.open = open
     }
 
@@ -449,6 +456,17 @@ private class MorphFrame {
         clip.rewind()
         clip.addOutline(Outline.Rounded(RoundRect(body.translate(-open.topLeft), CornerRadius(bodyRadius))))
         with(scope) { clipPath(clip) { block() } }
+    }
+}
+
+/** The control's glass at this frame: a circle, turning into the point a popover keeps. */
+private class SourceShape(private val frame: MorphFrame) : GlassFormShape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline =
+        CircleShape.createOutline(size, layoutDirection, density)
+
+    override fun form(size: Size, layoutDirection: LayoutDirection, density: Density): GlassForm {
+        val radius = size.minDimension / 2f
+        return GlassForm(Rect(Offset.Zero, size), radius, radius, radius, radius, frame.sourceWedge)
     }
 }
 
@@ -467,19 +485,24 @@ private class BodyShape(private val frame: MorphFrame) : Shape {
  * @property source The control's glass, a circle that shrinks into the panel's glass as it comes to rest.
  * @property body The panel's glass.
  * @property bodyRadius The radius of the panel's glass's corners, in pixels.
+ * @property sourceWedge How far the control's glass has turned into a point, signed as [GlassForm.wedge].
  */
-internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: Float) {
+internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: Float, val sourceWedge: Float = 0f) {
     companion object {
         /**
          * Returns the geometry of a glass that stands open as [open], with [source] left of the control's glass.
          *
          * @param open The open panel's bounds.
          * @param cornerRadius The open panel's corner radius, in pixels.
-         * @param source The control's glass kept beside the panel, or `null` for none.
+         * @param source The control's glass kept beside the panel as its point, or `null` for none.
+         * @param pointBase The width of the point's base, in pixels.
          * @return The geometry.
          */
-        fun settled(open: Rect, cornerRadius: Float, source: Rect? = null): MorphGeometry =
-            MorphGeometry(source ?: Rect(open.center, Size.Zero), open, cornerRadius.coerceAtMost(open.minDimension / 2f))
+        fun settled(open: Rect, cornerRadius: Float, source: Rect? = null, pointBase: Float = 0f): MorphGeometry {
+            val radius = cornerRadius.coerceAtMost(open.minDimension / 2f)
+            return if (source == null) MorphGeometry(Rect(open.center, Size.Zero), open, radius)
+            else pointOf(source, open, pointBase, 1f).let { (rect, wedge) -> MorphGeometry(rect, open, radius, wedge) }
+        }
     }
 }
 
@@ -494,6 +517,8 @@ internal class MorphGeometry(val source: Rect, val body: Rect, val bodyRadius: F
  * @param spread How far the glass has spread across, from 0 to 1, past 1 while its spring overshoots.
  * @param reach How far the glass has dropped along the way it opens, from 0 to 1, past 1 while its spring overshoots.
  * @param cornerRadius The open panel's corner radius, in pixels.
+ * @param keepsSource Whether the control's glass stays as the open panel's point.
+ * @param pointBase The width of that point's base, in pixels.
  * @return The geometry.
  */
 internal fun morphGeometry(
@@ -503,6 +528,7 @@ internal fun morphGeometry(
     reach: Float,
     cornerRadius: Float,
     keepsSource: Boolean = false,
+    pointBase: Float = 0f,
 ): MorphGeometry {
     val settle = smoothstep(NearEdgeStart, 1f, spread)
     val hangs = abs(open.top - anchor.top) <= abs(open.bottom - anchor.bottom)
@@ -524,8 +550,11 @@ internal fun morphGeometry(
         lerp(anchor.center.x + seed, open.right, spread),
         bottom,
     )
-    // A cap kept stays whole where it stands, joined to the panel as its point.
-    if (keepsSource) return MorphGeometry(anchor, body, morphRadius(body.size, cornerRadius, spread))
+    // A cap kept turns, as the panel settles, into a wedge joining the panel to the control.
+    if (keepsSource) {
+        val (point, wedge) = pointOf(anchor, body, pointBase, smoothstep(PointTurnStart, 1f, spread))
+        return MorphGeometry(point, body, morphRadius(body.size, cornerRadius, spread), wedge)
+    }
     // The cap keeps the control's near edge, then sinks into the panel's glass, away from its edge, as it fades.
     val fade = smoothstep(SourceFadeStart, SourceFadeEnd, spread)
     val kept = lerp(SourceRelease, SourceCap, smoothstep(0f, SourceSqueezeEnd, spread)) * (1f - fade)
@@ -610,6 +639,11 @@ private val MorphJoin = 48.dp
 
 // A kept cap joins the panel over a short reach, so it reads as a point rather than a swell.
 private val PointJoin = 8.dp
+
+// The width of a popover's point where it meets the panel, and the share of the opening from which the drop turns
+// into it, as measured on an iPad.
+private val PointBase = 26.dp
+private const val PointTurnStart = 0.5f
 private const val NearEdgeStart = 0.7f
 private const val BodySeedShare = 0.6f
 private const val BodySwellEnd = 0.15f
@@ -631,3 +665,23 @@ private const val MinContentBlur = 0.5f
 private const val FaceFadeRate = 5f
 private const val PressFadeRate = 2f
 private const val ContentFadeStart = 0.4f
+
+/**
+ * Returns the bounds and the wedge of a control's glass [turn] of the way from [drop], the circle it stands as, to the
+ * point it keeps beside [panel]: a wedge [base] wide reaching from inside the panel's edge to the drop's far edge.
+ *
+ * @param drop The control's glass as a circle beyond the control's edge.
+ * @param panel The panel's glass.
+ * @param base The width of the point's base, in pixels.
+ * @param turn How far the drop has turned into the point, from 0 to 1.
+ * @return The bounds and the wedge, signed as [GlassForm.wedge].
+ */
+internal fun pointOf(drop: Rect, panel: Rect, base: Float, turn: Float): Pair<Rect, Float> {
+    val down = panel.center.y < drop.center.y
+    val point = if (down) {
+        Rect(drop.center.x - base / 2f, panel.bottom - drop.height / 2f, drop.center.x + base / 2f, drop.bottom)
+    } else {
+        Rect(drop.center.x - base / 2f, drop.top, drop.center.x + base / 2f, panel.top + drop.height / 2f)
+    }
+    return lerp(drop, point, turn) to (if (down) turn else -turn)
+}
