@@ -248,13 +248,13 @@ public data class QuvenGlassStyle(
         }
 
     /**
-     * Returns this material as a menu draws it: frosted more deeply, its rim lit by what lies just outside it, and still
-     * lit by the press of the control it grows from, as Apple's system menus are.
+     * Returns this material as a menu draws it: frosted alike at every size, veiled more deeply, its rim lit by what lies
+     * just outside it, and still lit by the press of the control it grows from, as Apple's system menus are.
      *
      * @return The menu's material.
      */
     public fun forMenus(): QuvenGlassStyle =
-        copy(blur = MenuBlur, thickBlur = MenuBlur, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
+        copy(blur = MenuBlur, thickBlur = MenuBlur, largeTone = QuvenGlassTone.Menu, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
     /**
      * Returns this material as interactive glass draws it: a light gathers under the finger and follows it, as on Apple's
@@ -321,7 +321,7 @@ public data class QuvenGlassStyle(
         private const val ButtonRimLight = 0.3f
         private val ButtonPressExpansion = 16.dp
         private const val MenuRimGlow = 1.7f
-        private val MenuBlur = 9.5.dp
+        private val MenuBlur = 7.2.dp
     }
 }
 

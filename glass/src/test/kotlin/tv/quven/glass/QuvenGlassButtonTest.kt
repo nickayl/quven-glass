@@ -151,7 +151,8 @@ class QuvenGlassButtonTest {
         assertEquals(0.3f, prominent.rimLight, 0f)
         assertEquals(3.6f, menus.pressGlow, 0f)
         assertEquals(1.7f, menus.rimGlow, 0f)
-        assertEquals(9.5.dp, menus.blur)
+        assertEquals(7.2.dp, menus.blur)
+        assertEquals(QuvenGlassTone.Menu, menus.largeTone)
         assertEquals(menus, menus.forMenus())
     }
 

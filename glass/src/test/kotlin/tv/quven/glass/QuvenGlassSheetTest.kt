@@ -18,6 +18,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performSemanticsAction
@@ -44,6 +45,7 @@ class QuvenGlassSheetTest {
 
     private var shown by mutableStateOf(true)
     private var dismissals = 0
+    private var detents by mutableStateOf(listOf<QuvenGlassSheetDetent>())
 
     @Test
     fun aSheet_opensAtHalfTheWindow() {
@@ -104,19 +106,31 @@ class QuvenGlassSheetTest {
         compose.runOnIdle { assertEquals(1, dismissals) }
     }
 
+    @Test
+    fun theGrabber_isDrawnOnlyOnASheetOfMoreThanOneHeight() {
+        render(listOf(QuvenGlassSheetDetent.Medium))
+        compose.onNodeWithTag(GrabberTag).assertDoesNotExist()
+        compose.onNodeWithText(Title).assertExists()
+
+        detents = listOf(QuvenGlassSheetDetent.Medium, QuvenGlassSheetDetent.Large)
+        compose.waitForIdle()
+        compose.onNodeWithTag(GrabberTag).assertExists()
+    }
+
     @Test(expected = IllegalStateException::class)
     fun aSheetWithNoHost_fails() {
         compose.setContent { QuvenGlassSheet(onDismissRequest = {}) {} }
         compose.waitForIdle()
     }
 
-    private fun render() {
+    private fun render(initial: List<QuvenGlassSheetDetent> = listOf(QuvenGlassSheetDetent.Medium, QuvenGlassSheetDetent.Large)) {
+        detents = initial
         val host = QuvenGlassSheetHostState()
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f), LocalQuvenGlassSheetHost provides host) {
                 Box(Modifier.fillMaxSize()) {
                     if (shown) {
-                        QuvenGlassSheet(onDismissRequest = { dismissals++; shown = false }) {
+                        QuvenGlassSheet(onDismissRequest = { dismissals++; shown = false }, detents = detents) {
                             BasicText(Title, Modifier.testTag(Title))
                         }
                     }

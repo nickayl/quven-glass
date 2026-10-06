@@ -391,7 +391,8 @@ half4 main(float2 coord) {
     float4 tone = mix(mix(mix(thinTone, thickTone, thickness), largeTone, largeness), lightTone, lightShare);
     float adapt = mix(mix(mix(adapts.x, adapts.y, thickness), adapts.z, largeness), adapts.w, lightShare);
     if (adapt != 0.0) {
-        tone.rgb = clamp(tone.rgb + adapt * veilAt(coord), 0.0, 1.0);
+        // The veil is read from the screen undimmed, so glass over a dimmed screen reads it dimmed as well.
+        tone.rgb = clamp(tone.rgb + adapt * veilAt(coord) * (1.0 - backdropDim), 0.0, 1.0);
     }
     float darkLean = mix(mix(leans.z + leans.w * lit, leans.x + leans.y * lit, thickness), largeLean.x + largeLean.y * lit, largeness);
     float lean = clamp(mix(darkLean, lightLean.x + lightLean.y * lit, lightShare), 0.0, 1.0);

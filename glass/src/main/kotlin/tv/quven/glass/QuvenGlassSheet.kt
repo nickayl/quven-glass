@@ -48,6 +48,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.dismiss
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Constraints
@@ -103,7 +104,7 @@ public val LocalQuvenGlassSheetHost: ProvidableCompositionLocal<QuvenGlassSheetH
  * @param onDismissRequest Invoked when the viewer closes the sheet.
  * @param modifier Modifier applied to the sheet's content.
  * @param detents The heights the sheet rests at; it opens at the first.
- * @param content The sheet's content, laid out below its grabber.
+ * @param content The sheet's content, laid out below the grabber a sheet of more than one detent draws.
  * @throws IllegalStateException No [QuvenGlassSheetHost] is provided above the sheet, or [detents] is empty.
  */
 @Composable
@@ -176,7 +177,7 @@ public fun QuvenGlassSheetHost(
                 Modifier
                     .liquidGlass(
                         backdrop = backdrop,
-                        style = remember(style) { style.forMenus().dimmed(ScreenDim) },
+                        style = remember(style) { style.forMenus().withBlur(SheetBlur).dimmed(ScreenDim) },
                         shape = SheetShape,
                         interactionSource = null,
                         reduceMotion = reduceMotion,
@@ -198,13 +199,17 @@ public fun QuvenGlassSheetHost(
                     .nestedScroll(nested)
                     .draggable(drag, Orientation.Vertical, onDragStopped = { velocity -> release(velocity) }),
             ) {
-                Box(
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = GrabberTop)
-                        .size(GrabberSize.first, GrabberSize.second)
-                        .background(GrabberColor, CircleShape),
-                )
+                // The system draws the grabber only on a sheet that rests at more than one height.
+                if (request.detents.size > 1) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = GrabberTop)
+                            .size(GrabberSize.first, GrabberSize.second)
+                            .background(GrabberColor, CircleShape)
+                            .testTag(GrabberTag),
+                    )
+                }
                 Column(
                     request.modifier
                         .fillMaxWidth()
@@ -505,6 +510,7 @@ private val OpaqueSheet = Color(0xFF1B1A1D)
 private val GrabberTop = 5.dp
 private val GrabberSize = 36.dp to 5.dp
 private val GrabberColor = Color(0x59FFFFFF)
+internal const val GrabberTag = "quven-glass-sheet-grabber"
 private val ContentTop = 16.dp
 private const val BeyondResistance = 0.3f
 private const val FlingProjectionSeconds = 0.15f
@@ -518,3 +524,6 @@ private val FloatingMediumHeight = 357.5.dp
 private val FloatingLargeTop = 84.5.dp
 private const val SettleStiffness = 450f
 private val SettleSpring = spring<Float>(dampingRatio = 0.9f, stiffness = SettleStiffness)
+
+// A sheet frosts a little more deeply than a menu: σ 5.2 pt on the iPad against the menu's 4.7.
+private val SheetBlur = 8.1.dp

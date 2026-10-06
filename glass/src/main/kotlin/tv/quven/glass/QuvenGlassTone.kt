@@ -48,6 +48,18 @@ public data class QuvenGlassTone(
             adaptation = 0.18f,
         )
 
+        /**
+         * Gets the tone of a menu's or a sheet's large glass, veiled more deeply than a panel and lighter over a brighter
+         * screen.
+         */
+        internal val Menu: QuvenGlassTone = QuvenGlassTone(
+            shade = Color(0xFF0C0C0C),
+            lean = 0.88f,
+            leanSlope = -0.05f,
+            saturation = 2.6f,
+            adaptation = 0.2f,
+        )
+
         /** Gets the tone of thin glass turned light over a bright backdrop. */
         public val Light: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFFF5F5F5), lean = 0.82f, saturation = 3.27f)
 
