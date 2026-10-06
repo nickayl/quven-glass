@@ -429,9 +429,10 @@ QuvenGlassSubmenu("Share", icon = sharePainter) {
 
 `QuvenGlassContextMenuBox` turns a card into one with a context menu, as a long press on iOS does. The card grows a
 little while it is held, then lifts out of the screen as everything behind it darkens, and the menu's glass flows out
-of its edge to stand below it, or above it where there's no room below. How far does the card lift? About a tenth, on a
-phone and on a tablet alike, and you can change that share in `QuvenGlassMenuMetrics`. A press still runs the card's
-own action. It opens in the same `QuvenGlassMenuHost` as every other menu.
+of its edge to stand below it, or above it where there is no room below. How far does the card lift? About a tenth, on a
+phone and on a tablet alike, and you can change that share in `QuvenGlassMenuMetrics`. Pass a `preview` to lift something
+else in the card's place, and it grows from the card's size to its own just as `.contextMenu(menuItems:preview:)` does
+on iOS, while a press still runs the card's own action. It opens in the same `QuvenGlassMenuHost` as every other menu.
 
 ```kotlin
 QuvenGlassContextMenuBox(

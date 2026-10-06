@@ -74,6 +74,7 @@ import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.path
@@ -1108,9 +1109,26 @@ internal fun BoxScope.ContextMenuExhibit(tuning: SampleTuning) {
             },
             onClick = {},
             reduceMotion = tuning.reduceMotion,
+            preview = { PosterPreview(6) },
         ) { SamplePosterCard(6) }
     }
 }
+
+/**
+ * Draws a poster larger, as the preview a context menu lifts in the card's place.
+ *
+ * @param index The poster's index.
+ */
+@Composable
+private fun PosterPreview(index: Int) {
+    Box(Modifier.size(PosterPreviewSize), contentAlignment = Alignment.Center) {
+        SamplePosterCard(index, Modifier.graphicsLayer { scaleX = PosterPreviewScale; scaleY = PosterPreviewScale })
+    }
+}
+
+// The reference's preview: its poster 1.6 times larger, in a frame of 272 by 408 pt.
+private const val PosterPreviewScale = 1.6f
+private val PosterPreviewSize = DpSize(272.dp, 408.dp)
 
 /**
  * Lays out a switch at the end of a row holding its name.

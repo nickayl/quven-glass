@@ -20,15 +20,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.toSize
 import androidx.compose.ui.util.lerp
 
 /**
@@ -46,6 +53,8 @@ import androidx.compose.ui.util.lerp
  * @param menuLabel The name accessibility services give the long press that opens the menu, or `null` for theirs.
  * @param reduceMotion Whether motion is reduced: the card then does not grow while it is held.
  * @param interactionSource The source of the card's presses and focus, or `null` for one of its own.
+ * @param preview Draws what lifts out of the screen in the card's place, at its own size, or `null` to lift the card a
+ * tenth larger.
  * @param content Draws the card.
  * @throws IllegalStateException No [QuvenGlassMenuHost] is provided above the card.
  */
@@ -60,12 +69,15 @@ public fun QuvenGlassContextMenuBox(
     menuLabel: String? = null,
     reduceMotion: Boolean = false,
     interactionSource: MutableInteractionSource? = null,
+    preview: (@Composable () -> Unit)? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val state = rememberQuvenGlassMorphState()
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val pressed by interactions.collectIsPressedAsState()
-    val preview = rememberGraphicsLayer()
+    val card = rememberGraphicsLayer()
+    val own = rememberGraphicsLayer()
+    var ownSize by remember { mutableStateOf(IntSize.Zero) }
     val growth = remember { Animatable(1f) }
     var open by remember { mutableStateOf(false) }
     var liftedFrom by remember { mutableFloatStateOf(1f) }
@@ -87,8 +99,8 @@ public fun QuvenGlassContextMenuBox(
                 scaleY = growth.value
             }
             .drawWithContent {
-                preview.record { this@drawWithContent.drawContent() }
-                drawLayer(preview)
+                card.record { this@drawWithContent.drawContent() }
+                drawLayer(card)
             }
             .combinedClickable(
                 interactionSource = interactions,
@@ -103,8 +115,10 @@ public fun QuvenGlassContextMenuBox(
                 },
                 onClick = onClick,
             ),
-        content = content,
-    )
+    ) {
+        content()
+        if (preview != null) PreviewRecording(own, { ownSize = it }, preview)
+    }
     GlassDropdown(
         state = state,
         expanded = open,
@@ -117,7 +131,10 @@ public fun QuvenGlassContextMenuBox(
         outsideModifier = Modifier,
         placement = ContextMenuPlacement,
         face = {},
-        preview = remember(preview) { GlassMenuPreview(preview, { liftedFrom }, ContextMenuGap) },
+        preview = remember(preview != null) {
+            if (preview != null) GlassMenuPreview(own, { liftedFrom }, ContextMenuGap) { ownSize }
+            else GlassMenuPreview(card, { liftedFrom }, ContextMenuGap)
+        },
         content = menu,
     )
 }
@@ -125,20 +142,61 @@ public fun QuvenGlassContextMenuBox(
 /**
  * The control a context menu lifts out of the screen: the layer it records itself into and the size it lifts from.
  *
- * @property layer The layer the control records itself into.
+ * @property layer The layer the control, or the preview drawn in its place, records itself into.
  * @property liftedFrom Reads the size the control grows from as it lifts, a share of its own; 1 once the menu closes.
  * @property gap The room between the lifted control and its menu.
+ * @property ownSize Reads the size of the preview drawn in the control's place, or `null` when the control lifts itself.
  */
-internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> Float, val gap: Dp) {
+internal class GlassMenuPreview(
+    val layer: GraphicsLayer,
+    val liftedFrom: () -> Float,
+    val gap: Dp,
+    val ownSize: (() -> IntSize)? = null,
+) {
 
     /**
-     * Returns how large the control draws, as a share of its own size, [progress] of the way to its menu standing open.
+     * Returns the size of what lifts, unscaled: the preview's own, or the control's.
      *
-     * @param progress How far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
-     * @param lift The share the control lifts to once its menu stands open.
+     * @param anchor The control's bounds.
+     * @return The size, in pixels.
+     */
+    fun imageSize(anchor: Rect): Size = ownSize?.invoke()?.takeIf { it != IntSize.Zero }?.toSize() ?: anchor.size
+
+    /**
+     * Returns the share of its size what lifts stands at once the menu is open: a preview at its own size, the control
+     * at [controlLift].
+     *
+     * @param controlLift The share a control lifting itself grows to.
      * @return The share.
      */
-    fun liftAt(progress: Float, lift: Float): Float = lerp(liftedFrom(), lift, progress)
+    fun lift(controlLift: Float): Float = if (ownSize == null) controlLift else 1f
+
+    /**
+     * Returns the bounds of what lifts once the menu is open, centred on the control.
+     *
+     * @param anchor The control's bounds.
+     * @param controlLift The share a control lifting itself grows to.
+     * @return The bounds, before any shift.
+     */
+    fun lifted(anchor: Rect, controlLift: Float): Rect {
+        val size = imageSize(anchor) * lift(controlLift)
+        return Rect(anchor.center - Offset(size.width / 2f, size.height / 2f), size)
+    }
+
+    /**
+     * Returns how large what lifts draws, as a share of its own size, [progress] of the way to its menu standing open:
+     * from the size the control was held at to [lift].
+     *
+     * @param progress How far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
+     * @param lift The share it lifts to once its menu stands open.
+     * @param anchor The control's bounds.
+     * @return The share.
+     */
+    fun scaleAt(progress: Float, lift: Float, anchor: Rect): Float {
+        val image = imageSize(anchor)
+        val from = if (image.width > 0f) liftedFrom() * anchor.width / image.width else liftedFrom()
+        return lerp(from, lift, progress)
+    }
 
     /**
      * Returns how far the lifted control moves so its menu, held inside the screen, stands [gap] beyond it: down from a
@@ -170,6 +228,33 @@ internal class GlassMenuPreview(val layer: GraphicsLayer, val liftedFrom: () -> 
         val top = if (above) lifted.top else lifted.bottom - seedHeight
         return Rect(left, top, left + width, top + seedHeight)
     }
+}
+
+/**
+ * Composes [preview] without drawing it, measured at its own size, and records it into [layer] for a context menu to
+ * lift.
+ *
+ * @param layer The layer the preview records into.
+ * @param onSize Invoked with the preview's size each time it is measured.
+ * @param preview Draws the preview.
+ */
+@Composable
+private fun PreviewRecording(layer: GraphicsLayer, onSize: (IntSize) -> Unit, preview: @Composable () -> Unit) {
+    var measured by remember { mutableStateOf(IntSize.Zero) }
+    Box(
+        Modifier
+            .layout { measurable, _ ->
+                val placeable = measurable.measure(Constraints())
+                measured = IntSize(placeable.width, placeable.height)
+                onSize(measured)
+                layout(0, 0) { placeable.place(0, 0) }
+            }
+            .drawWithContent {
+                layer.record(size = measured) { this@drawWithContent.drawContent() }
+            }
+            // A picture of the card, which accessibility services already read.
+            .clearAndSetSemantics {},
+    ) { preview() }
 }
 
 /** The room between a lifted card and its menu, as measured on the system's. */

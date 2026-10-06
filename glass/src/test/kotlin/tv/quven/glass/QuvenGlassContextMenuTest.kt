@@ -2,6 +2,7 @@ package tv.quven.glass
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
@@ -76,6 +77,32 @@ class QuvenGlassContextMenuTest {
     }
 
     @Test
+    fun aPreviewOfItsOwn_liftsAtItsOwnSize_withTheMenuBeyondIt_andIsNotReadAsPartOfTheCard() {
+        render(top = 100f, preview = true)
+        compose.onNodeWithText(PreviewText).assertDoesNotExist()
+
+        compose.onNodeWithTag(CardTag).performTouchInput { longClick() }
+        compose.waitForIdle()
+
+        // The 272 by 408 preview stands centred on the card's centre, 227.5, so its foot is at 431.5.
+        val row = compose.onNodeWithText("Play", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue(row.top.value > 431.5f + 22f)
+    }
+
+    @Test
+    fun aCardLiftingItself_keepsItsMenuATenthBeyondItsOwnSize() {
+        render(top = 100f)
+
+        compose.onNodeWithTag(CardTag).performTouchInput { longClick() }
+        compose.waitForIdle()
+
+        // Lifted a tenth about its centre, 227.5, the card's foot is at 367.75.
+        val row = compose.onNodeWithText("Play", useUnmergedTree = true).assertIsDisplayed().getUnclippedBoundsInRoot()
+        assertTrue(row.top.value > 367.75f + 22f)
+        assertTrue(row.top.value < 431.5f + 22f)
+    }
+
+    @Test
     fun choosingARow_runsIt_andClosesTheMenu() {
         render(top = 300f)
         compose.onNodeWithTag(CardTag).performTouchInput { longClick() }
@@ -114,7 +141,7 @@ class QuvenGlassContextMenuTest {
         assertEquals(IntOffset(100, 300 + 22), place.place(menu, IntRect(100, 40, 287, 300), space, Density(1f)))
     }
 
-    private fun render(top: Float) {
+    private fun render(top: Float, preview: Boolean = false) {
         val host = QuvenGlassMenuHostState()
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f), LocalQuvenGlassMenuHost provides host) {
@@ -123,6 +150,7 @@ class QuvenGlassContextMenuTest {
                         menu = { QuvenGlassMenuItem("Play", { chosen++ }) },
                         onClick = { presses++ },
                         modifier = Modifier.offset(300.dp, top.dp).size(170.dp, 255.dp).testTag(CardTag),
+                        preview = if (preview) ({ Box(Modifier.size(272.dp, 408.dp)) { BasicText(PreviewText) } }) else null,
                     ) {}
                     QuvenGlassMenuHost(host, backdrop = null, metrics = QuvenGlassMenuMetrics.Tablet)
                 }
@@ -133,5 +161,6 @@ class QuvenGlassContextMenuTest {
 
     private companion object {
         const val CardTag = "card"
+        const val PreviewText = "Preview"
     }
 }

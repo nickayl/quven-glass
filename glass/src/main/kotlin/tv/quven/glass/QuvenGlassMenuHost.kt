@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.translate
@@ -147,7 +148,7 @@ public fun QuvenGlassMenuHost(
         val preview = request.preview
         // A lifted control places its menu beside the whole of it, and the glass grows from a capsule on its edge.
         val density = LocalDensity.current
-        val lifted = anchor.lifted(metrics.previewLift)
+        val lifted = preview?.lifted(anchor, metrics.previewLift) ?: anchor
         val shift = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
         val seed = preview?.seed(lifted.translate(0f, shift), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
@@ -507,13 +508,13 @@ internal fun popoverPoint(control: Rect, spaceHeight: Float, density: Density): 
 
 /**
  * Draws a control's [preview] lifted out of the screen, which dims behind it, as far as [progress] has opened its menu:
- * the control grows to [lift] about its centre and moves by [shift], over a veil of black at [ScreenDim], as a
- * system context menu lifts its preview.
+ * the control grows to [lift] about its centre, or a preview of its own to its own size, and moves by [shift], over a
+ * veil of black at [ScreenDim], as a system context menu lifts its preview.
  *
  * @param preview The control.
  * @param anchor The control's bounds, in the host's coordinates.
  * @param shift How far the control moves down once lifted, negative to move up, to keep its menu beside it.
- * @param lift The share of its own size the control lifts to.
+ * @param lift The share of its own size a control lifting itself lifts to.
  * @param progress Reads how far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
  */
 @Composable
@@ -524,8 +525,9 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
             .drawBehind {
                 val shown = progress().coerceIn(0f, 1f)
                 drawRect(Color.Black, alpha = ScreenDim * shown)
-                translate(anchor.left, anchor.top + shift * shown) {
-                    scale(preview.liftAt(progress(), lift), pivot = Offset(anchor.width / 2f, anchor.height / 2f)) { drawLayer(preview.layer) }
+                val image = preview.imageSize(anchor)
+                translate(anchor.center.x - image.width / 2f, anchor.center.y - image.height / 2f + shift * shown) {
+                    scale(preview.scaleAt(progress(), preview.lift(lift), anchor), pivot = image.center) { drawLayer(preview.layer) }
                 }
             },
     )
@@ -540,17 +542,6 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
 private fun QuvenGlassMorphPlacement.around(anchor: Rect): QuvenGlassMorphPlacement {
     val bounds = IntRect(anchor.left.roundToInt(), anchor.top.roundToInt(), anchor.right.roundToInt(), anchor.bottom.roundToInt())
     return QuvenGlassMorphPlacement { size, _, space, density -> place(size, bounds, space, density) }
-}
-
-/**
- * Returns this rectangle grown by [scale] about its centre.
- *
- * @param scale The factor to grow by.
- * @return The grown rectangle.
- */
-private fun Rect.lifted(scale: Float): Rect {
-    val grow = Offset(width * (scale - 1f) / 2f, height * (scale - 1f) / 2f)
-    return Rect(topLeft - grow, bottomRight + grow)
 }
 
 /**
