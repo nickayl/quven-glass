@@ -153,7 +153,7 @@ private fun SidebarPane(
             // layout direction, not by its layer.
             .offset { IntOffset(if (reduceMotion) 0 else -sidebarAway(presence.value, (width + SidebarInset).roundToPx()), 0) }
             .graphicsLayer { alpha = if (reduceMotion) presence.value else 1f }
-            .liquidGlass(backdrop, style, RoundedCornerShape(SidebarCorner), null, reduceMotion, lift = null, pill = null),
+            .liquidGlass(backdrop, remember(style) { style.forSidebars() }, RoundedCornerShape(SidebarCorner), null, reduceMotion, lift = null, pill = null),
         content = content,
     )
 }

@@ -257,6 +257,15 @@ public data class QuvenGlassStyle(
         copy(blur = MenuBlur, thickBlur = MenuBlur, largeTone = QuvenGlassTone.Menu, pressGlow = MenuPressGlow, rimGlow = MenuRimGlow)
 
     /**
+     * Returns this material as a split view's sidebar draws it, as iPadOS draws its own: blurring what lies around it so
+     * deeply that the detail beside it glows in from its edge, veiled less than a panel, its rim lit.
+     *
+     * @return The sidebar's material.
+     */
+    internal fun forSidebars(): QuvenGlassStyle =
+        copy(blur = SidebarBlur, thickBlur = SidebarBlur, largeTone = QuvenGlassTone.Sidebar, rimLight = SidebarRimLight)
+
+    /**
      * Returns this material as interactive glass draws it: a light gathers under the finger and follows it, as on Apple's
      * interactive glass.
      *
@@ -322,6 +331,10 @@ public data class QuvenGlassStyle(
         private val ButtonPressExpansion = 16.dp
         private const val MenuRimGlow = 1.7f
         private val MenuBlur = 7.2.dp
+
+        // Measured on a split view's sidebar on an iPad: what lies around it blurs by σ about 145 pt.
+        private val SidebarBlur = 250.dp
+        private const val SidebarRimLight = 0.2f
     }
 }
 

@@ -28,6 +28,16 @@ class QuvenGlassStyleTest {
     }
 
     @Test
+    fun aSidebar_blursDeeplyAtEverySize_withItsOwnToneAndALitRim() {
+        val sidebar = QuvenGlassStyle.Standard.forSidebars()
+
+        assertEquals(sidebar.blurFor(40f, density), sidebar.blurFor(900f, density), 0.001f)
+        assertEquals(500f, sidebar.blurFor(640f, density), 0.001f)
+        assertEquals(QuvenGlassTone.Sidebar, sidebar.largeTone)
+        assertEquals(0.2f, sidebar.rimLight, 0f)
+    }
+
+    @Test
     fun theShade_followsTheBrightnessOnThinAndLargeGlass_andHoldsOnABar() {
         val standard = QuvenGlassStyle.Standard
 

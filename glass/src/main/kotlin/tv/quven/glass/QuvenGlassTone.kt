@@ -60,6 +60,15 @@ public data class QuvenGlassTone(
             adaptation = 0.2f,
         )
 
+        /** Gets the tone of a split view's sidebar, which lets more of the glow beside it through than a panel. */
+        internal val Sidebar: QuvenGlassTone = QuvenGlassTone(
+            shade = Color(0xFF151515),
+            lean = 0.79f,
+            leanSlope = -0.05f,
+            saturation = 2.6f,
+            adaptation = 0.18f,
+        )
+
         /** Gets the tone of thin glass turned light over a bright backdrop. */
         public val Light: QuvenGlassTone = QuvenGlassTone(shade = Color(0xFFF5F5F5), lean = 0.82f, saturation = 3.27f)
 
