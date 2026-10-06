@@ -60,6 +60,15 @@ public data class QuvenGlassTone(
             adaptation = 0.2f,
         )
 
+        /** Gets the tone of an alert, which lets more of the dimmed screen's colours through than a menu. */
+        internal val Alert: QuvenGlassTone = QuvenGlassTone(
+            shade = Color(0xFF1A1A1A),
+            lean = 0.76f,
+            leanSlope = -0.05f,
+            saturation = 2.6f,
+            adaptation = 0.2f,
+        )
+
         /** Gets the tone of a split view's sidebar, which lets more of the glow beside it through than a panel. */
         internal val Sidebar: QuvenGlassTone = QuvenGlassTone(
             shade = Color(0xFF151515),

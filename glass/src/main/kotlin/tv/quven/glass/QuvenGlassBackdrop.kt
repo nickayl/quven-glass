@@ -3,23 +3,31 @@ package tv.quven.glass
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.isSpecified
 import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.input.pointer.PointerEvent
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.DrawModifierNode
 import androidx.compose.ui.node.GlobalPositionAwareModifierNode
-import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.PointerInputModifierNode
 import androidx.compose.ui.node.TraversableNode
-import androidx.compose.ui.node.traverseAncestors
 import androidx.compose.ui.node.requireGraphicsContext
+import androidx.compose.ui.node.traverseAncestors
 import androidx.compose.ui.platform.InspectorInfo
+import androidx.compose.ui.unit.IntSize
 
 /**
  * The content glass surfaces stand over: one source records it into a layer every time it draws, and every surface
@@ -40,6 +48,22 @@ public class QuvenGlassBackdrop internal constructor(internal val seeThrough: Bo
     /** Gets the position of the source in the root, or [Offset.Unspecified] before it is placed. */
     internal var origin: Offset = Offset.Unspecified
         private set
+
+    /**
+     * Gets where a finger presses the source, in the root, or `null` while none does, which interactive glass letting
+     * presses through lights under.
+     */
+    internal var finger: Offset? by mutableStateOf(null)
+        private set
+
+    /**
+     * Follows the finger pressing the source.
+     *
+     * @param at Where the finger presses, in the root, or `null` once it lifts.
+     */
+    internal fun touch(at: Offset?) {
+        finger = at
+    }
 
     /**
      * Attaches a source, which records its content into [layer].
@@ -153,7 +177,7 @@ internal fun DelegatableNode.isInsideSourceOf(backdrop: QuvenGlassBackdrop): Boo
 }
 
 private class GlassSourceNode(private var backdrop: QuvenGlassBackdrop) :
-    Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, TraversableNode {
+    Modifier.Node(), DrawModifierNode, GlobalPositionAwareModifierNode, TraversableNode, PointerInputModifierNode {
 
     override val traverseKey: Any = Key
 
@@ -175,6 +199,7 @@ private class GlassSourceNode(private var backdrop: QuvenGlassBackdrop) :
     }
 
     override fun onDetach() {
+        backdrop.touch(null)
         layer?.let {
             backdrop.detach(it)
             requireGraphicsContext().releaseGraphicsLayer(it)
@@ -191,6 +216,16 @@ private class GlassSourceNode(private var backdrop: QuvenGlassBackdrop) :
     override fun onGloballyPositioned(coordinates: LayoutCoordinates) {
         backdrop.place(coordinates.positionInRoot())
     }
+
+    // The source watches the finger without taking it, so what it records still answers the press.
+    override fun onPointerEvent(pointerEvent: PointerEvent, pass: PointerEventPass, bounds: IntSize) {
+        if (pass != PointerEventPass.Initial) return
+        val change = pointerEvent.changes.firstOrNull() ?: return
+        val origin = backdrop.origin
+        backdrop.touch(if (change.pressed && origin.isSpecified) origin + change.position else null)
+    }
+
+    override fun onCancelPointerInput() = backdrop.touch(null)
 
     companion object Key
 }

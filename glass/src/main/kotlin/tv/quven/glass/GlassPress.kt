@@ -31,9 +31,16 @@ internal class GlassPress {
      *
      * @param scope The scope the presses are collected in.
      * @param source The source of the presses, or `null` to follow none.
+     * @param completesRise Whether a tap lifting before the press has risen still rises all the way before it falls, as
+     * the system's glass lights fully under the briefest touch; `false` turns back at once, carried on by the motion.
      * @param spec Gets the animation the press rises on, given `true`, and falls on, given `false`.
      */
-    fun follow(scope: CoroutineScope, source: InteractionSource?, spec: (held: Boolean) -> AnimationSpec<Float>) {
+    fun follow(
+        scope: CoroutineScope,
+        source: InteractionSource?,
+        completesRise: Boolean = true,
+        spec: (held: Boolean) -> AnimationSpec<Float>,
+    ) {
         presses?.cancel()
         presses = source?.let {
             scope.launch {
@@ -45,9 +52,7 @@ internal class GlassPress {
                     }
                     val pressed = held > 0
                     launch {
-                        // A tap lifts before the press has risen; it still rises all the way before it falls, as the
-                        // system's glass lights fully under the briefest touch.
-                        if (!pressed && press.targetValue == 1f && press.value < 1f) press.animateTo(1f, spec(true))
+                        if (completesRise && !pressed && press.targetValue == 1f && press.value < 1f) press.animateTo(1f, spec(true))
                         press.animateTo(if (pressed) 1f else 0f, spec(pressed))
                     }
                 }

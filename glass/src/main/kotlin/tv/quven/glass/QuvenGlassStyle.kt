@@ -87,8 +87,13 @@ import androidx.compose.ui.util.lerp
  * @property pressBrighten How much light a pressed surface adds to its backdrop as [pressGlow] lights it, from 0 to 1, all
  * of it over black and less the brighter the backdrop, so it lights even over black, as Apple's glass buttons do.
  * @property touchLight How much white light gathers under the finger on interactive glass and follows it, at its middle,
- * from 0 to 1; 0 for glass that does not light where it is touched.
+ * from 0 to 1; 0 for glass that adds no white where it is touched.
  * @property touchLightSpread How far the light under the finger spreads, as a Gaussian's standard deviation.
+ * @property touchGlow How much brighter interactive glass shows its own colours under the finger, at its middle, as a
+ * factor; 0 for glass whose colours do not brighten where it is touched.
+ * @property touchSaturation The saturation of the colours [touchGlow] brightens, 1 leaving it unchanged.
+ * @property touchPassesThrough Whether a press on glass that lights under the finger also reaches what lies under it, as
+ * on Apple's interactive glass holding no controls of its own; `false` keeps the press for what stands on the glass.
  * @property thickBlur The radius of the blur under a surface whose shorter side is at least [thickBlurSize]; between
  * [thinSize] and [thickBlurSize] the blur grows from [blur] in proportion, as Apple's glass frosts more deeply the larger
  * it stands.
@@ -150,6 +155,9 @@ public data class QuvenGlassStyle(
     val pressBrighten: Float = 0f,
     val touchLight: Float = 0f,
     val touchLightSpread: Dp = 95.dp,
+    val touchGlow: Float = 0f,
+    val touchSaturation: Float = 1f,
+    val touchPassesThrough: Boolean = false,
     val thickBlur: Dp = 8.4.dp,
     val thickBlurSize: Dp = 136.dp,
     val largeTone: QuvenGlassTone = QuvenGlassTone.Large,
@@ -266,12 +274,31 @@ public data class QuvenGlassStyle(
         copy(blur = SidebarBlur, thickBlur = SidebarBlur, largeTone = QuvenGlassTone.Sidebar, rimLight = SidebarRimLight)
 
     /**
-     * Returns this material as interactive glass draws it: a light gathers under the finger and follows it, as on Apple's
-     * interactive glass.
+     * Returns this material as an alert draws it over the screen it dims, as Apple's alerts: a menu's glass, letting more
+     * of the screen's colours through, its rim faintly lit.
+     *
+     * @return The alert's material.
+     */
+    internal fun forAlerts(): QuvenGlassStyle =
+        forMenus().dimmed(ScreenDim).copy(largeTone = QuvenGlassTone.Alert, rimLight = AlertRimLight)
+
+    /** Gets whether this material lights under the finger, which makes its glass follow the finger. */
+    internal val followsFinger: Boolean
+        get() = touchLight > 0f || touchGlow > 0f
+
+    /**
+     * Returns this material as interactive glass draws it, for glass holding no controls of its own: its colours brighten
+     * under the finger and the light follows it, while the press still reaches what lies under the glass, so a drag across
+     * it scrolls what it stands over, as on Apple's interactive glass.
      *
      * @return The interactive material.
      */
-    public fun interactive(): QuvenGlassStyle = copy(touchLight = InteractiveTouchLight)
+    public fun interactive(): QuvenGlassStyle = copy(
+        touchGlow = InteractiveTouchGlow,
+        touchSaturation = InteractiveTouchSaturation,
+        touchLightSpread = InteractiveTouchSpread,
+        touchPassesThrough = true,
+    )
 
     /**
      * Returns this material as a group of toolbar buttons draws it: it grows under the finger as a glass button does and
@@ -312,7 +339,11 @@ public data class QuvenGlassStyle(
         )
 
         private const val BarItemPressWhite = 0.41f
-        private const val InteractiveTouchLight = 0.057f
+        // Measured on an iPad's interactive glass: its colours 1.45 times as bright and 1.2 times as saturated under the
+        // finger, falling as a Gaussian of 90 pt.
+        private const val InteractiveTouchGlow = 1.45f
+        private const val InteractiveTouchSaturation = 1.2f
+        private val InteractiveTouchSpread = 90.dp
         private const val ToolbarTouchLight = 0.5f
         private const val ToolbarPressWhite = 0.11f
         private val ToolbarTouchSpread = 45.dp
@@ -321,11 +352,11 @@ public data class QuvenGlassStyle(
         private const val StandardRimGlow = 1f
         private const val MenuPressGlow = 3.6f
         private const val ButtonTintGlow = 1.15f
-        private const val ButtonPressGlow = 1.45f
-        private const val ButtonPressSaturation = 1.8f
-        private const val ButtonPressZoom = 1.6f
-        private val ButtonPressBlur = 16.dp
-        private const val ButtonPressBrighten = 0.3f
+        private const val ButtonPressGlow = 1.5f
+        private const val ButtonPressSaturation = 1.3f
+        private const val ButtonPressZoom = 1f
+        private val ButtonPressBlur = 8.dp
+        private const val ButtonPressBrighten = 0.4f
         private const val ButtonRimGlow = 1f
         private const val ButtonRimLight = 0.3f
         private val ButtonPressExpansion = 16.dp
@@ -335,6 +366,7 @@ public data class QuvenGlassStyle(
         // Measured on a split view's sidebar on an iPad: what lies around it blurs by σ about 145 pt.
         private val SidebarBlur = 250.dp
         private const val SidebarRimLight = 0.2f
+        private const val AlertRimLight = 0.06f
     }
 }
 

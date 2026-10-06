@@ -50,6 +50,7 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -169,7 +170,7 @@ private fun GalleryScreen(initial: Int?) {
     val sheets = rememberQuvenGlassSheetHostState()
     // Menus stand over the whole window, past the stage's edges, as the system's do.
     val menus = rememberQuvenGlassMenuHostState()
-    val metrics = if (LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp) QuvenGlassMenuMetrics.Tablet else QuvenGlassMenuMetrics.Phone
+    val metrics = if (isTabletWindow()) QuvenGlassMenuMetrics.Tablet else QuvenGlassMenuMetrics.Phone
     // The menu of cut, copy and paste stands over everything, as the system's does.
     ProvideQuvenGlassTextToolbar(style = tuning.style, backdrop = screen.takeIf { tuning.liquid }, reduceMotion = tuning.reduceMotion) {
         Box(Modifier.fillMaxSize()) {
@@ -329,15 +330,12 @@ private fun ExhibitStage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modif
     val backdrop = rememberQuvenGlassBackdrop()
     val scroll = remember { StageScroll() }
     Box(modifier.clip(StageShape)) {
-        val offset = LocalBackdropOffset.current
-        SampleBackdropContent(
+        StageBackdropContent(
             Modifier
                 .fillMaxSize()
                 .nestedScroll(scroll)
                 .quvenGlassSource(backdrop)
                 .then(if (exhibit.bottomEdge > 0.dp) Modifier.quvenGlassScrollEdge(bottom = exhibit.bottomEdge) else Modifier),
-            scroll = offset.y.value,
-            shift = offset.x,
         )
         CompositionLocalProvider(
             LocalQuvenGlassBackdrop provides backdrop.takeIf { tuning.liquid },
@@ -354,6 +352,19 @@ private fun ExhibitStage(exhibit: Exhibit, tuning: SampleTuning, modifier: Modif
 /** How far each stage's content is drawn moved towards the start and the top. */
 private val LocalBackdropOffset = staticCompositionLocalOf { DpOffset.Zero }
 
+/**
+ * Draws the stage's content moved as the stage's backdrop offset says, so its exhibits stand over the same content as
+ * the reference's.
+ *
+ * @param modifier Modifier applied to the content.
+ * @param top The room above the first item, which a bar standing over the content's top edge takes at rest.
+ */
+@Composable
+internal fun StageBackdropContent(modifier: Modifier, top: Dp = 0.dp) {
+    val offset = LocalBackdropOffset.current
+    SampleBackdropContent(modifier, scroll = offset.y.value, top = top, shift = offset.x)
+}
+
 private val TwoPaneWidth = 700.dp
 private val ListWidth = 300.dp
 private val ListPadding = 12.dp
@@ -366,3 +377,11 @@ private val StageShape = RoundedCornerShape(24.dp)
 /** The room between the stage's edge and its exhibit. */
 internal val StageInset = 24.dp
 internal const val TabletWidthDp = 600
+
+/**
+ * Returns whether the window is a tablet's, where the gallery lays its exhibits out as the reference does on an iPad.
+ *
+ * @return `true` on a tablet.
+ */
+@Composable
+internal fun isTabletWindow(): Boolean = LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp

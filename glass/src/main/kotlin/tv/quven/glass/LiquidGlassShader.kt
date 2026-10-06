@@ -60,6 +60,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     PressZoom("pressZoom", 1),
     PressBlur("pressBlur", 1),
     PressBrighten("pressBrighten", 1),
+    TouchLook("touchLook", 3),
 }
 
 /** The name of the shader uniform the backdrop is bound to. */
@@ -138,6 +139,7 @@ uniform float pressSaturation;
 uniform float pressZoom;
 uniform float pressBlur;
 uniform float pressBrighten;
+uniform float3 touchLook;
 
 const float FAR = 100000.0;
 const float EPSILON = 0.0001;
@@ -157,6 +159,7 @@ const float LIFT_GLOW = 0.05;
 const float RIM_REACH_DP = 2.0;
 const float SEE_THROUGH_VEIL = 2.5;
 const float CORNER_SCALE_LIMIT_DP = 32.0;
+const float PRESS_BRIGHTEN_CURVE = 8.0;
 
 float roundBox(float2 p, float4 rect, float4 radii) {
     float2 centre = (rect.xy + rect.zw) * 0.5;
@@ -266,6 +269,19 @@ float luma(float3 c) {
     return dot(c, LUMA);
 }
 
+// The colour c with its saturation scaled by saturation and its brightness by gain, as a press or a finger lights it.
+float3 vividOf(float3 c, float saturation, float gain) {
+    return mix(float3(luma(c)), c, saturation) * gain;
+}
+
+// The glass's colour where a finger's light weighs touched: its own colours brightened, then white added.
+float3 underFinger(float3 rgb, float touched) {
+    if (touchLook.y > 0.0) {
+        rgb = mix(rgb, clamp(vividOf(rgb, touchLook.z, touchLook.y), 0.0, 1.0), touched);
+    }
+    return clamp(rgb + touched * touchLook.x, 0.0, 1.0);
+}
+
 float3 backdropAt(float2 at) {
     half4 seen = content.eval(at);
     float3 rgb = seeThrough > 0.5 ? float3(seen.rgb) / max(float(seen.a), EPSILON) : float3(seen.rgb);
@@ -280,14 +296,16 @@ float2 boxNormal(float2 p, float4 rect, float4 radii) {
     return len > EPSILON ? g / len : float2(0.0, -1.0);
 }
 
-// The backdrop about p blurred over a ring of radius r, its middle weighed twice, as a pressed surface softens it.
+// The backdrop about p blurred over two rings, of radius r and half of it turned between, its middle weighed twice, as a
+// pressed surface softens it; one ring alone left ghosts of a sharp edge.
 float3 softBackdropAt(float2 p, float r) {
     float3 sum = backdropAt(p) * 2.0;
     for (int i = 0; i < 8; i++) {
         float a = float(i) * 0.785398;
         sum += backdropAt(p + float2(cos(a), sin(a)) * r);
+        sum += backdropAt(p + float2(cos(a + 0.392699), sin(a + 0.392699)) * (0.5 * r));
     }
-    return sum / 10.0;
+    return sum / 18.0;
 }
 
 // The mean luminance of the backdrop under and around the surface nearest p.
@@ -422,15 +440,17 @@ half4 main(float2 coord) {
 
     if (pressGlow > 0.0) {
         float3 soft = pressBlur > 0.0 && glow > 0.0 ? softBackdropAt(at, pressBlur * glow) : seen;
-        float3 vivid = mix(float3(luma(soft)), soft, pressSaturation);
-        rgb = mix(rgb, clamp(vivid * pressGlow + pressBrighten * (1.0 - luma(soft)), 0.0, 1.0), glow);
+        // The added light falls off steeply with brightness: all of it over black, almost none over a mid colour.
+        rgb = mix(rgb, clamp(vividOf(soft, pressSaturation, pressGlow) + pressBrighten * pow(1.0 - luma(soft), PRESS_BRIGHTEN_CURVE), 0.0, 1.0), glow);
     }
     if ((pressLighten > 0.0 || white > 0.0) && glow > 0.0) {
         float lighten = pressLighten > 0.0 ? clamp(pressLighten * surfaceLuma(coord), 0.0, 1.0) * glow : 0.0;
         rgb = mix(rgb, float3(1.0), max(white, lighten));
     }
 
-    rgb = clamp(rgb + touched, 0.0, 1.0);
+    if (touched > 0.0) {
+        rgb = underFinger(rgb, touched);
+    }
 
     if (rimGlow > 0.0) {
         float3 outside = backdropAt(coord + n * RIM_REACH_DP * pixel);
@@ -501,7 +521,7 @@ internal data class GlassSurface(
  *
  * @property at Where the finger is.
  * @property sigma How far the light spreads, as a Gaussian's standard deviation.
- * @property amount How bright the light is at the finger, as a share of white.
+ * @property amount How far the light has gathered at the finger, from 0 to 1; the material says what it brightens.
  */
 internal data class TouchLight(val at: Offset, val sigma: Float, val amount: Float) {
 
@@ -649,6 +669,7 @@ internal class LiquidGlassShader private constructor() {
             setFloatUniform(LiquidGlassUniform.PressZoom.uniform, style.pressZoom)
             setFloatUniform(LiquidGlassUniform.PressBlur.uniform, style.pressBlur.value * density)
             setFloatUniform(LiquidGlassUniform.PressBrighten.uniform, style.pressBrighten)
+            setFloatUniform(LiquidGlassUniform.TouchLook.uniform, style.touchLight, style.touchGlow, style.touchSaturation)
         }
         return RenderEffect.createRuntimeShaderEffect(shader, LiquidGlassContent)
     }

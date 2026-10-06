@@ -52,8 +52,8 @@ class GlassPressThroughTest {
     }
 
     @Test
-    fun aRowOnInteractiveGlass_takesItsPress_andTheScrimUnderTheGlassDoesNot() {
-        render(QuvenGlassStyle.Standard.interactive())
+    fun aRowOnGlassHoldingControls_takesItsPress_andTheScrimUnderTheGlassDoesNot() {
+        render(QuvenGlassStyle.Standard.forToolbarItems())
 
         compose.onNodeWithTag(RowTag).performClick()
 
@@ -64,12 +64,39 @@ class GlassPressThroughTest {
     }
 
     @Test
-    fun aPressOnInteractiveGlassBesideItsRow_staysOnTheGlass() {
+    fun aPressOnInteractiveGlassBesideItsRow_reachesWhatLiesUnderTheGlass() {
         render(QuvenGlassStyle.Standard.interactive())
 
         compose.onRoot().performTouchInput { click(Offset(150f, 150f)) }
 
-        compose.runOnIdle { assertEquals(0, scrimPresses) }
+        compose.runOnIdle {
+            assertEquals(1, scrimPresses)
+            assertEquals(0, rowPresses)
+        }
+    }
+
+    @Test
+    fun aPressOnInteractiveGlass_reachesTheContentUnderIt_whoseSourceFollowsTheFinger() {
+        var contentPresses = 0
+        lateinit var backdrop: QuvenGlassBackdrop
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                backdrop = rememberQuvenGlassBackdrop()
+                Box(Modifier.fillMaxSize()) {
+                    Box(Modifier.fillMaxSize().clickable { contentPresses++ }.quvenGlassSource(backdrop))
+                    Box(Modifier.size(200.dp).quvenLiquidGlass(backdrop, QuvenGlassStyle.Standard.interactive(), RoundedCornerShape(20.dp)))
+                }
+            }
+        }
+
+        compose.onRoot().performTouchInput { down(Offset(100f, 100f)) }
+        compose.runOnIdle { assertEquals(Offset(100f, 100f), backdrop.finger) }
+        compose.onRoot().performTouchInput { up() }
+
+        compose.runOnIdle {
+            assertEquals(null, backdrop.finger)
+            assertEquals(1, contentPresses)
+        }
     }
 
     private fun render(style: QuvenGlassStyle) {

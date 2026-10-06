@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -36,6 +37,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
 import kotlinx.coroutines.Job
@@ -185,6 +187,8 @@ internal class LiquidGlassNode(
     private var touchAt by mutableStateOf(Offset.Zero)
     private var touches: Job? = null
     private var finger: FingerNode? = null
+    private var fingerWatch: Job? = null
+    private var watchedBackdrop: QuvenGlassBackdrop? = null
 
     init {
         followFinger()
@@ -250,19 +254,48 @@ internal class LiquidGlassNode(
         followPresses()
         following = false
         follow()
+        followFinger()
     }
 
-    // Only glass that lights under the finger takes the pointer, and then as a surface does: what stands on it still
-    // takes the press, and nothing under it does. Plain glass is no target at all, so a press passes through it.
+    // Glass holding controls takes the pointer, keeping the press for them; interactive glass holding none is no target,
+    // as plain glass, and follows the finger its backdrop's source sees, so the press still reaches what lies beneath.
     private fun followFinger() {
-        val wanted = style.touchLight > 0f
+        val holds = style.followsFinger && !style.touchPassesThrough
         val held = finger
-        if (wanted && held == null) {
+        if (holds && held == null) {
             finger = delegate(FingerNode(::onFinger, onCancel = { light(on = false) }))
-        } else if (!wanted && held != null) {
+        } else if (!holds && held != null) {
             undelegate(held)
             finger = null
             light(on = false)
+        }
+        val watches = style.followsFinger && style.touchPassesThrough && isAttached
+        if (fingerWatch != null && (!watches || watchedBackdrop !== backdrop)) {
+            fingerWatch?.cancel()
+            fingerWatch = null
+            watchedBackdrop = null
+            light(on = false)
+        }
+        if (watches && fingerWatch == null) {
+            watchedBackdrop = backdrop
+            fingerWatch = coroutineScope.launch { watchBackdropFinger(backdrop) }
+        }
+    }
+
+    // Lights where the finger the source sees falls within this surface, and lets the light die once it lifts or leaves.
+    private suspend fun watchBackdropFinger(watched: QuvenGlassBackdrop) {
+        var lit = false
+        snapshotFlow { watched.finger }.collect { at ->
+            val own = coordinates?.takeIf { it.isAttached }
+            val local = if (at != null && own != null) at - own.positionInRoot() else null
+            val inside = local != null && own != null && Rect(Offset.Zero, own.size.toSize()).contains(local)
+            if (inside && local != null) {
+                touchAt = local
+                if (!lit) light(on = true)
+            } else if (lit) {
+                light(on = false)
+            }
+            lit = inside
         }
     }
 
@@ -289,6 +322,9 @@ internal class LiquidGlassNode(
         unregister()
         press.stop()
         touches?.cancel()
+        fingerWatch?.cancel()
+        fingerWatch = null
+        watchedBackdrop = null
         tracker.stop()
         probe?.release()
         probe = null
@@ -321,13 +357,16 @@ internal class LiquidGlassNode(
         // An empty surface would still join its neighbours at the point it stands on.
         if (size.minDimension <= 0f) return null
         val form = GlassForm.of(shape, size, requireLayoutDirection(), requireDensity()) ?: return null
-        val lift = max(press.value, liftSource?.lift() ?: 0f)
-        val swell = lift * style.pressGrowth * min(size.width, size.height) / 2f
-        val grown = pressScale(lift, with(requireDensity()) { style.pressExpansion.toPx() }, max(size.width, size.height))
+        // A press springing back passes below rest, so the surface shrinks a little before it settles; its light holds
+        // at 0.
+        val springing = liftSource?.lift()?.takeIf { abs(it) > abs(press.value) } ?: press.value
+        val lift = springing.coerceAtLeast(0f)
+        val swell = springing * style.pressGrowth * min(size.width, size.height) / 2f
+        val grown = pressScale(springing, with(requireDensity()) { style.pressExpansion.toPx() }, max(size.width, size.height))
         val pill = pillSource?.pill(size)?.translate(offset)
         val glow = glowSource?.lift() ?: lift
-        val touch = touchGlow.value.takeIf { it > 0f && style.touchLight > 0f }?.let { amount ->
-            TouchLight(touchAt + offset, with(requireDensity()) { style.touchLightSpread.toPx() }, amount * style.touchLight)
+        val touch = touchGlow.value.takeIf { it > 0f && style.followsFinger }?.let { amount ->
+            TouchLight(touchAt + offset, with(requireDensity()) { style.touchLightSpread.toPx() }, amount)
         } ?: TouchLight.None
         return GlassSurface(form.inflate(swell).scaled(grown).translate(offset), lift, pill, shownAppearance().lightness, veil.value, glow, style.pressWhite, touch)
     }
@@ -389,7 +428,7 @@ internal class LiquidGlassNode(
 private val AdaptationReach = 40.dp
 
 // Measured on Apple's interactive glass on an iPhone.
-private val TouchLightRise = tween<Float>(35)
+private val TouchLightRise = tween<Float>(80)
 private val TouchLightFade = tween<Float>(450, easing = FastOutSlowInEasing)
 
 /**
@@ -409,4 +448,5 @@ private class FingerNode(
     }
 
     override fun onCancelPointerInput() = onCancel()
+
 }

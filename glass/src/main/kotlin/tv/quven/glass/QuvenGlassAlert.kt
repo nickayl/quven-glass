@@ -192,7 +192,7 @@ public fun QuvenGlassAlertHost(
             request = request,
             width = min(AlertWidth, maxWidth - AlertEdge * 2),
             maxHeight = maxHeight - AlertEdge * 2,
-            style = remember(style) { style.forMenus().dimmed(ScreenDim).copy(rimLight = AlertRimLight) },
+            style = remember(style) { style.forAlerts() },
             textStyle = textStyle,
             backdrop = backdrop,
             shown = { shown.value },
@@ -402,8 +402,8 @@ private val AlertWidth = 319.dp
 private val AlertEdge = 24.dp
 private val AlertShape = RoundedCornerShape(33.dp)
 private val TextInset = 31.dp
-private val TopInset = 20.dp
-private val MessageGap = 4.dp
+private val TopInset = 23.dp
+private val MessageGap = 8.dp
 private val ActionsGap = 20.dp
 private val ActionInset = 15.5.dp
 private val ActionGap = 8.dp
@@ -417,7 +417,6 @@ private const val FadeOutMillis = 100
 private const val UndimMillis = 230
 private const val LightUpMillis = 70
 private const val LightDownMillis = 250
-private const val AlertRimLight = 0.06f
 private const val ActionGreying = 0.8f
 private const val ActionWhite = 0.11f
 private const val PressedActionWhite = 0.16f

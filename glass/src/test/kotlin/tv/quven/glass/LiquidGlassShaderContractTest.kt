@@ -30,6 +30,7 @@ class LiquidGlassShaderContractTest {
     private fun floatsOf(type: String): Int = when (type) {
         "float" -> 1
         "float2" -> 2
+        "float3" -> 3
         "float4", "half4" -> 4
         "int", "shader" -> 0
         else -> error("The binder cannot set a uniform of type $type.")

@@ -84,7 +84,6 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onPlaced
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -543,7 +542,7 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
     }
     // On a tablet the tabs stand at the stage's start and Search at its end, as the reference's compact tab bar lays them
     // out on an iPad; on a phone the two fill the bar.
-    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp
+    val tablet = isTabletWindow()
     val page = rememberQuvenGlassBackdrop()
     CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
         BoxWithConstraints(Modifier.matchParentSize().bleed(StageInset)) {
@@ -703,7 +702,7 @@ private fun BoxScope.MinimizingBarStage(tuning: SampleTuning) {
     }
     // On a tablet the bar hugs its entries in the stage's whole width, as near its foot as the reference's compact tab
     // bar stands, centred at rest and minimized at its start.
-    val tablet = LocalConfiguration.current.smallestScreenWidthDp >= TabletWidthDp
+    val tablet = isTabletWindow()
     CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
         Box(Modifier.matchParentSize().bleed(StageInset)) {
             QuvenGlassMinimizingBar(
@@ -756,10 +755,7 @@ internal fun BoxScope.ScrollEdgeExhibit(tuning: SampleTuning) {
         tuning,
         edge = if (hard) QuvenGlassScrollEdgeStyle.Hard else QuvenGlassScrollEdgeStyle.Soft,
         top = { EdgeStyleTrack(hard, onHard = { hard = it }, tuning = tuning) },
-        bottom = {
-            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(Shuffle), contentDescription = "Shuffle", reduceMotion = tuning.reduceMotion)
-            QuvenGlassIconButton(onClick = {}, icon = rememberVectorPainter(PlayFill), contentDescription = "Play", reduceMotion = tuning.reduceMotion)
-        },
+        bottom = { PlaybackToolbarItems(tuning) },
     )
 }
 
@@ -801,11 +797,20 @@ internal fun BoxScope.ToolbarExhibit(tuning: SampleTuning) {
                 }
             }
         },
-        bottom = {
-            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Shuffle), "Shuffle") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
-            QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(PlayFill), "Play") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
-        },
+        bottom = { PlaybackToolbarItems(tuning) },
     )
+}
+
+/**
+ * Draws the bottom toolbar's items of a page: Shuffle at its start and Play at its end, each a toolbar group of its own,
+ * as the reference's toolbar parts them with a spacer.
+ *
+ * @param tuning The live settings.
+ */
+@Composable
+private fun PlaybackToolbarItems(tuning: SampleTuning) {
+    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(Shuffle), "Shuffle") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
+    QuvenGlassToolbarGroup(listOf(QuvenGlassToolbarItem(rememberVectorPainter(PlayFill), "Play") {}), style = tuning.style, reduceMotion = tuning.reduceMotion)
 }
 
 /**
@@ -826,7 +831,7 @@ private fun BoxScope.PageStage(
 ) {
     val page = rememberQuvenGlassBackdrop()
     Box(Modifier.matchParentSize().bleed(StageInset)) {
-        SampleBackdropContent(
+        StageBackdropContent(
             Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(top = PageBarHeight, bottom = PageBarHeight, style = edge),
             top = PageBarHeight,
         )

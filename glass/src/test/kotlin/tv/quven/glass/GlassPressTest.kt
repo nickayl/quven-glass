@@ -50,6 +50,28 @@ class GlassPressTest {
         assertEquals(0f, press.value, 0.001f)
     }
 
+    @Test
+    fun aTapLiftingBeforeThePressHasRisen_turnsBackAtOnce_whereTheRiseNeedNotComplete() {
+        val source = MutableInteractionSource()
+        lateinit var press: GlassPress
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            press = remember { GlassPress() }
+            val scope = rememberCoroutineScope()
+            LaunchedEffect(Unit) { press.follow(scope, source, completesRise = false) { held -> tween(if (held) Rise else Fall) } }
+        }
+        compose.mainClock.advanceTimeByFrame()
+
+        val tap = PressInteraction.Press(Offset.Zero)
+        compose.runOnIdle {
+            source.tryEmit(tap)
+            source.tryEmit(PressInteraction.Release(tap))
+        }
+        compose.mainClock.advanceTimeBy(Rise.toLong() + 16)
+
+        assertTrue("The tap still rose ${press.value} of the way", press.value < 0.5f)
+    }
+
     private companion object {
         const val Rise = 70
         const val Fall = 450
