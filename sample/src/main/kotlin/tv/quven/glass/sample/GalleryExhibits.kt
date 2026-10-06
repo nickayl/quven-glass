@@ -1126,9 +1126,9 @@ private fun PosterPreview(index: Int) {
     }
 }
 
-// The reference's preview: its poster 1.6 times larger, in a frame of 272 by 408 pt.
-private const val PosterPreviewScale = 1.6f
-private val PosterPreviewSize = DpSize(272.dp, 408.dp)
+// The reference's preview: its poster 1.25 times larger, in a frame of 212.5 by 318.75 pt.
+private const val PosterPreviewScale = 1.25f
+private val PosterPreviewSize = DpSize(212.5.dp, 318.75.dp)
 
 /**
  * Lays out a switch at the end of a row holding its name.

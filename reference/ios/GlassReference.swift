@@ -1764,7 +1764,7 @@ struct ContextMenuStage: View {
                     Button("Play", systemImage: "play.fill") {}
                     Button("Share", systemImage: "square.and.arrow.up") {}
                 } preview: {
-                    PosterCard(poster: posters[6]).scaleEffect(1.6).frame(width: 272, height: 408)
+                    PosterCard(poster: posters[6]).scaleEffect(1.25).frame(width: 212.5, height: 318.75)
                 }
         }
     }
