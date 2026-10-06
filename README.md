@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.26.2")
+    implementation("tv.quven.glass:glass:2.26.3")
 }
 ```
 
