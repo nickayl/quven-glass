@@ -42,6 +42,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     LargeLean("largeLean", 2),
     LargeSizes("largeSizes", 2),
     Adapts("adapts", 4),
+    Knees("knees", 4),
     LightTone("lightTone", 4),
     LightLean("lightLean", 2),
     Tint("tint", 4),
@@ -79,8 +80,8 @@ internal const val LiquidGlassContent = "content"
  * `thickTone.rgb` by `leans.x + leans.y × luminance`, and as the shorter side runs on from `largeSizes.x` to
  * `largeSizes.y` thick glass turns into large glass, leaning towards `largeTone.rgb` by `largeLean.x + largeLean.y ×
  * luminance`; the saturation scales by the tone's alpha. Each shade lightens by `adapts` (thin, thick, large, light) times
- * the nearest surface's `shapeVeil`, the mean luminance of the backdrop under and around it. Thin glass turned light by
- * `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
+ * how far the nearest surface's `shapeVeil`, the mean luminance of the backdrop under and around it, passes `knees`.
+ * Thin glass turned light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
  * `pressGlow` times, its saturation scaled by `pressSaturation` and up to `pressBrighten` added, the more the darker it is,
@@ -121,6 +122,7 @@ uniform float4 largeTone;
 uniform float2 largeLean;
 uniform float2 largeSizes;
 uniform float4 adapts;
+uniform float4 knees;
 uniform float4 lightTone;
 uniform float2 lightLean;
 uniform float4 tint;
@@ -410,7 +412,8 @@ half4 main(float2 coord) {
     float adapt = mix(mix(mix(adapts.x, adapts.y, thickness), adapts.z, largeness), adapts.w, lightShare);
     if (adapt != 0.0) {
         // The veil is read from the screen undimmed, so glass over a dimmed screen reads it dimmed as well.
-        tone.rgb = clamp(tone.rgb + adapt * veilAt(coord) * (1.0 - backdropDim), 0.0, 1.0);
+        float knee = mix(mix(mix(knees.x, knees.y, thickness), knees.z, largeness), knees.w, lightShare);
+        tone.rgb = clamp(tone.rgb + adapt * max(veilAt(coord) * (1.0 - backdropDim) - knee, 0.0), 0.0, 1.0);
     }
     float darkLean = mix(mix(leans.z + leans.w * lit, leans.x + leans.y * lit, thickness), largeLean.x + largeLean.y * lit, largeness);
     float lean = clamp(mix(darkLean, lightLean.x + lightLean.y * lit, lightShare), 0.0, 1.0);
@@ -651,6 +654,7 @@ internal class LiquidGlassShader private constructor() {
                 style.largeTone.adaptation,
                 style.lightTone.adaptation,
             )
+            setFloatUniform(LiquidGlassUniform.Knees.uniform, style.thinTone.knee, style.thickTone.knee, style.largeTone.knee, style.lightTone.knee)
             setTone(LiquidGlassUniform.LightTone, style.lightTone)
             setFloatUniform(LiquidGlassUniform.LightLean.uniform, style.lightTone.lean, style.lightTone.leanSlope)
             setColor(LiquidGlassUniform.Tint, style.tint)

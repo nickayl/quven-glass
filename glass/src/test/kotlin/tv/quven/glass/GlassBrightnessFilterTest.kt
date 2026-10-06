@@ -72,9 +72,14 @@ class GlassBrightnessFilterTest {
     }
 
     @Test
-    fun theLuminance_weighsTheChannelsAsTheProgramDoes() {
+    fun theLuminance_isTakenInLinearLight_andEncodedBackAsSrgb() {
         assertEquals(1f, meanLuminance(IntArray(4) { 0xFFFFFFFF.toInt() }), 1e-6f)
-        assertEquals(0.0722f, meanLuminance(intArrayOf(0xFF0000FF.toInt())), 1e-4f)
-        assertEquals((0.2126f + 0.7152f) / 2f, meanLuminance(intArrayOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt())), 1e-4f)
+        assertEquals(0f, meanLuminance(IntArray(4) { 0xFF000000.toInt() }), 1e-6f)
+        assertEquals(srgb(0.0722), meanLuminance(intArrayOf(0xFF0000FF.toInt())), 1e-4f)
+        assertEquals(srgb((0.2126 + 0.7152) / 2.0), meanLuminance(intArrayOf(0xFFFF0000.toInt(), 0xFF00FF00.toInt())), 1e-4f)
+        // Half white over black gives half the light, which reads brighter than the middle grey.
+        assertEquals(srgb(0.5), meanLuminance(intArrayOf(0xFFFFFFFF.toInt(), 0xFF000000.toInt())), 1e-4f)
     }
+
+    private fun srgb(light: Double): Float = (1.055 * Math.pow(light, 1.0 / 2.4) - 0.055).toFloat()
 }
