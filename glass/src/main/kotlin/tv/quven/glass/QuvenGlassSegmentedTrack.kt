@@ -67,6 +67,7 @@ import kotlin.math.abs
  * @param onDraggedTo Invoked with the option a drag ends over, when that is not the option it started on, which answers
  * its own press; `null` keeps the pill from following a drag.
  * @param appearance The appearance the track reports to its options, or `null` where they do not read it.
+ * @param feel How the track answers a press and a move: as Apple's tab bar, or as a selector standing in a page.
  * @param option Draws one option, told whether it is held.
  */
 @Composable
@@ -84,21 +85,19 @@ public fun <T> QuvenGlassSegmentedTrack(
     reduceMotion: Boolean = false,
     onDraggedTo: ((option: T) -> Unit)? = null,
     appearance: QuvenGlassAppearance? = null,
+    feel: QuvenGlassTrackFeel = QuvenGlassTrackFeel.TabBar,
     option: @Composable (option: T, held: Boolean) -> Unit,
 ) {
     val presses = remember { GlassTrackPresses() }
     presses.lay(options.size, optionSize.width, gap, inset, LocalDensity.current)
-    val track = remember(style, reduceMotion) { style.forTracks().growingUnless(reduceMotion) }
-    val dynamics = remember(track) { PillDynamics(track.slideDamping, track.slideStiffness, PillEdges.Together, TrackPressSprings) }
-    val motion = rememberTrackedPillMotion(presses, held, options.size, optionSize, gap, dynamics, reduceMotion)
+    val track = remember(style, feel, reduceMotion) { feel.material(style).growingUnless(reduceMotion) }
+    val motion = rememberTrackedPillMotion(presses, held, options.size, optionSize, gap, feel.dynamics, reduceMotion)
     val dragAnswer = rememberDragAnswer(options, onDraggedTo)
     val liquid = backdrop != null && QuvenGlass.isLiquidSupported
-    // A row's selection lifts into a lens of its own over the track; a lone option, or a row where motion is reduced,
-    // lifts it within the track's glass.
     val intoLens = remember { PillLifting.IntoLens() }
-    val lifting = if (liquid && !reduceMotion && options.size > 1) intoLens else PillLifting.WithinGlass
+    val lifting = feel.lifting(intoLens, liquid, reduceMotion, options.size)
     val pillSource = rememberGlassPillSource(motion, optionSize, inset, shape, track, lifting)
-    val trackLift = remember(motion) { GlassLiftSource { motion.press.value } }
+    val trackLift = remember(motion, lifting) { GlassLiftSource { lifting.trackLift(motion) } }
     Box(
         modifier
             .liquidGlass(backdrop, track, shape, interactionSource = null, reduceMotion, trackLift, pillSource.takeIf { liquid }, appearance)
@@ -385,12 +384,3 @@ internal fun GlassTrackPill(motion: GlassPillMotion, optionSize: DpSize, tag: St
 
 /** The share of the material's press growth a pressed pill swells by, past the track it lies in. */
 private const val PillPressShare = 2.5f
-
-/**
- * The springs a track grows on under the finger and shrinks back on once it lifts, passing a little below its size, as
- * measured on the system's tab bar on an iPad.
- */
-private val TrackPressSprings = PressSprings(
-    rise = spring(dampingRatio = 0.7f, stiffness = 625f),
-    fall = spring(dampingRatio = 0.71f, stiffness = 400f),
-)

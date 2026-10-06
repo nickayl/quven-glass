@@ -18,7 +18,7 @@ import androidx.compose.ui.util.lerp
 
 /**
  * How the pill of a [QuvenGlassSegmentedTrack] lifts under a press or on its way to another option: within the track's
- * own glass, or into a lens of clear glass over the track, as Apple's tab bar lifts its selection.
+ * own glass, into a lens of clear glass over the track, as Apple's tab bar lifts its selection, or not at all.
  */
 internal sealed interface PillLifting {
 
@@ -32,6 +32,14 @@ internal sealed interface PillLifting {
      * @return The pill the glass draws.
      */
     fun pill(motion: GlassPillMotion, frame: PillFrame, rect: Rect, radius: Float): GlassPill
+
+    /**
+     * Returns how far the track's own glass is lifted, which grows and lights it.
+     *
+     * @param motion The pill's motion.
+     * @return The lift.
+     */
+    fun trackLift(motion: GlassPillMotion): Float = motion.press.value
 
     /**
      * Returns the modifier of the box the track's options stand in.
@@ -58,6 +66,20 @@ internal sealed interface PillLifting {
             val lift = motion.lift.coerceAtLeast(0f)
             return GlassPill(rect, radius, motion.alpha.value, pillLens(frame.right - frame.left, frame.restWidth, lift), lift)
         }
+
+        override fun faces(motion: GlassPillMotion, optionSize: DpSize): Modifier = Modifier
+
+        @Composable
+        override fun BoxScope.Lens(motion: GlassPillMotion, optionSize: DpSize) = Unit
+    }
+
+    /** The pill never lifts: it slides as a platter and the track's glass holds still under a press. */
+    data object Flat : PillLifting {
+
+        override fun pill(motion: GlassPillMotion, frame: PillFrame, rect: Rect, radius: Float): GlassPill =
+            GlassPill(rect, radius, motion.alpha.value, lens = 0f, lift = 0f)
+
+        override fun trackLift(motion: GlassPillMotion): Float = 0f
 
         override fun faces(motion: GlassPillMotion, optionSize: DpSize): Modifier = Modifier
 

@@ -48,15 +48,13 @@ class QuvenGlassStyleTest {
     }
 
     @Test
-    fun aTrack_growsAlongItsLengthUnderTheFinger_lightsAroundIt_andSlidesOnTheTabBarsSpring() {
+    fun aTrack_growsAlongItsLengthUnderTheFinger_lightsAroundIt_andMarksItsChoiceBrighter() {
         val track = QuvenGlassStyle.Standard.forTracks()
 
         assertEquals(0f, track.pressGrowth, 0f)
         assertEquals(16.dp, track.pressExpansion)
         assertEquals(0.137f, track.touchLight, 0f)
         assertEquals(104.dp, track.touchLightSpread)
-        assertEquals(0.96f, track.slideDamping, 0f)
-        assertEquals(324f, track.slideStiffness, 0f)
         assertEquals(0.15f, track.platter.alpha, 0.005f)
     }
 

@@ -319,7 +319,7 @@ public data class QuvenGlassStyle(
 
     /**
      * Returns this material as a tab bar's track of options draws it: the whole track grows under the finger and lights
-     * around it, while its selection lifts into a lens that crosses to the option pressed, as Apple's tab bar does.
+     * around it, and the chosen option's platter is brighter, as Apple's tab bar does.
      *
      * @return The track's material.
      */
@@ -328,8 +328,6 @@ public data class QuvenGlassStyle(
         pressExpansion = TrackPressExpansion,
         touchLight = TrackTouchLight,
         touchLightSpread = TrackTouchSpread,
-        slideDamping = TrackSlideDamping,
-        slideStiffness = TrackSlideStiffness,
         platter = TrackPlatter,
     )
 
@@ -374,13 +372,10 @@ public data class QuvenGlassStyle(
         private val ToolbarTouchSpread = 45.dp
         private val BarItemPressExpansion = 9.dp
         // Measured on the system's tab bar on an iPad: the track grows 17.5 pt along its length under the finger, which 16
-        // asked of ours draw with the rim; it lights 35 levels over black there, falling as a Gaussian of about 104 pt; its
-        // lens crosses on a spring with damping 0.96 and stiffness 324.
+        // asked of ours draw with the rim; it lights 35 levels over black there, falling as a Gaussian of about 104 pt.
         private val TrackPressExpansion = 16.dp
         private const val TrackTouchLight = 0.137f
         private val TrackTouchSpread = 104.dp
-        private const val TrackSlideDamping = 0.96f
-        private const val TrackSlideStiffness = 324f
         // Measured on the system's tab bar on an iPad: the chosen tab's platter is white at 15%.
         private val TrackPlatter = Color(0x26FFFFFF)
         // Measured on a physical iPad: the rim of still glass shows what lies just outside it, as it is.

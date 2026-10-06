@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import tv.quven.glass.QuvenGlassContainer
 import tv.quven.glass.QuvenGlassSegmentedTrack
+import tv.quven.glass.QuvenGlassTrackFeel
 import tv.quven.glass.rememberQuvenGlassAppearance
 
 private class BarEntry(val label: String, val icon: ImageVector)
@@ -195,6 +196,7 @@ internal fun SampleDensityTrack(held: Int, onHold: (Int) -> Unit, tuning: Sample
         gap = 3.dp,
         inset = 4.dp,
         reduceMotion = tuning.reduceMotion,
+        feel = QuvenGlassTrackFeel.Selector,
         onDraggedTo = { columns -> onHold(DensityColumns.indexOf(columns)) },
         appearance = appearance,
     ) { columns, isHeld ->

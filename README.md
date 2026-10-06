@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.28.2")
+    implementation("tv.quven.glass:glass:2.28.3")
 }
 ```
 
@@ -95,7 +95,10 @@ glass siblings, with the glass drawn second.
 
 `QuvenGlassContainer` draws every surface inside it in one pass, so two of them melt together as they swell or slide
 close. `QuvenGlassSegmentedTrack` lays out options of one size with a sliding pill; a press moves the pill at once, and
-with `onDraggedTo` a drag carries it under the finger and hands you the option it's let go over.
+with `onDraggedTo` a drag carries it under the finger and hands you the option it's let go over. Its `feel` decides how it
+answers: `QuvenGlassTrackFeel.TabBar`, the default, grows the track under the finger and lifts the pill into a lens as
+Apple's tab bar does, while `QuvenGlassTrackFeel.Selector` slides the pill but never lifts it, so the glass can stay
+still for a selector standing in a page.
 
 ```kotlin
 QuvenGlassContainer(spacing = 8.dp) {

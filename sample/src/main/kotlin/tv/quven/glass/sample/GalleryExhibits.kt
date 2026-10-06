@@ -118,6 +118,7 @@ import tv.quven.glass.QuvenGlassScrollEdgeStyle
 import tv.quven.glass.QuvenGlassSearchMorph
 import tv.quven.glass.QuvenGlassSegmentedControl
 import tv.quven.glass.QuvenGlassSegmentedTrack
+import tv.quven.glass.QuvenGlassTrackFeel
 import tv.quven.glass.QuvenGlassSheet
 import tv.quven.glass.QuvenGlassSlider
 import tv.quven.glass.QuvenGlassSplitView
@@ -871,6 +872,7 @@ private fun EdgeStyleTrack(hard: Boolean, onHard: (Boolean) -> Unit, tuning: Sam
         gap = 2.dp,
         inset = 4.dp,
         reduceMotion = tuning.reduceMotion,
+        feel = QuvenGlassTrackFeel.Selector,
         onDraggedTo = onHard,
         appearance = appearance,
     ) { option, _ ->
