@@ -174,14 +174,14 @@ internal fun BoxScope.GlassButtonsExhibit(tuning: SampleTuning) {
 }
 
 /**
- * Draws a tablet's tab bar at the foot of the stage.
+ * Draws a phone's bar of four entries and Search at rest, as the reference's system tab bar stands: it neither minimizes
+ * nor gives way to an accessory.
  *
  * @param tuning The live settings.
  */
 @Composable
 internal fun BoxScope.TabBarExhibit(tuning: SampleTuning) {
-    var held by remember { mutableIntStateOf(0) }
-    Box(Modifier.align(Alignment.BottomCenter)) { SampleBar(held = held, onHold = { held = it }, tuning = tuning) }
+    SearchBarStage(tuning, count = 4, minimizes = false, accessory = null)
 }
 
 /**
@@ -507,17 +507,20 @@ internal fun BoxScope.ClearAndTintedExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.SearchExhibit(tuning: SampleTuning) {
-    SearchBarStage(tuning, accessory = null)
+    SearchBarStage(tuning, count = 3, minimizes = true, accessory = null)
 }
 
 /**
- * Draws a phone's bar with Search beside its tabs, minimizing as the stage scrolls, with [accessory] above it.
+ * Draws a phone's bar of [count] entries with Search beside them, minimizing as the stage scrolls where it [minimizes],
+ * with [accessory] above it.
  *
  * @param tuning The live settings.
+ * @param count The number of entries, three or four.
+ * @param minimizes Whether the bar minimizes while the stage scrolls down.
  * @param accessory Draws the accessory's content, or `null` for none.
  */
 @Composable
-private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composable RowScope.() -> Unit)?) {
+private fun BoxScope.SearchBarStage(tuning: SampleTuning, count: Int, minimizes: Boolean, accessory: (@Composable RowScope.() -> Unit)?) {
     var held by remember { mutableIntStateOf(0) }
     var searching by remember { mutableStateOf(false) }
     var searchLit by remember { mutableStateOf(false) }
@@ -528,8 +531,8 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
     // The stage's scrolling minimizes the bar, as Search beside the reference's tabs minimizes with them.
     val minimizer = rememberQuvenGlassBarMinimizer()
     val stage = LocalStageScroll.current
-    DisposableEffect(stage, minimizer) {
-        stage.follower = minimizer.nestedScrollConnection
+    DisposableEffect(stage, minimizer, minimizes) {
+        if (minimizes) stage.follower = minimizer.nestedScrollConnection
         onDispose { stage.follower = null }
     }
     LaunchedEffect(searchLit) {
@@ -543,8 +546,9 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
     // On a tablet the tabs stand at the stage's start and Search at its end, as the reference's compact tab bar lays them
     // out on an iPad; on a phone the two fill the bar.
     val tablet = isTabletWindow()
+    val bar = PhoneBarLayout(count, tablet, search = true)
     val page = rememberQuvenGlassBackdrop()
-    CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
+    CompositionLocalProvider(LocalBarLook provides systemBarLook(tablet)) {
         BoxWithConstraints(Modifier.matchParentSize().bleed(StageInset)) {
             if (searchPage) SearchPage(Modifier.fillMaxSize().quvenGlassSource(page))
             QuvenGlassSearchMorph(
@@ -553,10 +557,10 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
                 onEndSearch = { searching = false },
                 minimized = minimizer.minimized,
                 onExpand = minimizer::expand,
-                tabsWidth = phoneTabsWidth(3, tablet),
+                tabsWidth = bar.tabsWidth,
                 height = PhoneBarHeight,
-                gap = if (tablet) maxWidth - PhoneBarMargin * 2 - phoneTabsWidth(3, tablet) - PhoneBarHeight else tuning.barGap.dp,
-                heldCentre = phoneGlyphCentre(held, 3, tablet),
+                gap = if (tablet) maxWidth - PhoneBarMargin * 2 - bar.tabsWidth - PhoneBarHeight else tuning.barGap.dp,
+                heldCentre = bar.glyphCentre(held),
                 modifier = if (tablet) {
                     Modifier.align(Alignment.BottomStart).padding(start = PhoneBarMargin, bottom = PhoneBarBottom)
                 } else {
@@ -573,12 +577,12 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, accessory: (@Composabl
                             searchPage = false
                         },
                         tuning = tuning,
-                        count = 3,
-                        entrySize = phoneEntrySize(3, tablet),
+                        count = count,
+                        entrySize = bar.entrySize,
                     )
                 },
                 // While Search's page stands, Search is the tab chosen and no other tab takes the held colour.
-                tabsFace = { SampleTabsFace(count = 3, held = held, selected = !searching && !searchPage, tuning = tuning) },
+                tabsFace = { SampleTabsFace(count = count, held = held, selected = !searching && !searchPage, tuning = tuning) },
                 heldGlyph = { SampleHeldGlyph(held, selected = !searching && !searchPage) },
                 searchGlyph = { SampleSearchGlyph(selected = searchLit || searchPage) },
                 field = {
@@ -672,7 +676,7 @@ internal fun BoxScope.MinimizingTabBarExhibit(tuning: SampleTuning) {
  */
 @Composable
 internal fun BoxScope.BottomAccessoryExhibit(tuning: SampleTuning) {
-    SearchBarStage(tuning) {
+    SearchBarStage(tuning, count = 3, minimizes = true) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -703,14 +707,15 @@ private fun BoxScope.MinimizingBarStage(tuning: SampleTuning) {
     // On a tablet the bar hugs its entries in the stage's whole width, as near its foot as the reference's compact tab
     // bar stands, centred at rest and minimized at its start.
     val tablet = isTabletWindow()
-    CompositionLocalProvider(LocalBarLook provides SystemBarLook) {
+    val bar = PhoneBarLayout(count = 4, tablet, search = false)
+    CompositionLocalProvider(LocalBarLook provides systemBarLook(tablet)) {
         Box(Modifier.matchParentSize().bleed(StageInset)) {
             QuvenGlassMinimizingBar(
                 minimized = minimizer.minimized,
                 onExpand = minimizer::expand,
-                tabsWidth = phoneTabsWidth(4, tablet),
+                tabsWidth = bar.tabsWidth,
                 height = PhoneBarHeight,
-                heldCentre = phoneGlyphCentre(held, 4, tablet),
+                heldCentre = bar.glyphCentre(held),
                 modifier = if (tablet) {
                     Modifier.align(Alignment.BottomCenter).padding(start = PhoneBarMargin, end = PhoneBarMargin, bottom = PhoneBarBottom).fillMaxWidth()
                 } else {
@@ -718,8 +723,8 @@ private fun BoxScope.MinimizingBarStage(tuning: SampleTuning) {
                 },
                 style = tuning.style,
                 reduceMotion = tuning.reduceMotion,
-                tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = 4, entrySize = phoneEntrySize(4, tablet)) },
-                tabsFace = { SampleTabsFace(count = 4, held = held, selected = true, tuning = tuning) },
+                tabs = { SampleTabs(held, onHold = { held = it }, tuning = tuning, count = bar.count, entrySize = bar.entrySize) },
+                tabsFace = { SampleTabsFace(count = bar.count, held = held, selected = true, tuning = tuning) },
                 heldGlyph = { SampleHeldGlyph(held, selected = true) },
             )
         }

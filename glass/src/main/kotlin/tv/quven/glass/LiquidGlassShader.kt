@@ -464,7 +464,8 @@ half4 main(float2 coord) {
     float alpha = clamp(0.5 - d, 0.0, 1.0);
     if (seeThrough > 0.5) {
         float body = alpha * float(content.eval(at).a);
-        float veil = (alpha - body) * clamp(shine + brighten * SEE_THROUGH_VEIL, 0.0, 1.0);
+        // Where the content is clear the glass shows only its light: the shine and the rim's own light.
+        float veil = (alpha - body) * clamp(shine + rim * rimLight + brighten * SEE_THROUGH_VEIL, 0.0, 1.0);
         return half4(half3(clamp(rgb, 0.0, 1.0) * body + veil), half(body + veil));
     }
     rgb = clamp(rgb, 0.0, 1.0) * alpha;

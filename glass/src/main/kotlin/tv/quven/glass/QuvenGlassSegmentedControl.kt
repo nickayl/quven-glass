@@ -1,5 +1,6 @@
 package tv.quven.glass
 
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -56,9 +57,7 @@ public fun <T> QuvenGlassSegmentedControl(
     val optionSize = DpSize(optionWidth, ControlHeight - PillInset * 2)
     val presses = remember { GlassTrackPresses() }
     presses.lay(options.size, optionWidth, 0.dp, PillInset, LocalDensity.current)
-    // The system's pill crosses on a calmer spring than a tab bar's, in about 240 ms.
-    val travel = remember(style) { style.copy(slideDamping = SegmentDamping, slideStiffness = SegmentStiffness) }
-    val motion = rememberTrackedPillMotion(presses, selected, options.size, optionSize, 0.dp, travel, reduceMotion)
+    val motion = rememberTrackedPillMotion(presses, selected, options.size, optionSize, 0.dp, SegmentDynamics, reduceMotion)
     val answer = rememberDragAnswer(options, onSelect)
     val lens = remember { LensLift() }
     LaunchedEffect(presses, motion) {
@@ -124,3 +123,11 @@ private val PillColour = Color(red = 240, green = 240, blue = 250, alpha = 70)
 /** The damping and stiffness of the spring the pill crosses on, measured on Apple's. */
 private const val SegmentDamping = 0.85f
 private const val SegmentStiffness = 230f
+
+/** How the system's pill moves: on a calmer spring than a tab bar's, across in about 240 ms, stretching on its way. */
+private val SegmentDynamics = PillDynamics(
+    SegmentDamping,
+    SegmentStiffness,
+    PillEdges.Stretching,
+    PressSprings(spring(dampingRatio = SegmentDamping, stiffness = SegmentStiffness)),
+)

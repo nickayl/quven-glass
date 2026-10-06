@@ -14,6 +14,36 @@ import kotlin.math.max
 internal const val ReducedMotionFadeMillis = 160
 
 /**
+ * The springs a press rises and falls on: [rise] while a finger holds the surface, [fall] once it lifts, and a short fade
+ * in place of either where motion is reduced.
+ *
+ * @property rise The spring a press rises on.
+ * @property fall The spring a press falls back on.
+ */
+internal class PressSprings(val rise: AnimationSpec<Float>, val fall: AnimationSpec<Float>) {
+
+    /**
+     * Initialises springs that rise and fall on the same [spring].
+     *
+     * @param spring The spring a press rises and falls on.
+     */
+    constructor(spring: AnimationSpec<Float>) : this(spring, spring)
+
+    /**
+     * Returns the animation a press moves on.
+     *
+     * @param held Whether a finger holds the surface.
+     * @param reduceMotion Whether motion is reduced.
+     * @return The animation.
+     */
+    fun spec(held: Boolean, reduceMotion: Boolean): AnimationSpec<Float> = when {
+        reduceMotion -> tween(ReducedMotionFadeMillis)
+        held -> rise
+        else -> fall
+    }
+}
+
+/**
  * How far a glass surface is pressed, from 0 to 1: it rises on the material's spring while any press holds and falls
  * once the last one ends, with a short fade instead where motion is reduced.
  */
@@ -64,17 +94,5 @@ internal class GlassPress {
     fun stop() {
         presses?.cancel()
         presses = null
-    }
-
-    companion object {
-        /**
-         * Returns the animation a press of [style] rises and falls on.
-         *
-         * @param style The material, whose spring a press follows.
-         * @param reduceMotion Whether motion is reduced, which turns the spring into a short fade.
-         * @return The animation.
-         */
-        fun spec(style: QuvenGlassStyle, reduceMotion: Boolean): AnimationSpec<Float> =
-            if (reduceMotion) tween(ReducedMotionFadeMillis) else style.slideSpring()
     }
 }

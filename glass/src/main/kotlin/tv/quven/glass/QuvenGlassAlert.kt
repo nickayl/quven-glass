@@ -291,7 +291,7 @@ private fun AlertPanel(
     // Under the finger the whole alert grows a little, as the system's does.
     val held by animateFloatAsState(
         if (!reduceMotion && pressed.any(State<Boolean>::value)) 1f else 0f,
-        ButtonPressSpring,
+        ButtonSprings.rise,
         label = "alert press",
     )
     Column(

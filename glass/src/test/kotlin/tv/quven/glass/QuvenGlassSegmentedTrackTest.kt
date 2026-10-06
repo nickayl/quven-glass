@@ -80,7 +80,7 @@ class QuvenGlassSegmentedTrackTest {
     }
 
     @Test
-    fun onItsWay_thePillStretchesAndThins_andSettlesAtItsWidth() {
+    fun onItsWay_thePillKeepsItsSize_asTheLensOfAppleTabBarDoes_andSettlesUnderTheOption() {
         render()
         compose.mainClock.autoAdvance = false
 
@@ -90,13 +90,14 @@ class QuvenGlassSegmentedTrackTest {
             pill()
         }
 
-        val widest = frames.maxBy { it.width.value }
-        assertTrue("widest ${widest.width}", widest.width.value > OptionWidth + 4f)
-        assertTrue("height ${widest.height}", widest.height.value < OptionHeight - 1f)
+        frames.forEach { frame ->
+            assertEquals(OptionWidth, frame.width.value, 0.5f)
+            assertEquals(OptionHeight, frame.height.value, 0.5f)
+        }
+        assertTrue("The pill did not move", frames.first().left != frames.last().left)
         compose.mainClock.autoAdvance = true
         compose.waitForIdle()
-        assertEquals(OptionWidth, pill().width.value, 0.5f)
-        assertEquals(OptionHeight, pill().height.value, 0.5f)
+        assertEquals(Inset + 2 * Step, pill().left.value, 0.5f)
     }
 
     @Test

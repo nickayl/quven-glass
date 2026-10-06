@@ -21,6 +21,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.ClipOp
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Paint
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -143,17 +144,38 @@ internal class GlassLensThumb(
 }
 
 /**
- * Draws the content of this track with a hole where the lens [frame] reads stands, so the lens alone shows the track
- * there, as it bends it.
+ * Records this node's content into [backdrop], which a lens bends, and draws it with a hole where the lens [frame] reads
+ * stands, so the lens alone shows the content there; as the lens fades, the content fades back into the hole.
  *
+ * @param backdrop The backdrop the content records into, see-through so the lens shows what lies under the content.
+ * @param opacity Reads how much of the lens shows, from 0 to 1.
  * @param frame Reads the lens's frame in this node's coordinates, or `null` while no lens stands over it.
  * @return The decorated modifier.
  */
-private fun Modifier.lensHole(frame: () -> Rect?): Modifier = drawWithContent {
-    val hole = frame() ?: return@drawWithContent drawContent()
-    val path = Path().apply { addRoundRect(RoundRect(hole, CornerRadius(hole.height / 2f))) }
-    clipPath(path, ClipOp.Difference) { this@drawWithContent.drawContent() }
-}
+internal fun Modifier.lensSource(backdrop: QuvenGlassBackdrop, opacity: () -> Float = { 1f }, frame: Density.() -> Rect?): Modifier =
+    drawWithContent {
+        val hole = frame() ?: return@drawWithContent drawContent()
+        val path = Path().apply { addRoundRect(RoundRect(hole, CornerRadius(hole.height / 2f))) }
+        clipPath(path, ClipOp.Difference) { this@drawWithContent.drawContent() }
+        val showing = 1f - opacity().coerceIn(0f, 1f)
+        if (showing > 0f) {
+            clipPath(path) {
+                drawContext.canvas.saveLayer(hole, Paint().apply { alpha = showing })
+                this@drawWithContent.drawContent()
+                drawContext.canvas.restore()
+            }
+        }
+    }.quvenGlassSource(backdrop)
+
+/**
+ * Draws a lens of [material] over [backdrop], which the content it bends records into through [lensSource].
+ *
+ * @param backdrop The backdrop the content records into.
+ * @param material The lens's glass.
+ * @return The decorated modifier.
+ */
+internal fun Modifier.lensGlass(backdrop: QuvenGlassBackdrop, material: QuvenGlassStyle): Modifier =
+    liquidGlass(backdrop, material, CircleShape, interactionSource = null, reduceMotion = false, lift = null, pill = null, adapts = false)
 
 /**
  * Draws a control's track with a [GlassLensThumb] over it: the track records into a backdrop of its own, which the lens
@@ -184,8 +206,7 @@ internal fun BoxScope.LensTrack(
         Modifier
             .matchParentSize()
             .onSizeChanged { size = it }
-            .then(if (liquid) Modifier.lensHole { frame().takeIf { lift() > 0f } } else Modifier)
-            .quvenGlassSource(backdrop)
+            .then(if (liquid) Modifier.lensSource(backdrop) { frame().takeIf { lift() > 0f } } else Modifier)
             .drawBehind(track),
         content = content,
     )
@@ -210,20 +231,7 @@ private fun BoxScope.LensThumb(
     liquid: Boolean,
 ) {
     val shown = lift()
-    val glass = if (liquid && shown > 0f) {
-        Modifier.liquidGlass(
-            backdrop = backdrop,
-            style = remember(shown) { thumb.material(shown) },
-            shape = CircleShape,
-            interactionSource = null,
-            reduceMotion = false,
-            lift = null,
-            pill = null,
-            adapts = false,
-        )
-    } else {
-        Modifier
-    }
+    val glass = if (liquid && shown > 0f) Modifier.lensGlass(backdrop, remember(shown) { thumb.material(shown) }) else Modifier
     Box(
         Modifier
             .matchParentSize()

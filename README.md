@@ -9,7 +9,7 @@ What you get:
 
 - glass surfaces that fold, blur, tone and light the content behind them, swelling under a press;
 - neighbouring surfaces that flow into one piece of glass as they come close;
-- a segmented track whose pill turns into a lens under a press or a drag;
+- a segmented track whose pill lifts into a lens of clear glass under a press or a drag, as the tab bar's does;
 - a control that opens into a panel as one piece of glass, and closes back into it;
 - menus that grow out of their button and lay out every kind of row the way Apple does;
 - thin and thick glass chosen by size, as iOS does, and thin glass that turns light over a bright backdrop.
@@ -545,8 +545,8 @@ the cable, and the blur probe's still screenshots.
 | Fold | 1.43 × corner radius over a band of 0.46 × radius, the radius counted up to 32 pt, at least 22 over 12 pt, power 2.5 |
 | Blur | Gaussian, σ 2.5 pt up to a shorter side of 63 pt, building up in proportion to σ 5.3 pt at 136 pt and levelling off there |
 | Rim | Lit from above, falling off with the square of the facing, 0.15 underneath; the tint lies over its light; still glass shows what lies just outside it there, as it is |
-| Tap lens | Forms in 50–65 ms, travels about 200 ms, settles about 100 ms after arriving; on an iPad it is glass of its own over the bar, 24 pt wider and 22 pt taller than the entry, toned as the bar but unblurred, the entries under it 1.15 times larger in the held colour, its rim lit and parting its colours; a finger held on an entry takes the held colour from the entry held until then |
-| Drag | The lens follows the finger, the entry under it in the held entry's colour, and settles on the nearest option |
+| Tap lens | On an iPad: a press grows the whole bar 17.5 pt along its length on a spring of damping 0.7 and stiffness 625, lights it 35 levels over black under the finger, falling as a Gaussian of about 104 pt, and lifts the platter into a lens of clear glass over the bar, 31.5 pt wider and 19 pt taller than the entry, which keeps its width as it crosses to the pressed entry on a spring of damping 0.96 and stiffness 324, shows the entries under it a quarter larger in the held colour and the bar's own glass through it, its rim lit and parting its colours; the platter is gone within 40 ms and comes back over about 120 ms once the lens has been gone 50 ms; released, the bar shrinks on a spring of damping 0.71 and stiffness 400, passing a little below its size; a finger held on an entry takes the held colour from the entry held until then |
+| Drag | The lens follows the finger, only the entry under it in the held colour, and settles on the nearest option |
 | Search | On an iPhone: a press grows the Search circle 9 pt and turns it 41% of the way to white whatever lies under it, within about 70 ms; the tabs fold into a circle at the start and the circle stretches into the field on a spring with damping 0.82 and stiffness 380, both sinking 7.25 pt into the bar, the room between them growing from 8 to 14.5 pt; closing, they come within 4 pt and join while the tabs unfold, their faces scaled with their capsule |
 | Minimizing tab bar | On an iPhone: once the content has scrolled down a little, the capsule folds into a 47.5 pt circle at its start on the search's spring, the faces shrinking with it; on an iPad the resting bar stands centred and the circle travels to the window's start as it folds; it grows back, passing its size by about 1%, when the content reaches its top or the circle is pressed, and scrolling up anywhere else leaves it minimized |
 | Bottom accessory | On an iPhone: a capsule as tall as the minimized circle (47.5 pt), 9.5 pt above the resting bar and as wide; minimizing, it narrows to start 8 pt past the circle and end 7.25 pt in, then falls into the bar's line; growing back, it rises before it widens; it keeps its own glass over the bar's |

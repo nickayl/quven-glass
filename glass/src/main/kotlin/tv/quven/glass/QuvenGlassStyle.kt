@@ -317,6 +317,30 @@ public data class QuvenGlassStyle(
      */
     internal fun forBarItems(): QuvenGlassStyle = copy(pressWhite = BarItemPressWhite, pressGrowth = 0f, pressExpansion = BarItemPressExpansion)
 
+    /**
+     * Returns this material as a tab bar's track of options draws it: the whole track grows under the finger and lights
+     * around it, while its selection lifts into a lens that crosses to the option pressed, as Apple's tab bar does.
+     *
+     * @return The track's material.
+     */
+    internal fun forTracks(): QuvenGlassStyle = copy(
+        pressGrowth = 0f,
+        pressExpansion = TrackPressExpansion,
+        touchLight = TrackTouchLight,
+        touchLightSpread = TrackTouchSpread,
+        slideDamping = TrackSlideDamping,
+        slideStiffness = TrackSlideStiffness,
+    )
+
+    /**
+     * Returns this material with its growth under the finger left out where motion is reduced, so a press only lights it.
+     *
+     * @param reduceMotion Whether motion is reduced.
+     * @return This material, or this material without its growth.
+     */
+    internal fun growingUnless(reduceMotion: Boolean): QuvenGlassStyle =
+        if (reduceMotion && (pressExpansion != 0.dp || pressGrowth != 0f)) copy(pressExpansion = 0.dp, pressGrowth = 0f) else this
+
     public companion object {
         /** Gets the material of a surface standing over content of its own, Apple's regular glass in its dark appearance. */
         public val Standard: QuvenGlassStyle = QuvenGlassStyle(rimGlow = StandardRimGlow)
@@ -348,6 +372,14 @@ public data class QuvenGlassStyle(
         private const val ToolbarPressWhite = 0.11f
         private val ToolbarTouchSpread = 45.dp
         private val BarItemPressExpansion = 9.dp
+        // Measured on the system's tab bar on an iPad: the track grows 17.5 pt along its length under the finger, which 16
+        // asked of ours draw with the rim; it lights 35 levels over black there, falling as a Gaussian of about 104 pt; its
+        // lens crosses on a spring with damping 0.96 and stiffness 324.
+        private val TrackPressExpansion = 16.dp
+        private const val TrackTouchLight = 0.137f
+        private val TrackTouchSpread = 104.dp
+        private const val TrackSlideDamping = 0.96f
+        private const val TrackSlideStiffness = 324f
         // Measured on a physical iPad: the rim of still glass shows what lies just outside it, as it is.
         private const val StandardRimGlow = 1f
         private const val MenuPressGlow = 3.6f

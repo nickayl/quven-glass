@@ -62,8 +62,19 @@ internal class BarLook(val accent: Color, val glyph: Dp, val label: TextUnit, va
 /** The reference's own bar, its stock icons drawn large enough to stand as its symbols, marked in the sample's accent. */
 internal val ReferenceBarLook = BarLook(SampleColors.Accent, 34.dp, 12.sp, 2.5.dp)
 
-/** The system's tab bar on an iPad, its symbols and labels smaller, marked in the system's blue of the dark appearance. */
-internal val SystemBarLook = BarLook(Color(0xFF0A84FF), 25.dp, 10.sp, 1.dp)
+/**
+ * Returns the look of the system's tab bar, its symbols and labels smaller than the reference's own bar's, marked in the
+ * blue the system draws a chosen tab in on glass; on an iPad its symbols stand about 24 pt tall, larger than on an iPhone.
+ *
+ * @param tablet Whether the bar stands on a tablet.
+ * @return The look.
+ */
+internal fun systemBarLook(tablet: Boolean): BarLook = if (tablet) TabletSystemBarLook else PhoneSystemBarLook
+
+// Measured on the system's tab bar on an iPad: a chosen tab's glyph reads (33, 179, 255).
+private val SystemBarAccent = Color(0xFF21B3FF)
+private val PhoneSystemBarLook = BarLook(SystemBarAccent, 25.dp, 10.sp, 1.dp)
+private val TabletSystemBarLook = BarLook(SystemBarAccent, 31.dp, 10.sp, 1.dp)
 
 /** The look the bars below draw their entries in. */
 internal val LocalBarLook = staticCompositionLocalOf { ReferenceBarLook }
@@ -240,25 +251,37 @@ private const val SearchFadeMillis = 100
 private val LabelLine = 16.sp
 
 /**
- * Returns the width of a phone bar's capsule of [count] entries, as the reference's tab bar sizes it: on an iPhone it fills
- * the bar, 288 dp for three entries beside Search and 354 for four alone; on an iPad it hugs its entries, 257.5 and 336.
+ * The layout of a phone's bar as the reference's system tab bar lays it out: [count] entries in a capsule, with Search
+ * beside them or alone. On an iPhone the capsule fills the bar, 288 dp beside Search and 354 alone; on an iPad it hugs
+ * its entries, 257.5 dp for three and 336 for four.
  *
- * @param count The number of entries, three or four.
+ * @property count The number of entries, three or four.
  * @param tablet Whether the bar stands on a tablet.
- * @return The width.
+ * @param search Whether Search stands beside the entries.
  */
-internal fun phoneTabsWidth(count: Int, tablet: Boolean = false): Dp =
-    if (tablet) (if (count == 3) 257.5.dp else 336.dp) else (if (count == 3) 288.dp else 354.dp)
+internal class PhoneBarLayout(val count: Int, tablet: Boolean, search: Boolean) {
 
-/**
- * Returns the size of an entry in a phone bar's capsule of [count] entries.
- *
- * @param count The number of entries.
- * @param tablet Whether the bar stands on a tablet.
- * @return The size.
- */
-internal fun phoneEntrySize(count: Int, tablet: Boolean = false): DpSize =
-    DpSize((phoneTabsWidth(count, tablet) - TrackInset * 2 - TrackGap * (count - 1)) / count, PhoneBarHeight - TrackInset * 2)
+    /** Gets the width of the capsule. */
+    val tabsWidth: Dp = when {
+        tablet -> if (count == 3) 257.5.dp else 336.dp
+        search -> 288.dp
+        else -> 354.dp
+    }
+
+    /** Gets the size of an entry. */
+    val entrySize: DpSize = DpSize((tabsWidth - TrackInset * 2 - TrackGap * (count - 1)) / count, PhoneBarHeight - TrackInset * 2)
+
+    /**
+     * Returns the centre of an entry's glyph, a glyph and a label stacked in the middle of the entry.
+     *
+     * @param index The index of the entry.
+     * @return The centre, from the capsule's top start corner.
+     */
+    fun glyphCentre(index: Int): DpOffset = DpOffset(
+        TrackInset + (entrySize.width + TrackGap) * index + entrySize.width / 2,
+        TrackInset + (entrySize.height - GlyphSize - LabelLine.value.dp) / 2 + GlyphSize / 2,
+    )
+}
 
 /** The height of a phone's bar, the side of its Search circle. */
 internal val PhoneBarHeight: Dp = 62.dp
@@ -268,22 +291,6 @@ internal val PhoneBarMargin: Dp = 10.dp
 
 /** The room between a phone's bar and the bottom edge of the reference's stage on an iPad. */
 internal val PhoneBarBottom: Dp = 11.dp
-
-/**
- * Returns the centre of an entry's glyph in a phone bar's capsule, a glyph and a label stacked in the middle of the entry.
- *
- * @param index The index of the entry.
- * @param count The number of entries.
- * @param tablet Whether the bar stands on a tablet.
- * @return The centre, from the capsule's top start corner.
- */
-internal fun phoneGlyphCentre(index: Int, count: Int, tablet: Boolean = false): DpOffset {
-    val entry = phoneEntrySize(count, tablet)
-    return DpOffset(
-        TrackInset + (entry.width + TrackGap) * index + entry.width / 2,
-        TrackInset + (entry.height - GlyphSize - LabelLine.value.dp) / 2 + GlyphSize / 2,
-    )
-}
 
 /**
  * Draws the faces of the first [count] entries where the capsule lays them out, without the held entry's glyph and

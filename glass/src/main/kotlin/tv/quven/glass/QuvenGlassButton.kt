@@ -150,19 +150,13 @@ internal fun GlassButton(
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
     val appearance = rememberQuvenGlassAppearance()
     // Under the finger the whole button grows, glass and content alike; where motion is reduced it only lights.
-    val glass = remember(material, reduceMotion) { if (reduceMotion) material.copy(pressExpansion = 0.dp) else material }
+    val glass = remember(material, reduceMotion) { material.growingUnless(reduceMotion) }
     val press = remember { GlassPress() }
     // The light comes up at once and dies away slowly, long after the button has shrunk back, as Apple's does.
     val glow = remember { GlassPress() }
     LaunchedEffect(interactions, reduceMotion) {
         // A tap turns the button back at once, as the system's does, while its light still comes up whole.
-        press.follow(this, interactions, completesRise = false) { held ->
-            when {
-                reduceMotion -> tween(ReducedMotionFadeMillis)
-                held -> ButtonPressSpring
-                else -> ButtonReleaseSpring
-            }
-        }
+        press.follow(this, interactions, completesRise = false) { held -> ButtonSprings.spec(held, reduceMotion) }
         glow.follow(this, interactions) { held -> if (held) ButtonGlowRise else ButtonGlowFade }
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
@@ -318,11 +312,14 @@ private val QuvenGlassButtonSize.padding: PaddingValues
 
 private val NoPadding = PaddingValues(0.dp)
 
-/** The spring a glass button grows on under the finger, passing its size a little, as measured on Apple's. */
-internal val ButtonPressSpring = spring<Float>(dampingRatio = 0.6f, stiffness = 685f)
-
-/** The spring a glass button shrinks back on once the finger lifts, passing below its size and back, as on an iPad. */
-private val ButtonReleaseSpring = spring<Float>(dampingRatio = 0.375f, stiffness = 250f)
+/**
+ * The springs a glass button grows on under the finger, passing its size a little, and shrinks back on once it lifts,
+ * passing below its size and back, as measured on an iPad.
+ */
+internal val ButtonSprings = PressSprings(
+    rise = spring(dampingRatio = 0.6f, stiffness = 685f),
+    fall = spring(dampingRatio = 0.375f, stiffness = 250f),
+)
 
 /** How a glass button's light comes up under the finger, as measured on Apple's. */
 private val ButtonGlowRise = tween<Float>(70, easing = LinearOutSlowInEasing)

@@ -70,8 +70,8 @@ internal val Exhibits: List<Exhibit> = listOf(
     ) { GlassButtonsExhibit(it) },
     Exhibit(
         "Tab bar",
-        "Entries in a capsule beside a Search circle. The held pill slides with a stretch, a press lifts it into a lens " +
-            "and a drag carries it to the entry let go over.",
+        "Entries in a capsule beside a Search circle. A press grows the bar and lifts the held pill into a lens that " +
+            "crosses to the entry pressed; a drag carries the lens to the entry let go over.",
         ExhibitStatus.Ready,
     ) { TabBarExhibit(it) },
     Exhibit(

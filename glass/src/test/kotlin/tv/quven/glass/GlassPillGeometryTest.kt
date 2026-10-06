@@ -30,13 +30,13 @@ class GlassPillGeometryTest {
     }
 
     @Test
-    fun theLeadingEdge_runsAheadOfTheTrailingOne() {
-        val leading = pillEdgeStiffness(520f, leads = true)
-        val trailing = pillEdgeStiffness(520f, leads = false)
+    fun stretchingEdges_runTheLeadingOneAheadOfTheTrailingOne_andEdgesTogetherSlideAlike() {
+        val leading = PillEdges.Stretching.stiffness(520f, leads = true)
+        val trailing = PillEdges.Stretching.stiffness(520f, leads = false)
 
-        assertEquals(520f * LeadingEdgeShare, leading)
-        assertEquals(520f * TrailingEdgeShare, trailing)
         assertTrue(leading > 520f && trailing < 520f)
+        assertEquals(520f, PillEdges.Together.stiffness(520f, leads = true))
+        assertEquals(520f, PillEdges.Together.stiffness(520f, leads = false))
     }
 
     @Test

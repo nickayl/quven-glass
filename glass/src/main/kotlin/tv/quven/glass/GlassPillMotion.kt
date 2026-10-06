@@ -2,6 +2,7 @@ package tv.quven.glass
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
@@ -15,20 +16,20 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-/** The share of the spring's stiffness the edge leading a move slides on. */
-internal const val LeadingEdgeShare = 1.6f
-
-/** The share of the spring's stiffness the edge trailing a move slides on. */
-internal const val TrailingEdgeShare = 0.55f
-
 private const val SquashPerStretch = 0.35f
 private const val MaxSquash = 0.22f
 private const val LensPerStretch = 0.5f
 private const val PillFadeMillis = 250
 private const val TravelRiseMillis = 60
-private const val TravelHoldMillis = 140L
+private const val TravelHoldMillis = 90L
 private const val TravelSettleDamping = 0.9f
 private const val TravelSettleStiffness = 1500f
+
+// Measured on the system's tab bar on an iPad: the platter is gone within 40 ms of the press, and comes back over about
+// 120 ms once the lens has been gone 50 ms.
+private const val PlatterHideMillis = 40
+private const val PlatterReturnDelayMillis = 50L
+private const val PlatterReturnMillis = 120
 
 /**
  * Returns the index of the option under a point of a row of options.
@@ -61,15 +62,50 @@ internal fun optionNearest(x: Float, count: Int, optionWidth: Float, gap: Float)
 }
 
 /**
- * Returns the stiffness an edge of the pill slides on: the edge leading the move runs ahead and the trailing one
- * follows, so the pill stretches on its way and settles back to its width.
+ * How the two edges of a pill slide to another option, each on a share of the slide spring's stiffness.
  *
- * @param stiffness The stiffness of the material's slide spring.
- * @param leads Whether the edge leads the move.
- * @return The edge's stiffness.
+ * @property leading The share the edge leading the move slides on.
+ * @property trailing The share the edge trailing the move slides on.
  */
-internal fun pillEdgeStiffness(stiffness: Float, leads: Boolean): Float =
-    stiffness * if (leads) LeadingEdgeShare else TrailingEdgeShare
+internal class PillEdges(val leading: Float, val trailing: Float) {
+
+    /**
+     * Returns the stiffness an edge slides on.
+     *
+     * @param stiffness The stiffness of the material's slide spring.
+     * @param leads Whether the edge leads the move.
+     * @return The edge's stiffness.
+     */
+    fun stiffness(stiffness: Float, leads: Boolean): Float = stiffness * if (leads) leading else trailing
+
+    companion object {
+        /** Gets edges that slide together, so the pill keeps its width, as the lens of Apple's tab bar does. */
+        val Together: PillEdges = PillEdges(leading = 1f, trailing = 1f)
+
+        /** Gets a leading edge that runs ahead and a trailing one that follows, so the pill stretches on its way. */
+        val Stretching: PillEdges = PillEdges(leading = 1.6f, trailing = 0.55f)
+    }
+}
+
+/**
+ * How a pill moves: the spring it slides to another option on, shared between its two edges, and the springs its press
+ * rises and falls on.
+ *
+ * @property damping The damping ratio of the slide's spring.
+ * @property stiffness The stiffness of the slide's spring.
+ * @property edges How the pill's two edges share the slide.
+ * @property press The springs the press rises and falls on.
+ */
+internal class PillDynamics(val damping: Float, val stiffness: Float, val edges: PillEdges, val press: PressSprings) {
+
+    /**
+     * Returns the spring an edge of the pill slides on.
+     *
+     * @param leads Whether the edge leads the move.
+     * @return The spring.
+     */
+    fun slide(leads: Boolean): SpringSpec<Float> = spring(damping, edges.stiffness(stiffness, leads))
+}
 
 /**
  * Returns the height a stretched pill keeps, as a share of its resting height: the further it stretches, the thinner it
@@ -139,6 +175,13 @@ internal class GlassPillMotion {
     /** Gets how far the pill is lifted for its travel to another option. */
     val travel = Animatable(0f)
 
+    /** Gets how much of the platter shows: none while the pill is lifted into a lens, back once it has settled. */
+    val platter = Animatable(1f)
+
+    /** Gets how far the pill is lifted, by a press or for its travel; below 0 while a press springs back past rest. */
+    val lift: Float
+        get() = maxOf(press.value, travel.value)
+
     private var placed = false
     private var asked = false
 
@@ -176,15 +219,30 @@ internal class GlassPillMotion {
     }
 
     /**
+     * Hides the platter at once as the pill lifts into a lens, or shows it again a moment after the lens has gone, fading
+     * in where it settled, as Apple's tab bar does.
+     *
+     * @param shown Whether the platter shows.
+     */
+    suspend fun showPlatter(shown: Boolean) {
+        if (!shown) {
+            platter.animateTo(0f, tween(PlatterHideMillis))
+            return
+        }
+        delay(PlatterReturnDelayMillis)
+        platter.animateTo(1f, tween(PlatterReturnMillis))
+    }
+
+    /**
      * Moves the pill to option [index], or fades it where it stands for a negative index.
      *
      * @param index The option's index, or a negative value for none.
      * @param width The width of an option.
      * @param step The distance from one option's start to the next one's.
-     * @param style The material, whose spring the edges slide on.
+     * @param dynamics How the pill moves.
      * @param reduceMotion Whether motion is reduced, which fades the pill out and in at its new place.
      */
-    suspend fun moveTo(index: Int, width: Float, step: Float, style: QuvenGlassStyle, reduceMotion: Boolean): Unit = coroutineScope {
+    suspend fun moveTo(index: Int, width: Float, step: Float, dynamics: PillDynamics, reduceMotion: Boolean): Unit = coroutineScope {
         // The first answer draws the pill at once; a pill shown later fades in.
         val first = !asked
         asked = true
@@ -221,8 +279,8 @@ internal class GlassPillMotion {
             }
         }
         launch {
-            start.animateTo(toStart, spring(style.slideDamping, pillEdgeStiffness(style.slideStiffness, leads = !forward)))
+            start.animateTo(toStart, dynamics.slide(leads = !forward))
         }
-        end.animateTo(toEnd, spring(style.slideDamping, pillEdgeStiffness(style.slideStiffness, leads = forward)))
+        end.animateTo(toEnd, dynamics.slide(leads = forward))
     }
 }

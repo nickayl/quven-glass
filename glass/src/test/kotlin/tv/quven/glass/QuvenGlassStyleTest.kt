@@ -46,4 +46,28 @@ class QuvenGlassStyleTest {
         assertEquals(QuvenGlassTone.Large.adaptation, standard.adaptationFor(260f, density), 0.001f)
         assertEquals(QuvenGlassTone.Large.adaptation / 2f, standard.adaptationFor(224f, density), 0.001f)
     }
+
+    @Test
+    fun aTrack_growsAlongItsLengthUnderTheFinger_lightsAroundIt_andSlidesOnTheTabBarsSpring() {
+        val track = QuvenGlassStyle.Standard.forTracks()
+
+        assertEquals(0f, track.pressGrowth, 0f)
+        assertEquals(16.dp, track.pressExpansion)
+        assertEquals(0.137f, track.touchLight, 0f)
+        assertEquals(104.dp, track.touchLightSpread)
+        assertEquals(0.96f, track.slideDamping, 0f)
+        assertEquals(324f, track.slideStiffness, 0f)
+    }
+
+    @Test
+    fun whereMotionIsReduced_aMaterialNoLongerGrows_andOtherwiseStaysAsItIs() {
+        val track = QuvenGlassStyle.Standard.forTracks()
+
+        val still = track.growingUnless(reduceMotion = true)
+
+        assertEquals(0.dp, still.pressExpansion)
+        assertEquals(0f, still.pressGrowth, 0f)
+        assertEquals(track.touchLight, still.touchLight, 0f)
+        assertEquals(track, track.growingUnless(reduceMotion = false))
+    }
 }

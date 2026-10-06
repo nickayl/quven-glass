@@ -310,10 +310,13 @@ internal class LiquidGlassNode(
         }
     }
 
-    // The light gathers at once under the finger and dies away once it lifts, as on Apple's interactive glass.
+    // The light gathers at once under the finger and dies away once it lifts, as on Apple's interactive glass; a tap
+    // lifting before it has gathered still lights it whole first.
     private fun light(on: Boolean) {
+        val gathering = !on && touchGlow.targetValue == 1f && touchGlow.value < 1f
         touches?.cancel()
         touches = coroutineScope.launch {
+            if (gathering) touchGlow.animateTo(1f, TouchLightRise)
             touchGlow.animateTo(if (on) 1f else 0f, if (on) TouchLightRise else TouchLightFade)
         }
     }
@@ -420,7 +423,7 @@ internal class LiquidGlassNode(
     }
 
     private fun followPresses() {
-        if (isAttached) press.follow(coroutineScope, interactionSource) { GlassPress.spec(style, reduceMotion) }
+        if (isAttached) press.follow(coroutineScope, interactionSource) { held -> PressSprings(style.slideSpring()).spec(held, reduceMotion) }
     }
 }
 

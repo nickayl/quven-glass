@@ -1150,8 +1150,8 @@ enum Exhibit: CaseIterable, Identifiable {
                 + "thin glass, which turns light over a bright page; from 66 dp it is thick glass."
         case .glassButtons: "Round controls of glass that swell and light the content under them while pressed."
         case .tabBar:
-            "Entries in a capsule beside a Search circle. The held pill slides with a stretch, a press lifts it into a lens "
-                + "and a drag carries it to the entry let go over."
+            "Entries in a capsule beside a Search circle. A press grows the bar and lifts the held pill into a lens that "
+                + "crosses to the entry pressed; a drag carries the lens to the entry let go over."
         case .segmentedControl: "Options on a glass track whose pill slides, stretches and lifts as the tab bar's does."
         case .joiningGlass:
             "Surfaces closer than their container's spacing flow into one piece of glass, and part again as they move apart."
@@ -1545,7 +1545,7 @@ struct ExhibitStage: View {
         switch exhibit {
         case .material: OverBackdrop { MaterialStage() }
         case .glassButtons: OverBackdrop { GlassButtonsStage() }
-        case .tabBar: OverBackdrop(alignment: .bottom) { TabBarStage() }
+        case .tabBar: TabBarStage()
         case .segmentedControl: OverBackdrop { SegmentedStage() }
         case .joiningGlass: OverBackdrop { JoiningStage() }
         case .menus: OverBackdrop { MenusStage() }
@@ -1598,12 +1598,21 @@ struct GlassButtonsStage: View {
     }
 }
 
-/// A tablet's tab bar at the foot of the stage.
+/// The system's tab bar laid out as on a phone, four tabs and Search, at rest: it neither minimizes nor opens a field.
 struct TabBarStage: View {
-    @State private var held = 0
+    @State private var text = ""
 
     var body: some View {
-        ReferenceBar(held: $held)
+        TabView {
+            ForEach(Array(entries.prefix(4).enumerated()), id: \.offset) { _, entry in
+                Tab(entry.label, systemImage: entry.symbol) { StageBackdrop() }
+            }
+            Tab(role: .search) {
+                NavigationStack { StageBackdrop().navigationTitle("Search") }
+                    .searchable(text: $text)
+            }
+        }
+        .environment(\.horizontalSizeClass, .compact)
     }
 }
 
