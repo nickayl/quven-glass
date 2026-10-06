@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.unit.Constraints
@@ -81,7 +83,9 @@ public fun QuvenGlassContextMenuBox(
     val growth = remember { Animatable(1f) }
     var open by remember { mutableStateOf(false) }
     var liftedFrom by remember { mutableFloatStateOf(1f) }
-    val holdMillis = LocalViewConfiguration.current.longPressTimeoutMillis.toInt()
+    val system = LocalViewConfiguration.current
+    val configuration = remember(system) { ContextMenuViewConfiguration(system) }
+    val holdMillis = configuration.longPressTimeoutMillis.toInt()
     LaunchedEffect(pressed, open, reduceMotion) {
         when {
             // Hidden while its preview stands lifted, the card waits at its own size for the menu to close.
@@ -90,34 +94,39 @@ public fun QuvenGlassContextMenuBox(
             else -> growth.animateTo(1f, spring())
         }
     }
-    Box(
-        modifier
-            .quvenGlassAnchor(state, stretches = false)
-            .graphicsLayer {
-                alpha = if (state.isShown) 0f else 1f
-                scaleX = growth.value
-                scaleY = growth.value
+    // The card's long press holds as long as iOS's; what the card holds keeps the system's.
+    CompositionLocalProvider(LocalViewConfiguration provides configuration) {
+        Box(
+            modifier
+                .quvenGlassAnchor(state, stretches = false)
+                .graphicsLayer {
+                    alpha = if (state.isShown) 0f else 1f
+                    scaleX = growth.value
+                    scaleY = growth.value
+                }
+                .drawWithContent {
+                    card.record { this@drawWithContent.drawContent() }
+                    drawLayer(card)
+                }
+                .combinedClickable(
+                    interactionSource = interactions,
+                    indication = null,
+                    enabled = enabled,
+                    role = Role.Button,
+                    onClickLabel = onClickLabel,
+                    onLongClickLabel = menuLabel,
+                    onLongClick = {
+                        liftedFrom = growth.value
+                        open = true
+                    },
+                    onClick = onClick,
+                ),
+        ) {
+            CompositionLocalProvider(LocalViewConfiguration provides system) {
+                content()
+                if (preview != null) PreviewRecording(own, { ownSize = it }, preview)
             }
-            .drawWithContent {
-                card.record { this@drawWithContent.drawContent() }
-                drawLayer(card)
-            }
-            .combinedClickable(
-                interactionSource = interactions,
-                indication = null,
-                enabled = enabled,
-                role = Role.Button,
-                onClickLabel = onClickLabel,
-                onLongClickLabel = menuLabel,
-                onLongClick = {
-                    liftedFrom = growth.value
-                    open = true
-                },
-                onClick = onClick,
-            ),
-    ) {
-        content()
-        if (preview != null) PreviewRecording(own, { ownSize = it }, preview)
+        }
     }
     GlassDropdown(
         state = state,
@@ -265,6 +274,20 @@ private const val SeedShare = 0.5f
 
 /** The height of the capsule a context menu's glass grows out of. */
 internal val SeedHeight = 44.dp
+
+/**
+ * The view configuration of a context menu's card: the system's, its long press held at least as long as iOS holds a
+ * card before lifting it.
+ *
+ * @param system The system's view configuration.
+ */
+private class ContextMenuViewConfiguration(private val system: ViewConfiguration) : ViewConfiguration by system {
+    override val longPressTimeoutMillis: Long
+        get() = maxOf(system.longPressTimeoutMillis, ContextMenuHoldMillis)
+}
+
+/** How long a card is held before its context menu opens, as measured on an iPad. */
+private const val ContextMenuHoldMillis = 500L
 
 /** How much a card grows while it is held, before its context menu opens, as measured on the system's. */
 private const val HeldGrowth = 1.06f

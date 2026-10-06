@@ -65,6 +65,23 @@ class QuvenGlassContextMenuTest {
     }
 
     @Test
+    fun aPressHeldPastTheSystemsLongPress_butShortOfIOSs_opensNoMenu() {
+        render(top = 340f)
+
+        compose.onNodeWithTag(CardTag).performTouchInput {
+            down(center)
+            advanceEventTime(450)
+            up()
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Play").assertDoesNotExist()
+        compose.onNodeWithTag(CardTag).performTouchInput { longClick(durationMillis = 600) }
+        compose.waitForIdle()
+        compose.onNodeWithText("Play", useUnmergedTree = true).assertIsDisplayed()
+    }
+
+    @Test
     fun aCardHighOnTheScreen_opensItsMenuBelowIt() {
         render(top = 40f)
 
