@@ -58,7 +58,7 @@ public data class QuvenGlassMenuMetrics(
     val labelSize: TextUnit,
     val titleSize: TextUnit,
     val highlightInset: Dp,
-    val previewLift: Float = PhonePreviewLift,
+    val previewLift: Float = PreviewLift,
 ) {
     public companion object {
         /** Gets the layout of a menu on a tablet, as iPadOS lays out its system menus. */
@@ -83,7 +83,6 @@ public data class QuvenGlassMenuMetrics(
             labelSize = 15.sp,
             titleSize = 12.sp,
             highlightInset = 13.dp,
-            previewLift = TabletPreviewLift,
         )
 
         /** Gets the layout of a menu on a phone, as iOS lays out its system menus. */
@@ -110,9 +109,8 @@ public data class QuvenGlassMenuMetrics(
             highlightInset = 14.dp,
         )
 
-        // Measured on the system's context menus: an iPhone lifts the card a tenth larger, an iPad more than half again.
-        private const val PhonePreviewLift = 1.1f
-        private const val TabletPreviewLift = 1.6f
+        // Measured on the system's context menus: an iPhone and an iPad lift the card a tenth larger.
+        private const val PreviewLift = 1.1f
     }
 }
 
