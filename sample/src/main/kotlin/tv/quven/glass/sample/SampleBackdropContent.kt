@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.ExperimentalTextApi
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -68,25 +70,28 @@ internal fun SampleBackdropContent(modifier: Modifier = Modifier, scroll: Float 
     val state = rememberLazyListState()
     val density = LocalDensity.current
     LaunchedEffect(scroll) { if (scroll > 0f) state.scrollBy(with(density) { scroll.dp.toPx() }) }
-    LazyColumn(
-        modifier.background(SampleColors.Ground).graphicsLayer { translationX = -shift.toPx() },
-        state = state,
-        contentPadding = PaddingValues(top = top, bottom = 140.dp),
-    ) {
-        item { Header() }
-        items(12) { block ->
-            when (block % 4) {
-                0 -> PosterRow(offset = block)
-                1 -> TextBlock()
-                2 -> Bands()
-                else -> PosterRow(offset = block + 3)
+    // Material's body style spaces letters by 0.5 sp, which the reference's text does not.
+    ProvideTextStyle(BackdropText) {
+        LazyColumn(
+            modifier.background(SampleColors.Ground).graphicsLayer { translationX = -shift.toPx() },
+            state = state,
+            contentPadding = PaddingValues(top = top, bottom = 140.dp),
+        ) {
+            item { Header() }
+            items(12) { block ->
+                when (block % 4) {
+                    0 -> PosterRow(offset = block)
+                    1 -> TextBlock()
+                    2 -> Bands()
+                    else -> PosterRow(offset = block + 3)
+                }
             }
+            item { CalibrationGrid() }
+            item { CalibrationRamp(horizontal = true, period = 48.dp, height = 160.dp) }
+            item { CalibrationRamp(horizontal = false, period = 96.dp, height = 240.dp) }
+            item { CalibrationProbe(horizontal = true, height = 160.dp) }
+            item { CalibrationProbe(horizontal = false, height = 200.dp) }
         }
-        item { CalibrationGrid() }
-        item { CalibrationRamp(horizontal = true, period = 48.dp, height = 160.dp) }
-        item { CalibrationRamp(horizontal = false, period = 96.dp, height = 240.dp) }
-        item { CalibrationProbe(horizontal = true, height = 160.dp) }
-        item { CalibrationProbe(horizontal = false, height = 200.dp) }
     }
 }
 
@@ -276,3 +281,6 @@ private fun inter(weight: FontWeight): Font =
 
 /** The family the backdrop's text is drawn in, the iOS reference's. */
 private val BackdropFont = FontFamily(inter(FontWeight.Normal), inter(FontWeight.Bold), inter(FontWeight.ExtraBold), inter(FontWeight.Black))
+
+/** The style the backdrop's text sets over the theme's, its letters unspaced as the iOS reference's. */
+private val BackdropText = TextStyle(letterSpacing = 0.sp)
