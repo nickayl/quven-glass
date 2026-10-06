@@ -131,6 +131,11 @@ QuvenGlassSegmentedControl(options = densities, selected = densities.indexOf(den
 }
 ```
 
+Each option reads as a tab. Is your control picking a value, such as a text size, rather than switching between views?
+Pass `role = Role.RadioButton` and TalkBack will announce a choice instead of a page. `optionModifier` lands on the option's
+own node, the one a finger presses and a screen reader reads, which means a test tag you put there survives the merge
+that swallows any tag placed on the option's content, since Compose folds every child of a selectable into it.
+
 ## Searching from the tab bar
 
 `QuvenGlassSearchMorph` turns a phone's tab bar into a search field and back, the way iOS does when its Search tab is
@@ -314,7 +319,9 @@ material, this one included, into the one a button or a menu draws.
 `QuvenGlassSwitch` is the system's switch. Its white thumb lifts into a lens of clear glass while it's held, dragged or
 carried across, shows the track a fifth smaller through it, and settles back into a thumb once it rests. A tap turns it
 over, and a drag turns it to the side it's let go nearer. The lens reads only the switch's own track, so it works
-anywhere, inside a page that is itself a backdrop too.
+anywhere, inside a page that is itself a backdrop too. Leave `onCheckedChange` null and the switch goes passive. It still
+shows whether it's on. It offers no action of its own, though, and that's what you want inside a toggleable row, where
+the whole row is the single control a screen reader meets.
 
 ```kotlin
 QuvenGlassSwitch(checked = downloads, onCheckedChange = { downloads = it })
