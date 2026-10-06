@@ -41,6 +41,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
  * @param optionWidth The width every option takes.
  * @param style The material; the pill crosses on the system control's own spring whatever its slide.
  * @param reduceMotion Whether motion is reduced: the pill then slides without lifting into a lens.
+ * @param role The role every option reads as: [Role.Tab] where the options switch between views, [Role.RadioButton]
+ * where they choose a value.
+ * @param optionModifier Returns the modifier applied to one option's node, such as its test tag.
  * @param option Draws one option, centred in its room and told whether it is chosen; it answers no press of its own.
  */
 @Composable
@@ -52,6 +55,8 @@ public fun <T> QuvenGlassSegmentedControl(
     optionWidth: Dp = SegmentWidth,
     style: QuvenGlassStyle = QuvenGlassStyle.Standard,
     reduceMotion: Boolean = false,
+    role: Role = Role.Tab,
+    optionModifier: (option: T) -> Modifier = { Modifier },
     option: @Composable (option: T, selected: Boolean) -> Unit,
 ) {
     val optionSize = DpSize(optionWidth, ControlHeight - PillInset * 2)
@@ -87,7 +92,8 @@ public fun <T> QuvenGlassSegmentedControl(
                         Box(
                             Modifier
                                 .size(optionSize)
-                                .selectable(index == selected, interactionSource = null, indication = null, role = Role.Tab) { onSelect(item) },
+                                .then(optionModifier(item))
+                                .selectable(index == selected, interactionSource = null, indication = null, role = role) { onSelect(item) },
                             contentAlignment = Alignment.Center,
                         ) { option(item, index == selected) }
                     }

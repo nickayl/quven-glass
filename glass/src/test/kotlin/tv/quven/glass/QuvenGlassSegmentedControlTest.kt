@@ -9,6 +9,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -65,6 +70,25 @@ class QuvenGlassSegmentedControlTest {
         assertEquals(DpSize(98.dp, 28.dp), thumb.thumb)
         assertEquals(DpSize(116.dp, 40.dp), thumb.lens)
         assertEquals(1f, thumb.glass.zoom, 0f)
+    }
+
+    @Test
+    fun anOption_readsAsTheRoleAsked_andCarriesItsOwnModifier_onTheNodeThatIsChosen() {
+        compose.setContent {
+            QuvenGlassSegmentedControl(
+                Options,
+                selected = 2,
+                onSelect = {},
+                role = Role.RadioButton,
+                optionModifier = { Modifier.testTag("option.$it") },
+            ) { option, _ ->
+                BasicText(option)
+            }
+        }
+
+        compose.onNodeWithTag("option.Added").assertIsSelected()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.RadioButton))
+        compose.onNodeWithTag("option.Title").assertIsNotSelected()
     }
 
     private companion object {
