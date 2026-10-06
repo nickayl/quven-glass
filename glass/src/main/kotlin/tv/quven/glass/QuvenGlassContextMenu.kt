@@ -11,6 +11,7 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -20,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -263,7 +265,7 @@ private fun PreviewRecording(layer: GraphicsLayer, onSize: (IntSize) -> Unit, pr
             }
             // A picture of the card, which accessibility services already read.
             .clearAndSetSemantics {},
-    ) { preview() }
+    ) { Box(Modifier.clip(PreviewShape)) { preview() } }
 }
 
 /** The room between a lifted card and its menu, as measured on the system's. */
@@ -285,6 +287,9 @@ private class ContextMenuViewConfiguration(private val system: ViewConfiguration
     override val longPressTimeoutMillis: Long
         get() = maxOf(system.longPressTimeoutMillis, ContextMenuHoldMillis)
 }
+
+/** The shape a preview of a card's own lifts in, as an iPad rounds it whatever the preview's own corners. */
+private val PreviewShape = RoundedCornerShape(22.dp)
 
 /** How long a card is held before its context menu opens, as measured on an iPad. */
 private const val ContextMenuHoldMillis = 500L

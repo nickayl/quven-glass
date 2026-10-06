@@ -578,7 +578,7 @@ the cable, and the blur probe's still screenshots.
 | Slider | 31 pt tall; a 6 pt track, `#0091FF` up to the thumb and white at 13% past it; the switch's thumb and lens, moved only by a drag that starts on the thumb |
 | Glass button | Capsules 28, 34.5 and 50.5 pt tall; a prominent button's tint covers regular glass at 95% and clear glass at 80% |
 | Clear glass | No tone, lightened by about 0.086; blurred about 2 pt and shown 1.25 times larger, its rim lit nearly white |
-| Context menu | The card grows about 6% while held; once the long press has held half a second, or the system's long press if longer, the screen darkens to 52% and the card lifts to 110% on an iPhone and an iPad alike, and the menu's glass flows out of the card's edge to stand 22 pt below it wherever it fits there and above it otherwise, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
+| Context menu | The card grows about 6% while held; once the long press has held half a second, or the system's long press if longer, the screen darkens to 52% and the card lifts to 110% on an iPhone and an iPad alike, or a preview of its own lifts at its own size in corners of 22 pt, and the menu's glass flows out of the card's edge to stand 22 pt below it wherever it fits there and above it otherwise, aligned with its side nearer the screen's edge, in about 200 ms; it closes back into the card |
 | Content on light glass | Resolved in the light colour scheme: primary black, secondary black at 55%, tertiary black at 32%; explicit colours stay; `QuvenGlassAppearance` reports the turn |
 
 Android screenshots may be Display P3 while ReplayKit frames are sRGB, so convert them before you compare anything, or a
