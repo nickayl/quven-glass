@@ -384,19 +384,38 @@ final class ScreenCapture: @unchecked Sendable {
 /// The face the backdrop's text is drawn in, Inter, as the Android sample draws it, so the content under the glass is the
 /// same on both. The face is the app's own, its optical size pinned to its default instance as Android's.
 enum BackdropFont {
-    /// Returns Inter at a size and weight, or the system face where the bundled one is missing.
+    /// Returns Inter at a size and weight, its weight axis set as Android sets it, or the system face where the bundled
+    /// one is missing.
     /// - Parameters:
     ///   - size: The point size.
     ///   - weight: The weight.
     /// - Returns: The font.
     static func inter(size: CGFloat, weight: UIFont.Weight = .regular) -> Font {
-        guard UIFont.fontNames(forFamilyName: "Inter").isEmpty == false else { return .system(size: size, weight: Font.Weight(weight)) }
+        guard registered else { return .system(size: size, weight: Font.Weight(weight)) }
         let descriptor = UIFontDescriptor(fontAttributes: [
             .family: "Inter",
-            .traits: [UIFontDescriptor.TraitKey.weight: weight],
+            UIFontDescriptor.AttributeName(rawValue: kCTFontVariationAttribute as String): [WeightAxis: axisWeight(weight)],
             UIFontDescriptor.AttributeName(rawValue: kCTFontOpticalSizeAttribute as String): "none",
         ])
         return Font(UIFont(descriptor: descriptor, size: size))
+    }
+
+    /// The `wght` axis of a variable font.
+    private static let WeightAxis = 0x7767_6874
+
+    /// Whether Inter is registered for the process, from the file the build copies into the bundle.
+    private static let registered: Bool = {
+        guard let url = Bundle.main.url(forResource: "inter_variable", withExtension: "ttf") else { return false }
+        return CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil) || UIFont.fontNames(forFamilyName: "Inter").isEmpty == false
+    }()
+
+    private static func axisWeight(_ weight: UIFont.Weight) -> Int {
+        switch weight {
+        case .black: 900
+        case .heavy: 800
+        case .bold: 700
+        default: 400
+        }
     }
 }
 
@@ -1195,6 +1214,7 @@ struct GalleryScreen: View {
     /// `remote-last.txt` names the latest.
     private func followRemote() async {
         var recorder: ScreenCapture?
+        var refused = false
         var count = 0
         for await command in RemoteCommand.stream() {
             let name = "remote-\(count)"
@@ -1202,10 +1222,10 @@ struct GalleryScreen: View {
                 chosen = exhibit
                 continue
             }
-            if recorder == nil {
+            // A consent refused once is never asked for again in the same launch.
+            if recorder == nil, !refused {
                 let started = ScreenCapture()
-                guard await started.start() else { continue }
-                recorder = started
+                if await started.start() { recorder = started } else { refused = true }
             }
             guard let screen = recorder else { continue }
             switch command {
