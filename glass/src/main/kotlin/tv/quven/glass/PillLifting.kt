@@ -91,7 +91,7 @@ internal sealed interface PillLifting {
                         .matchParentSize()
                         .standingAt { motion.lensFrame(optionSize, this) }
                         .graphicsLayer { alpha = motion.lensOpacity }
-                        .lensGlass(recorded, lensMaterial(motion.lensOpacity)),
+                        .lensGlass(recorded, lensMaterial(motion.lift)),
                 )
             }
         }
@@ -132,8 +132,11 @@ private const val LensZoom = 0.8f
 /** The share of white the lens's rim turns all the way round, as the tab bar's lens catches the light. */
 private const val LensRimLight = 0.35f
 
-/** How far the lens's rim parts red from blue, more than a control's thumb, as the tab bar's lens shows a rainbow. */
-private const val LensDispersion = 0.12f
+/** How far the lens's rim parts red from blue, as the tab bar's lens shows a faint rainbow. */
+private const val LensDispersion = 0.06f
+
+/** How far the lens's rim bends what it shows: less than a control's thumb, so a glyph near the rim never smears. */
+private val LensRefraction = 4.dp
 
 /**
  * The clear glass of the lens: a control thumb's lens which leaves what lies beyond the track as dark as it is and casts
@@ -141,16 +144,17 @@ private const val LensDispersion = 0.12f
  */
 private val LensMaterial: QuvenGlassStyle = GlassLensThumb.LensMaterial.copy(
     brighten = 0f,
+    refraction = LensRefraction,
     dispersion = LensDispersion,
     shadow = Color.Transparent,
     rimLight = LensRimLight,
 )
 
 /**
- * Returns the lens's glass as far as it shows, which shows the options larger the more it shows, so the options it
- * magnifies settle onto their own places as it fades.
+ * Returns the lens's glass as far as the pill is lifted, which shows the options larger the further it is lifted, so the
+ * options it magnifies settle onto their own places as it drops.
  *
- * @param shown How much of the lens shows, from 0 to 1.
+ * @param lift How far the pill is lifted, from 0 to 1.
  * @return The material.
  */
-private fun lensMaterial(shown: Float): QuvenGlassStyle = LensMaterial.copy(zoom = lerp(1f, LensZoom, shown))
+private fun lensMaterial(lift: Float): QuvenGlassStyle = LensMaterial.copy(zoom = lerp(1f, LensZoom, lift.coerceIn(0f, 1f)))

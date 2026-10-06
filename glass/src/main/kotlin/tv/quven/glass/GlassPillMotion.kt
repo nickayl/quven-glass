@@ -6,12 +6,15 @@ import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -21,7 +24,13 @@ private const val MaxSquash = 0.22f
 private const val LensPerStretch = 0.5f
 private const val PillFadeMillis = 250
 private const val TravelRiseMillis = 60
-private const val TravelHoldMillis = 90L
+
+// Measured on the system's tab bar on an iPad: a tap's lens lifts about three fifths as far as a held press's, narrower
+// and magnifying less.
+private const val TravelLift = 0.6f
+
+// The share of its way the pill has left to go when the lens settles.
+private const val TravelLanding = 0.1f
 private const val TravelSettleDamping = 0.9f
 private const val TravelSettleStiffness = 1500f
 
@@ -218,6 +227,11 @@ internal class GlassPillMotion {
         alpha.snapTo(1f)
     }
 
+    // Brings the travel's lift back to rest.
+    private suspend fun settleTravel() {
+        if (travel.value != 0f) travel.animateTo(0f, spring(TravelSettleDamping, TravelSettleStiffness))
+    }
+
     /**
      * Hides the platter at once as the pill lifts into a lens, or shows it again a moment after the lens has gone, fading
      * in where it settled, as Apple's tab bar does.
@@ -247,6 +261,7 @@ internal class GlassPillMotion {
         val first = !asked
         asked = true
         if (index < 0) {
+            launch { settleTravel() }
             alpha.animateTo(0f, tween(PillFadeMillis))
             return@coroutineScope
         }
@@ -260,6 +275,7 @@ internal class GlassPillMotion {
             return@coroutineScope
         }
         if (reduceMotion) {
+            travel.snapTo(0f)
             if (start.value != toStart || end.value != toEnd) {
                 if (alpha.value > 0f) alpha.animateTo(0f, tween(ReducedMotionFadeMillis / 2))
                 start.snapTo(toStart)
@@ -271,12 +287,15 @@ internal class GlassPillMotion {
         val forward = toStart >= start.value
         val moves = start.value != toStart || end.value != toEnd
         launch { alpha.animateTo(1f, tween(PillFadeMillis)) }
-        if (moves) {
-            launch {
-                travel.animateTo(1f, tween(TravelRiseMillis, easing = FastOutSlowInEasing))
-                delay(TravelHoldMillis)
-                travel.animateTo(0f, spring(TravelSettleDamping, TravelSettleStiffness))
+        launch {
+            if (moves) {
+                val distance = abs(toEnd - end.value)
+                travel.animateTo(TravelLift, tween(TravelRiseMillis, easing = FastOutSlowInEasing))
+                // The lens stays lifted until the pill has nearly arrived, as Apple's settles only then.
+                snapshotFlow { abs(toEnd - end.value) <= distance * TravelLanding }.first { it }
             }
+            // A travel a newer move cut short settles here too, so the lens never stays lifted.
+            settleTravel()
         }
         launch {
             start.animateTo(toStart, dynamics.slide(leads = !forward))
