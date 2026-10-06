@@ -542,7 +542,7 @@ the cable, and the blur probe's still screenshots.
 |---|---|
 | Thickness | Thin up to a shorter side of 63 pt, thick from 66 pt, turning large from 100 pt to 124 pt; interactive or still alike |
 | Thick tone | Lean 0.77 towards `0x27`, saturation 2.49, sRGB; the same over dark and bright content |
-| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the luminance of the mean colour of what lies under the surface and 12 pt around it, taken in linear light, passes 0.25, in that colour, saturation 2; over black it reads 19 levels until the content under it is bright; read over a palette at four brightnesses |
+| Thin tone | Lean 0.7 towards `0x1A`, which picks up 0.48 times as much as the luminance of the mean colour of what lies under the surface and 12 pt around it, taken in linear light, passes 0.25, a quarter in that colour and the rest grey, saturation 2; over black it reads 19 levels until the content under it is bright; read over a palette at four brightnesses |
 | Large tone | Lean 0.86, less 0.05 per unit of luminance, towards `0x17`, which picks up 0.144 times the mean colour under it and 12 pt around in linear light, saturation 2.6; a panel or a sidebar veils more than a bar |
 | Menu tone | Lean 0.88, less 0.05 per unit of luminance, towards `0x0C`, which picks up 0.185 times the mean colour under it and 12 pt around in linear light as the screen shows it, dimmed or not, saturation 2.6; a menu or a sheet veils more than a panel; a context menu leans towards `0x19` |
 | Platter | White at 11%; black at 7% on light glass; a tab bar's white at 15% |

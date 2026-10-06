@@ -7,8 +7,8 @@ import androidx.compose.ui.util.lerp
 
 /**
  * Describes how glass of one thickness tones the backdrop: it leans it towards [shade], lightened by [adaptation] times
- * how far the luminance of the mean colour of the backdrop under and just about the surface passes [knee], in that
- * colour, by [lean], plus [leanSlope] per unit of luminance, then scales its saturation by [saturation].
+ * how far the luminance of the mean colour of the backdrop under and just about the surface passes [knee], taking
+ * [veilColour] of that colour, by [lean], plus [leanSlope] per unit of luminance, then scales its saturation by [saturation].
  *
  * @property shade The colour the glass leans towards over a black backdrop.
  * @property lean How far the glass leans towards [shade] over a black backdrop, from 0 to 1.
@@ -18,6 +18,8 @@ import androidx.compose.ui.util.lerp
  * just about the surface past [knee], taken in linear light, as Apple's glass grows lighter over brighter content; 0 for
  * a shade that holds.
  * @property knee The mean luminance up to which [shade] holds, from 0 to 1.
+ * @property veilColour How much of the backdrop's colour [shade] takes as it lightens, from 0, grey, to 1, the colour
+ * itself.
  */
 @Immutable
 public data class QuvenGlassTone(
@@ -27,6 +29,7 @@ public data class QuvenGlassTone(
     val saturation: Float = 1f,
     val adaptation: Float = 0f,
     val knee: Float = 0f,
+    val veilColour: Float = 1f,
 ) {
 
     public companion object {
@@ -37,6 +40,7 @@ public data class QuvenGlassTone(
             saturation = 2f,
             adaptation = 0.48f,
             knee = 0.25f,
+            veilColour = 0.25f,
         )
 
         /** Gets the tone of thick glass, as on a bar, a large button or a panel. */
@@ -107,4 +111,5 @@ internal fun lerpTone(start: QuvenGlassTone, stop: QuvenGlassTone, fraction: Flo
     saturation = lerp(start.saturation, stop.saturation, fraction),
     adaptation = lerp(start.adaptation, stop.adaptation, fraction),
     knee = lerp(start.knee, stop.knee, fraction),
+    veilColour = lerp(start.veilColour, stop.veilColour, fraction),
 )

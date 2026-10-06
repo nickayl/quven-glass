@@ -43,6 +43,7 @@ internal enum class LiquidGlassUniform(val uniform: String, val floats: Int) {
     LargeSizes("largeSizes", 2),
     Adapts("adapts", 4),
     Knees("knees", 4),
+    VeilColours("veilColours", 4),
     LightTone("lightTone", 4),
     LightLean("lightLean", 2),
     Tint("tint", 4),
@@ -81,7 +82,7 @@ internal const val LiquidGlassContent = "content"
  * `largeSizes.y` thick glass turns into large glass, leaning towards `largeTone.rgb` by `largeLean.x + largeLean.y ×
  * luminance`; the saturation scales by the tone's alpha. Each shade lightens by `adapts` (thin, thick, large, light) times
  * how far the luminance of the nearest surface's `shapeVeil`, the mean colour of the backdrop under and about it, passes
- * `knees`, in the veil's colour.
+ * `knees`, taking `veilColours` of the veil's colour, grey for the rest.
  * Thin glass turned light by `shapeLight` takes `lightTone`, `lightLean` and `lightPlatter` instead. Last come the rim's light,
  * brighter where it faces the light, the tint over it, and the pill's platter, which clears into a lens while the pill
  * is lifted. Where `pressGlow` is positive, a surface lit by `shapeGlow` turns towards the untoned backdrop lit
@@ -124,6 +125,7 @@ uniform float2 largeLean;
 uniform float2 largeSizes;
 uniform float4 adapts;
 uniform float4 knees;
+uniform float4 veilColours;
 uniform float4 lightTone;
 uniform float2 lightLean;
 uniform float4 tint;
@@ -414,10 +416,12 @@ half4 main(float2 coord) {
     if (adapt != 0.0) {
         // The veil is read from the screen undimmed, so glass over a dimmed screen reads it dimmed as well.
         float knee = mix(mix(mix(knees.x, knees.y, thickness), knees.z, largeness), knees.w, lightShare);
-        // The shade lightens by how far the veil's luminance passes the knee, in the veil's colour.
+        // The shade lightens by how far the veil's luminance passes the knee, taking the veil's colour by veilColours.
+        float colourShare = mix(mix(mix(veilColours.x, veilColours.y, thickness), veilColours.z, largeness), veilColours.w, lightShare);
         float3 veil = veilAt(coord) * (1.0 - backdropDim);
         float veilLuma = luma(veil);
-        tone.rgb = clamp(tone.rgb + adapt * max(veilLuma - knee, 0.0) * veil / max(veilLuma, 0.0001), 0.0, 1.0);
+        float3 hue = mix(float3(1.0), veil / max(veilLuma, 0.0001), colourShare);
+        tone.rgb = clamp(tone.rgb + adapt * max(veilLuma - knee, 0.0) * hue, 0.0, 1.0);
     }
     float darkLean = mix(mix(leans.z + leans.w * lit, leans.x + leans.y * lit, thickness), largeLean.x + largeLean.y * lit, largeness);
     float lean = clamp(mix(darkLean, lightLean.x + lightLean.y * lit, lightShare), 0.0, 1.0);
@@ -662,6 +666,13 @@ internal class LiquidGlassShader private constructor() {
                 style.lightTone.adaptation,
             )
             setFloatUniform(LiquidGlassUniform.Knees.uniform, style.thinTone.knee, style.thickTone.knee, style.largeTone.knee, style.lightTone.knee)
+            setFloatUniform(
+                LiquidGlassUniform.VeilColours.uniform,
+                style.thinTone.veilColour,
+                style.thickTone.veilColour,
+                style.largeTone.veilColour,
+                style.lightTone.veilColour,
+            )
             setTone(LiquidGlassUniform.LightTone, style.lightTone)
             setFloatUniform(LiquidGlassUniform.LightLean.uniform, style.lightTone.lean, style.lightTone.leanSlope)
             setColor(LiquidGlassUniform.Tint, style.tint)
