@@ -77,6 +77,7 @@ class GalleryActivity : ComponentActivity() {
     private var backdropOffset by mutableStateOf(DpOffset.Zero)
     private var probe by mutableStateOf<String?>(null)
     private var probeScale by mutableFloatStateOf(1f)
+    private var reducedMotion by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // The gallery is dark whatever the system's theme, so its bars carry light glyphs.
@@ -97,7 +98,7 @@ class GalleryActivity : ComponentActivity() {
                             menu = it.startsWith(ProbeMenu),
                             sheet = it.startsWith(ProbeSheet),
                         )
-                    } ?: GalleryScreen(shown)
+                    } ?: GalleryScreen(shown, reducedMotion)
                 }
             }
         }
@@ -125,6 +126,7 @@ class GalleryActivity : ComponentActivity() {
         backdropOffset = if (offset?.size == 2) DpOffset(offset[0].dp, offset[1].dp) else DpOffset.Zero
         probe = intent.getStringExtra(ExtraProbe)
         probeScale = intent.getFloatExtra(ExtraProbeScale, 1f)
+        reducedMotion = intent.getBooleanExtra(ExtraReduceMotion, false)
     }
 
     private companion object {
@@ -153,6 +155,9 @@ class GalleryActivity : ComponentActivity() {
 
         // The factor the probe's palette is scaled by, 1 unless named.
         const val ExtraProbeScale = "probeScale"
+
+        // Whether the gallery opens with motion reduced, so a measurement can tell what the motion costs.
+        const val ExtraReduceMotion = "reduceMotion"
     }
 }
 
@@ -161,10 +166,11 @@ class GalleryActivity : ComponentActivity() {
  * exhibit's sheets and alerts stand over the whole window, which they dim, as the system's do.
  *
  * @param initial The index of the exhibit to show, or `null` to open on the first and, in a narrow window, the list.
+ * @param reducedMotion Whether the gallery opens with motion reduced.
  */
 @Composable
-private fun GalleryScreen(initial: Int?) {
-    val tuning = remember { SampleTuning() }
+private fun GalleryScreen(initial: Int?, reducedMotion: Boolean) {
+    val tuning = remember { SampleTuning().apply { reduceMotion = reducedMotion } }
     val screen = rememberQuvenGlassBackdrop()
     val alerts = rememberQuvenGlassAlertHostState()
     val sheets = rememberQuvenGlassSheetHostState()
