@@ -28,6 +28,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
@@ -49,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
@@ -89,16 +91,19 @@ class GalleryActivity : ComponentActivity() {
         setContent {
             CompositionLocalProvider(LocalCaptureMarks provides (seconds > 0f), LocalBackdropOffset provides backdropOffset) {
                 MaterialTheme(colorScheme = darkColorScheme()) {
-                    probe?.let {
-                        BlurProbe(
-                            bare = it.endsWith(ProbeBare),
-                            palette = it.startsWith(ProbePalette),
-                            scale = probeScale,
-                            thin = it.contains(ProbeThin),
-                            menu = it.startsWith(ProbeMenu),
-                            sheet = it.startsWith(ProbeSheet),
-                        )
-                    } ?: GalleryScreen(shown, reducedMotion)
+                    // Text keeps its font's own line height and spacing, as the reference's system text does.
+                    CompositionLocalProvider(LocalTextStyle provides TextStyle.Default) {
+                        probe?.let {
+                            BlurProbe(
+                                bare = it.endsWith(ProbeBare),
+                                palette = it.startsWith(ProbePalette),
+                                scale = probeScale,
+                                thin = it.contains(ProbeThin),
+                                menu = it.startsWith(ProbeMenu),
+                                sheet = it.startsWith(ProbeSheet),
+                            )
+                        } ?: GalleryScreen(shown, reducedMotion)
+                    }
                 }
             }
         }

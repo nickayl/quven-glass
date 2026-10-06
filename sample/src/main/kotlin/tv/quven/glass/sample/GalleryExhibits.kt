@@ -35,7 +35,6 @@ import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Home
@@ -260,7 +259,7 @@ internal fun BoxScope.MenusExhibit(tuning: SampleTuning) {
         QuvenGlassMenuDivider()
         QuvenGlassMenuItem("Share", {}, icon = rememberVectorPainter(ShareUp))
         QuvenGlassMenuItem("Unavailable", {}, icon = rememberVectorPainter(Icons.Filled.Lock), enabled = false)
-        QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Icons.Filled.Delete), destructive = true)
+        QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Trash), destructive = true)
     }
     MenuButton(MoonZzz, "Timer", tuning, Modifier.align(Alignment.CenterStart)) {
         QuvenGlassMenuItem("15 minutes", {})
@@ -1095,9 +1094,9 @@ internal fun BoxScope.ContextMenuExhibit(tuning: SampleTuning) {
         QuvenGlassContextMenuBox(
             menu = {
                 QuvenGlassMenuItem("Play", {}, icon = play)
-                QuvenGlassMenuItem("Details", {}, icon = rememberVectorPainter(Icons.Filled.Info))
-                QuvenGlassMenuItem("Save", {}, icon = rememberVectorPainter(Icons.Filled.Favorite))
-                QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Icons.Filled.Delete), destructive = true)
+                QuvenGlassMenuItem("Details", {}, icon = rememberVectorPainter(InfoCircle))
+                QuvenGlassMenuItem("Save", {}, icon = rememberVectorPainter(Bookmark))
+                QuvenGlassMenuItem("Remove", {}, icon = rememberVectorPainter(Trash), destructive = true)
             },
             onClick = {},
             reduceMotion = tuning.reduceMotion,
@@ -1321,10 +1320,8 @@ internal val MoreHorizontal: ImageVector = materialIcon(name = "Filled.MoreHoriz
 
 /** An arrow pointing down inside a ring, as the system's `arrow.down.circle` symbol draws it. */
 internal val ArrowDownCircle: ImageVector = ImageVector.Builder("ArrowDownCircle", 24.dp, 24.dp, 24f, 24f).apply {
+    ring()
     path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-        moveTo(12f, 2.9f)
-        arcTo(9.1f, 9.1f, 0f, isMoreThanHalf = true, isPositiveArc = true, 11.99f, 2.9f)
-        close()
         moveTo(12f, 7.4f)
         verticalLineTo(16.2f)
         moveTo(8.4f, 12.8f)
@@ -1335,20 +1332,33 @@ internal val ArrowDownCircle: ImageVector = ImageVector.Builder("ArrowDownCircle
 
 /** Three dots inside a ring, as the system's `ellipsis.circle` symbol draws them. */
 internal val EllipsisCircle: ImageVector = ImageVector.Builder("EllipsisCircle", 24.dp, 24.dp, 24f, 24f).apply {
+    ring()
+    for (x in listOf(7.6f, 12f, 16.4f)) dot(x, 12f)
+}.build()
+
+/** Adds the ring of the system's `.circle` symbols about the icon's centre. */
+private fun ImageVector.Builder.ring() {
     path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.7f) {
         moveTo(12f, 2.9f)
         arcTo(9.1f, 9.1f, 0f, isMoreThanHalf = true, isPositiveArc = true, 11.99f, 2.9f)
         close()
     }
-    for (x in listOf(7.6f, 12f, 16.4f)) {
-        path(fill = SolidColor(Color.Black)) {
-            moveTo(x - 1.25f, 12f)
-            arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x + 1.25f, 12f)
-            arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x - 1.25f, 12f)
-            close()
-        }
+}
+
+/**
+ * Adds a dot 2.5 wide centred on ([x], [y]).
+ *
+ * @param x The dot's centre across.
+ * @param y The dot's centre down.
+ */
+private fun ImageVector.Builder.dot(x: Float, y: Float) {
+    path(fill = SolidColor(Color.Black)) {
+        moveTo(x - 1.25f, y)
+        arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x + 1.25f, y)
+        arcTo(1.25f, 1.25f, 0f, isMoreThanHalf = true, isPositiveArc = true, x - 1.25f, y)
+        close()
     }
-}.build()
+}
 
 /** A filled bookmark, as the system's `bookmark.fill` symbol draws it. */
 internal val BookmarkFill: ImageVector = ImageVector.Builder("BookmarkFill", 24.dp, 24.dp, 24f, 24f).apply {
@@ -1422,6 +1432,55 @@ internal val PlayFill: ImageVector = ImageVector.Builder("PlayFill", 24.dp, 24.d
         lineTo(19.2f, 12f)
         lineTo(6.6f, 19.6f)
         close()
+    }
+}.build()
+
+/** A letter i in a ring, as the system's `info.circle` symbol draws it. */
+internal val InfoCircle: ImageVector = ImageVector.Builder("InfoCircle", 24.dp, 24.dp, 24f, 24f).apply {
+    ring()
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.9f, strokeLineCap = StrokeCap.Round) {
+        moveTo(12f, 10.8f)
+        verticalLineTo(16.8f)
+    }
+    dot(12f, 7.6f)
+}.build()
+
+/** A ribbon notched at its foot, as the system's `bookmark` symbol draws it. */
+internal val Bookmark: ImageVector = ImageVector.Builder("Bookmark", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.6f, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(7.6f, 3f)
+        horizontalLineTo(16.4f)
+        quadTo(18f, 3f, 18f, 4.6f)
+        verticalLineTo(21f)
+        lineTo(12f, 16.6f)
+        lineTo(6f, 21f)
+        verticalLineTo(4.6f)
+        quadTo(6f, 3f, 7.6f, 3f)
+        close()
+    }
+}.build()
+
+/** A bin with its lid and ribs, as the system's `trash` symbol draws it. */
+internal val Trash: ImageVector = ImageVector.Builder("Trash", 24.dp, 24.dp, 24f, 24f).apply {
+    path(stroke = SolidColor(Color.Black), strokeLineWidth = 1.6f, strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
+        moveTo(3.8f, 6f)
+        horizontalLineTo(20.2f)
+        moveTo(9f, 6f)
+        verticalLineTo(4.4f)
+        quadTo(9f, 3f, 10.4f, 3f)
+        horizontalLineTo(13.6f)
+        quadTo(15f, 3f, 15f, 4.4f)
+        verticalLineTo(6f)
+        moveTo(5.6f, 6f)
+        lineTo(6.6f, 19.4f)
+        quadTo(6.8f, 21f, 8.4f, 21f)
+        horizontalLineTo(15.6f)
+        quadTo(17.2f, 21f, 17.4f, 19.4f)
+        lineTo(18.4f, 6f)
+        moveTo(10f, 9.6f)
+        verticalLineTo(17.4f)
+        moveTo(14f, 9.6f)
+        verticalLineTo(17.4f)
     }
 }.build()
 
