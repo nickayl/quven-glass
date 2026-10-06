@@ -125,6 +125,8 @@ enum ReferenceLaunch {
     static let controls = ProcessInfo.processInfo.environment["GLASS_CONTROLS"] != nil
     /// Whether the system's controls stand over a white page instead of the screen's content.
     static let controlsOverWhite = ProcessInfo.processInfo.environment["GLASS_CONTROLS_WHITE"] != nil
+    /// Whether an exhibit that presents a dialog, such as the alert, presents it as soon as it opens.
+    static let opens = ProcessInfo.processInfo.environment["GLASS_OPEN"] != nil
     /// Whether the app was launched to be measured, with a `GLASS_` setting in its environment or arguments; launched
     /// from the Home Screen it shows the gallery.
     static let measuring = ProcessInfo.processInfo.environment.keys.contains { $0.hasPrefix("GLASS_") }
@@ -1916,7 +1918,7 @@ struct SheetStage: View {
 
 /// A button that raises an alert.
 struct AlertStage: View {
-    @State private var shown = false
+    @State private var shown = ReferenceLaunch.opens
 
     var body: some View {
         Button("Show alert") { shown = true }

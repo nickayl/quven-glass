@@ -625,6 +625,7 @@ Launched from the Home Screen the reference shows the gallery; any `GLASS_` vari
 | `GLASS_CONTROLS` | The system's tab bar and segmented control instead of the screen. |
 | `GLASS_CONTROLS_WHITE` | Those controls over a white page. |
 | `GLASS_MENUS` | A pull-down with every kind of entry, a plain menu and a card's context menu over the screen. |
+| `GLASS_OPEN` | An exhibit that presents a dialog, such as the alert, presents it as soon as it opens. |
 | `GLASS_REMOTE` | The gallery opens on `GLASS_EXHIBIT` (or the first exhibit), records itself from the first command that asks for a frame, so ReplayKit asks once a launch and never while the Mac records over the cable, and follows the Darwin notifications `tv.quven.glass.remote.show.<exhibit>`, `.save` and `.record.<seconds>` (`devicectl device notification post`); `remote-last.txt` in Documents names the latest frames, and `remote-region.txt` the region a recording keeps. A Mac can also take the screen over the cable as a capture device, with no prompt at all. |
 
 ## Licence
