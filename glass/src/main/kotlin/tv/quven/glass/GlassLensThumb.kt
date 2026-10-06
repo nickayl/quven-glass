@@ -14,16 +14,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.BlurredEdgeTreatment
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
@@ -38,12 +41,14 @@ import androidx.compose.ui.util.lerp
  * @property thumb The size of the thumb at rest.
  * @property lens The size of the lens it lifts into.
  * @property colour The colour of the thumb at rest.
+ * @property shadow The soft shadow the thumb casts at rest, which fades with it.
  * @property glass The clear glass of the lens once lifted.
  */
 internal class GlassLensThumb(
     val thumb: DpSize,
     val lens: DpSize,
     val colour: Color = Color.White,
+    val shadow: Shadow = RestingShadow,
     val glass: QuvenGlassStyle = LensMaterial,
 ) {
 
@@ -98,6 +103,9 @@ internal class GlassLensThumb(
     companion object {
         /** How far the frosted lens blurs the track while the thumb turns into it. */
         val LensFrost: Dp = 6.dp
+
+        /** The shadow of the thumb at rest, measured on Apple's slider over a light card. */
+        val RestingShadow: Shadow = Shadow(radius = 8.dp, color = Color.Black, offset = DpOffset(0.dp, 2.dp), alpha = 0.12f)
 
         /** How far the thumb blurs as it fades into the lens. */
         val ThumbFrost: Dp = 5.dp
@@ -225,6 +233,7 @@ private fun BoxScope.LensThumb(
                 .fillMaxSize()
                 .graphicsLayer { alpha = if (liquid) thumb.thumbOpacity(lift()) else 1f }
                 .blur(if (liquid) thumb.thumbBlur(shown) else 0.dp, BlurredEdgeTreatment.Unbounded)
+                .dropShadow(CircleShape, thumb.shadow)
                 .background(thumb.colour, CircleShape),
         )
     }
