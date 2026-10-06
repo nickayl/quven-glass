@@ -50,7 +50,7 @@ internal class Exhibit(
 }
 
 /** The room a system tab bar keeps at the stage's foot, the bar and the room under it, which its soft edge reaches over. */
-private val SystemBarEdge = 73.dp
+internal val SystemBarEdge = 73.dp
 
 /** The room a bottom accessory adds above the bar, itself and the room under it. */
 private val AccessoryEdge = 56.dp
@@ -73,6 +73,7 @@ internal val Exhibits: List<Exhibit> = listOf(
         "Entries in a capsule beside a Search circle. A press grows the bar and lifts the held pill into a lens that " +
             "crosses to the entry pressed; a drag carries the lens to the entry let go over.",
         ExhibitStatus.Ready,
+        bottomEdge = SystemBarEdge,
     ) { TabBarExhibit(it) },
     Exhibit(
         "Segmented control",

@@ -550,7 +550,7 @@ private fun BoxScope.SearchBarStage(tuning: SampleTuning, count: Int, minimizes:
     val page = rememberQuvenGlassBackdrop()
     CompositionLocalProvider(LocalBarLook provides systemBarLook(tablet)) {
         BoxWithConstraints(Modifier.matchParentSize().bleed(StageInset)) {
-            if (searchPage) SearchPage(Modifier.fillMaxSize().quvenGlassSource(page))
+            if (searchPage) SearchPage(Modifier.fillMaxSize().quvenGlassSource(page).quvenGlassScrollEdge(bottom = SystemBarEdge))
             QuvenGlassSearchMorph(
                 searching = searching,
                 onSearch = { if (tablet) searchPage = true else if (!searching) searchLit = true },
