@@ -71,6 +71,8 @@ import kotlin.math.roundToInt
  * @param onExpand Invoked when the folded tabs are pressed while the bar stands minimized.
  * @param searchModifier Modifier applied to the Search circle, the field it opens into.
  * @param accessory Draws the accessory's content in a row filling its capsule, or `null` for none.
+ * @param appearance The appearance the Search circle and the folded tabs report to the glyphs and the field on them, or
+ * `null` where those read none.
  */
 @Composable
 public fun QuvenGlassSearchMorph(
@@ -94,6 +96,7 @@ public fun QuvenGlassSearchMorph(
     onExpand: () -> Unit = {},
     searchModifier: Modifier = Modifier,
     accessory: (@Composable RowScope.() -> Unit)? = null,
+    appearance: QuvenGlassAppearance? = null,
 ) {
     val spec = if (reduceMotion) tween<Float>(ReducedMotionFadeMillis) else BarMorphSpring
     val progress = remember { Animatable(if (searching) 1f else 0f) }
@@ -134,8 +137,9 @@ public fun QuvenGlassSearchMorph(
                         tabs = tabs,
                         tabsFace = tabsFace,
                         heldGlyph = heldGlyph,
+                        appearance = appearance,
                     )
-                    BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier) {
+                    BarItemButton(onSearch, item, backdrop, reduceMotion, searchModifier, appearance) {
                         Row(Modifier.fillMaxSize().clip(CircleShape).startPaddingFromHeight(GlyphRoom), verticalAlignment = Alignment.CenterVertically) {
                             Box(Modifier.size(GlyphRoom), contentAlignment = Alignment.Center, content = searchGlyph)
                             // At rest the field is not there to take the press, which opens the search instead.

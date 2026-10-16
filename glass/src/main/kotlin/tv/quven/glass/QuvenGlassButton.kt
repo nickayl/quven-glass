@@ -111,7 +111,7 @@ public fun QuvenGlassButton(
     content: @Composable RowScope.(ink: Color) -> Unit,
 ) {
     val glass = remember(style, tint) { style.forButtons(tint) }
-    GlassButton(onClick, modifier, shape, glass, tint.isSpecified, ink, lightInk, contentPadding, enabled, backdrop, reduceMotion, interactionSource, content)
+    GlassButton(onClick, modifier, shape, glass, tint.isSpecified, ink, lightInk, contentPadding, enabled, backdrop, reduceMotion, interactionSource, content = content)
 }
 
 /**
@@ -129,6 +129,7 @@ public fun QuvenGlassButton(
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
  * @param reduceMotion Whether motion is reduced.
  * @param interactionSource The source of the button's presses and focus, or `null` for one of its own.
+ * @param appearance The appearance the glass reports to its content, or `null` for one of its own.
  * @param content Draws the button's content, in a row centred in the button, given its ink.
  */
 @Composable
@@ -145,10 +146,12 @@ internal fun GlassButton(
     backdrop: QuvenGlassBackdrop?,
     reduceMotion: Boolean,
     interactionSource: MutableInteractionSource?,
+    appearance: QuvenGlassAppearance? = null,
     content: @Composable RowScope.(ink: Color) -> Unit,
 ) {
     val interactions = interactionSource ?: remember { MutableInteractionSource() }
-    val appearance = rememberQuvenGlassAppearance()
+    val ownAppearance = rememberQuvenGlassAppearance()
+    val reported = appearance ?: ownAppearance
     // Under the finger the whole button grows, glass and content alike; where motion is reduced it only lights.
     val glass = remember(material, reduceMotion) { material.growingUnless(reduceMotion) }
     val press = remember { GlassPress() }
@@ -160,7 +163,7 @@ internal fun GlassButton(
         glow.follow(this, interactions) { held -> if (held) ButtonGlowRise else ButtonGlowFade }
     }
     var size by remember { mutableStateOf(IntSize.Zero) }
-    val shownInk = if (prominent) ink else appearance.contentColor(onDark = ink, onLight = lightInk)
+    val shownInk = if (prominent) ink else reported.contentColor(onDark = ink, onLight = lightInk)
     Row(
         modifier = modifier
             .onSizeChanged { size = it }
@@ -172,7 +175,7 @@ internal fun GlassButton(
                 reduceMotion = reduceMotion,
                 lift = remember(press) { GlassLiftSource { press.value } },
                 pill = null,
-                appearance = appearance.takeUnless { prominent },
+                appearance = reported.takeUnless { prominent },
                 glow = remember(glow) { GlassLiftSource { glow.value } },
             )
             .then(

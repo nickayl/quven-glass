@@ -45,7 +45,7 @@ dependencyResolutionManagement {
 
 // app/build.gradle.kts
 dependencies {
-    implementation("tv.quven.glass:glass:2.31.0")
+    implementation("tv.quven.glass:glass:2.32.0")
 }
 ```
 
@@ -301,7 +301,9 @@ Box(Modifier.quvenLiquidGlass(backdrop, shape = CircleShape, appearance = appear
 }
 ```
 
-`QuvenGlassSegmentedTrack` takes the same `appearance` parameter. Thick glass, from a shorter side of 66 dp, never turns.
+`QuvenGlassSegmentedTrack` and `QuvenGlassSearchMorph` take the same `appearance` parameter; the morph's Search circle
+and folded tabs report to it, so the glyphs and the field drawn on them can follow. Thick glass, from a shorter side of
+66 dp, never turns.
 
 ## Buttons and switches
 

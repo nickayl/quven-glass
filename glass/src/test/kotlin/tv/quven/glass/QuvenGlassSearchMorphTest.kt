@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -66,6 +68,20 @@ class QuvenGlassSearchMorphTest {
         compose.onNodeWithTag(CircleTag, useUnmergedTree = true).performClick()
 
         compose.runOnIdle { assertTrue(searching) }
+    }
+
+    @Test
+    fun anAppearanceGiven_isTheOneTheSearchFieldAndTheFoldedTabsReport() {
+        val appearance = QuvenGlassAppearance()
+        searching = true
+        render(backdrop = QuvenGlassBackdrop(), appearance = appearance)
+
+        for (tag in listOf(SearchTag, HeldTag)) {
+            val glass = generateSequence(compose.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().layoutInfo) { it.parentInfo }
+                .firstNotNullOfOrNull { layout -> layout.getModifierInfo().firstNotNullOfOrNull { it.modifier as? LiquidGlassElement } }
+            assertNotNull("No glass stands under $tag", glass)
+            assertSame("The glass under $tag reports to another appearance", appearance, glass?.appearance)
+        }
     }
 
     @Test
@@ -183,7 +199,7 @@ class QuvenGlassSearchMorphTest {
         }
     }
 
-    private fun render() {
+    private fun render(backdrop: QuvenGlassBackdrop? = null, appearance: QuvenGlassAppearance? = null) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f)) {
                 Box(Modifier.fillMaxSize()) {
@@ -195,7 +211,7 @@ class QuvenGlassSearchMorphTest {
                         height = Height.dp,
                         gap = Gap.dp,
                         heldCentre = DpOffset(50.dp, 20.dp),
-                        backdrop = null,
+                        backdrop = backdrop,
                         tabs = { Box(Modifier.fillMaxSize().testTag(TabsTag)) },
                         tabsFace = { BasicText("Tabs") },
                         heldGlyph = { Box(Modifier.size(20.dp).testTag(HeldTag)) },
@@ -204,6 +220,7 @@ class QuvenGlassSearchMorphTest {
                         minimized = minimized,
                         onExpand = { minimized = false },
                         searchModifier = Modifier.testTag(CircleTag),
+                        appearance = appearance,
                     )
                 }
             }

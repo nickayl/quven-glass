@@ -125,7 +125,8 @@ internal fun interface GlassPillSource {
     fun pill(size: Size): GlassPill?
 }
 
-private data class LiquidGlassElement(
+/** Places a [LiquidGlassNode] drawing a surface of Liquid Glass with the given look and reporting its appearance. */
+internal data class LiquidGlassElement(
     val backdrop: QuvenGlassBackdrop,
     val style: QuvenGlassStyle,
     val shape: Shape,

@@ -72,6 +72,7 @@ internal fun tabsFold(progress: Float, tabsWidth: Float, height: Float, inset: F
  * @param tabs Draws the capsule of tabs at rest.
  * @param tabsFace Draws the tabs' faces without the held tab's glyph.
  * @param heldGlyph Draws the held tab's glyph.
+ * @param appearance The appearance the folding capsule reports to the faces and the glyph, or `null` for one of its own.
  */
 @Composable
 internal fun FoldingTabs(
@@ -86,11 +87,12 @@ internal fun FoldingTabs(
     tabs: @Composable () -> Unit,
     tabsFace: @Composable RowScope.() -> Unit,
     heldGlyph: @Composable BoxScope.() -> Unit,
+    appearance: QuvenGlassAppearance? = null,
 ) {
     if (atRest) {
         tabs()
     } else {
-        BarItemButton(onPress, material, backdrop, reduceMotion) {
+        BarItemButton(onPress, material, backdrop, reduceMotion, appearance = appearance) {
             FoldingFace(fold, progress, heldCentre, tabsFace, heldGlyph)
         }
     }
@@ -104,6 +106,7 @@ internal fun FoldingTabs(
  * @param backdrop The backdrop the glass stands over.
  * @param reduceMotion Whether motion is reduced.
  * @param modifier Modifier applied to the item.
+ * @param appearance The appearance the glass reports to its content, or `null` for one of its own.
  * @param content Draws the item's content, filling it.
  */
 @Composable
@@ -113,6 +116,7 @@ internal fun BarItemButton(
     backdrop: QuvenGlassBackdrop?,
     reduceMotion: Boolean,
     modifier: Modifier = Modifier,
+    appearance: QuvenGlassAppearance? = null,
     content: @Composable () -> Unit,
 ) {
     GlassButton(
@@ -128,6 +132,7 @@ internal fun BarItemButton(
         backdrop = backdrop,
         reduceMotion = reduceMotion,
         interactionSource = null,
+        appearance = appearance,
     ) { content() }
 }
 
