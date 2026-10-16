@@ -210,19 +210,6 @@ internal class GlassMenuPreview(
     }
 
     /**
-     * Returns how far the lifted control moves so its menu, held inside the screen, stands [gap] beyond it: down from a
-     * menu above it, up from one below, as the system moves a card whose menu has no room beside it.
-     *
-     * @param lifted The lifted control's bounds.
-     * @param menu The open menu's bounds.
-     * @param gap The room between the two, in pixels.
-     * @return The distance to move the control down, negative to move it up.
-     */
-    fun shift(lifted: Rect, menu: Rect, gap: Float): Float =
-        if (menu.center.y < lifted.center.y) (menu.bottom + gap - lifted.top).coerceAtLeast(0f)
-        else (menu.top - gap - lifted.bottom).coerceAtMost(0f)
-
-    /**
      * Returns where the menu's glass grows out of the lifted control: a capsule half the control's width on the edge the
      * menu stands beyond, as the system's menu flows out of the card it lifts.
      *
@@ -239,6 +226,23 @@ internal class GlassMenuPreview(
         val top = if (above) lifted.top else lifted.bottom - seedHeight
         return Rect(left, top, left + width, top + seedHeight)
     }
+}
+
+/**
+ * Returns how far a lifted control moves so its menu, held inside the screen, stands [gap] beyond it: down from a menu
+ * above it, up from one below, as the system moves a card whose menu has no room beside it, never past the room's edges.
+ *
+ * @param lifted The lifted control's bounds.
+ * @param menu The open menu's bounds.
+ * @param gap The room between the two, in pixels.
+ * @param top The top edge of the room the system bars leave, in pixels.
+ * @param bottom The bottom edge of that room, in pixels.
+ * @return The distance to move the control down, negative to move it up.
+ */
+internal fun liftedShift(lifted: Rect, menu: Rect, gap: Float, top: Float, bottom: Float): Float {
+    val wanted = if (menu.center.y < lifted.center.y) (menu.bottom + gap - lifted.top).coerceAtLeast(0f)
+    else (menu.top - gap - lifted.bottom).coerceAtMost(0f)
+    return if (top - lifted.top <= bottom - lifted.bottom) wanted.coerceIn(top - lifted.top, bottom - lifted.bottom) else wanted
 }
 
 /**

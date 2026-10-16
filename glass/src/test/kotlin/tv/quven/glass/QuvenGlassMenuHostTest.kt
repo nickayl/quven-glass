@@ -307,4 +307,14 @@ class QuvenGlassMenuHostTest {
         assertTrue("the menu stands inside the room", bounded.y >= 40 + 16 && bounded.y + menu.height <= 900 - 16)
     }
 
+
+    @Test
+    fun aLiftedCardMovedAwayFromAMenuAboveIt_stopsAtTheBottomOfTheRoom() {
+        val card = androidx.compose.ui.geometry.Rect(100f, 900f, 400f, 1500f)
+        val menu = androidx.compose.ui.geometry.Rect(100f, 104f, 420f, 950f)
+
+        assertEquals(72f, liftedShift(card, menu, gap = 22f, top = 0f, bottom = 2000f), 0.01f)
+        assertEquals(26f, liftedShift(card, menu, gap = 22f, top = 72f, bottom = 1526f), 0.01f)
+    }
+
 }

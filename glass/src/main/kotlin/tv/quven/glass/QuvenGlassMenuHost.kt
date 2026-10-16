@@ -158,7 +158,8 @@ public fun QuvenGlassMenuHost(
         val held = preview?.lifted(anchor, metrics.previewLift)
         val inside = held?.let { liftedInside(it, roomTop, roomBottom) } ?: 0f
         val lifted = held?.translate(0f, inside) ?: anchor
-        val beside = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
+        val gapPx = preview?.let { with(density) { it.gap.toPx() } } ?: 0f
+        val beside = request.morph.openBounds?.let { menu -> preview?.let { liftedShift(lifted, menu, gapPx, roomTop, roomBottom) } } ?: 0f
         val seed = preview?.seed(lifted.translate(0f, beside), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
         val point = if (request.popover) popoverPoint(anchor, constraints.maxHeight.toFloat(), density) else null
@@ -167,7 +168,9 @@ public fun QuvenGlassMenuHost(
             point != null -> request.placement.around(anchor)
             else -> request.placement
         }.within(roomTop, roomBottom)
-        val roomHeight = with(density) { (roomBottom - roomTop).toDp() }
+        // A lifted card and its menu share the room: the menu scrolls rather than push the card under a bar.
+        val menuRoom = (roomBottom - roomTop - if (preview != null) lifted.height + gapPx else 0f).coerceAtLeast(0f)
+        val roomHeight = with(density) { menuRoom.toDp() }
         if (preview != null) LiftedPreview(preview, anchor, inside + beside, metrics.previewLift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
