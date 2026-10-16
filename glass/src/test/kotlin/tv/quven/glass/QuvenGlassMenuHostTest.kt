@@ -290,4 +290,21 @@ class QuvenGlassMenuHostTest {
         const val MenuTag = "menu"
         const val LongMenuRows = 40
     }
+
+    @Test
+    fun aMenuThatFitsBelowItsCardOnlyUnderTheNavigationBar_opensAboveIt_insideTheRoomTheBarsLeave() {
+        val density = Density(1f)
+        val placement = QuvenGlassMorphPlacement.belowWhereItFits(gap = 10.dp, edge = 16.dp)
+        val card = androidx.compose.ui.unit.IntRect(100, 400, 300, 700)
+        val menu = androidx.compose.ui.unit.IntSize(250, 250)
+        val window = androidx.compose.ui.unit.IntSize(1200, 1000)
+
+        val unbounded = placement.place(menu, card, window, density)
+        val bounded = placement.within(top = 40f, bottom = 900f).place(menu, card, window, density)
+
+        assertTrue("the plain placement reaches the bar", unbounded.y + menu.height > 900 - 16)
+        assertEquals(400 - 10 - 250, bounded.y)
+        assertTrue("the menu stands inside the room", bounded.y >= 40 + 16 && bounded.y + menu.height <= 900 - 16)
+    }
+
 }

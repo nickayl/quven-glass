@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
@@ -165,7 +166,8 @@ public fun QuvenGlassMenuHost(
             preview != null -> request.placement.around(lifted)
             point != null -> request.placement.around(anchor)
             else -> request.placement
-        }
+        }.within(roomTop, roomBottom)
+        val roomHeight = with(density) { (roomBottom - roomTop).toDp() }
         if (preview != null) LiftedPreview(preview, anchor, inside + beside, metrics.previewLift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
@@ -199,7 +201,7 @@ public fun QuvenGlassMenuHost(
                 .onFocusChanged { holdsFocus = it.hasFocus }
                 .focusProperties { onExit = { if (request.expanded) cancelFocusChange() } }
                 .focusGroup()
-                .heightIn(max = maxHeight - MenuEdge * 2)
+                .heightIn(max = roomHeight - MenuEdge * 2)
             if (request.popover) {
                 Column(panel, content = request.content)
             } else {
@@ -549,6 +551,23 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
 private fun QuvenGlassMorphPlacement.around(anchor: Rect): QuvenGlassMorphPlacement {
     val bounds = IntRect(anchor.left.roundToInt(), anchor.top.roundToInt(), anchor.right.roundToInt(), anchor.bottom.roundToInt())
     return QuvenGlassMorphPlacement { size, _, space, density -> place(size, bounds, space, density) }
+}
+
+/**
+ * Returns this placement measured inside the room between [top] and [bottom], so the glass stays clear of the system
+ * bars the host spans.
+ *
+ * @param top The top edge of the room, in the host's pixels.
+ * @param bottom The bottom edge of the room, in the host's pixels.
+ * @return The placement.
+ */
+internal fun QuvenGlassMorphPlacement.within(top: Float, bottom: Float): QuvenGlassMorphPlacement {
+    val shift = top.roundToInt()
+    return QuvenGlassMorphPlacement { size, anchor, space, density ->
+        val room = IntSize(space.width, (bottom.roundToInt() - shift).coerceIn(0, space.height))
+        val placed = place(size, anchor.translate(0, -shift), room, density)
+        IntOffset(placed.x, placed.y + shift)
+    }
 }
 
 /**
