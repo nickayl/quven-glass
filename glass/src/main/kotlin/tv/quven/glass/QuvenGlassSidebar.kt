@@ -7,11 +7,13 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -21,9 +23,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -39,6 +44,7 @@ import kotlin.math.roundToInt
  * @param style The material.
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
  * @param reduceMotion Whether motion is reduced: the sidebar then fades in and out where it stands.
+ * @param insets The window insets the sidebar keeps clear of, such as the status bar, before its own inset.
  * @param content The sidebar's content, such as its title and its entries.
  */
 @Composable
@@ -49,10 +55,11 @@ public fun QuvenGlassSidebar(
     style: QuvenGlassStyle = QuvenGlassStyle.Standard,
     backdrop: QuvenGlassBackdrop? = LocalQuvenGlassBackdrop.current,
     reduceMotion: Boolean = false,
+    insets: WindowInsets = NoInsets,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val presence = rememberSidebarPresence(shown, reduceMotion)
-    SidebarPane(presence, shown, modifier, width, style, backdrop, reduceMotion, content)
+    SidebarPane(presence, shown, modifier, width, style, backdrop, reduceMotion, insets, content)
 }
 
 /**
@@ -68,6 +75,8 @@ public fun QuvenGlassSidebar(
  * @param ground The colour under the sidebar, which its glass shows.
  * @param style The sidebar's material.
  * @param reduceMotion Whether motion is reduced: the sidebar then fades where it stands and the detail moves at once.
+ * @param sidebarInsets The window insets the sidebar keeps clear of, such as the status bar, before its own inset; the
+ * detail stays edge to edge and starts past the sidebar's start inset too.
  * @param sidebar The sidebar's content, such as its title and its entries.
  * @param detail The detail's content.
  */
@@ -79,6 +88,7 @@ public fun QuvenGlassSplitView(
     ground: Color = Color.Black,
     style: QuvenGlassStyle = QuvenGlassStyle.Standard,
     reduceMotion: Boolean = false,
+    sidebarInsets: WindowInsets = NoInsets,
     sidebar: @Composable BoxScope.() -> Unit,
     detail: @Composable BoxScope.() -> Unit,
 ) {
@@ -90,7 +100,8 @@ public fun QuvenGlassSplitView(
                 Modifier
                     .fillMaxSize()
                     .layout { measurable, constraints ->
-                        val start = detailStart(if (reduceMotion) (if (sidebarShown) 1f else 0f) else presence.value, (SidebarInset + sidebarWidth).roundToPx())
+                        val extent = (SidebarInset + sidebarWidth).roundToPx() + sidebarInsets.startOf(this, layoutDirection)
+                        val start = detailStart(if (reduceMotion) (if (sidebarShown) 1f else 0f) else presence.value, extent)
                         val width = (constraints.maxWidth - start).coerceAtLeast(0)
                         val placeable = measurable.measure(Constraints.fixed(width, constraints.maxHeight))
                         layout(constraints.maxWidth, constraints.maxHeight) { placeable.placeRelative(start, 0) }
@@ -99,7 +110,7 @@ public fun QuvenGlassSplitView(
             )
         }
         CompositionLocalProvider(LocalQuvenGlassBackdrop provides split) {
-            SidebarPane(presence, sidebarShown, Modifier, sidebarWidth, style, split, reduceMotion, sidebar)
+            SidebarPane(presence, sidebarShown, Modifier, sidebarWidth, style, split, reduceMotion, sidebarInsets, sidebar)
         }
     }
 }
@@ -130,6 +141,7 @@ private fun rememberSidebarPresence(shown: Boolean, reduceMotion: Boolean): Anim
  * @param style The material.
  * @param backdrop The backdrop the glass stands over, or `null` to draw the static material.
  * @param reduceMotion Whether motion is reduced.
+ * @param insets The window insets the sidebar keeps clear of.
  * @param content The sidebar's content.
  */
 @Composable
@@ -141,17 +153,23 @@ private fun SidebarPane(
     style: QuvenGlassStyle,
     backdrop: QuvenGlassBackdrop?,
     reduceMotion: Boolean,
+    insets: WindowInsets,
     content: @Composable BoxScope.() -> Unit,
 ) {
     if (presence.value <= 0f && !shown) return
+    val direction = LocalLayoutDirection.current
     Box(
         modifier
+            .windowInsetsPadding(insets)
             .padding(SidebarInset)
             .width(width)
             .fillMaxHeight()
             // The glass reads what lies under where it stands, so it travels by its layout, which mirrors for the
             // layout direction, not by its layer.
-            .offset { IntOffset(if (reduceMotion) 0 else -sidebarAway(presence.value, (width + SidebarInset).roundToPx()), 0) }
+            .offset {
+                val travel = (width + SidebarInset).roundToPx() + insets.startOf(this, direction)
+                IntOffset(if (reduceMotion) 0 else -sidebarAway(presence.value, travel), 0)
+            }
             .graphicsLayer { alpha = if (reduceMotion) presence.value else 1f }
             .liquidGlass(backdrop, remember(style) { style.forSidebars() }, RoundedCornerShape(SidebarCorner), null, reduceMotion, lift = null, pill = null),
         content = content,
@@ -163,7 +181,7 @@ private fun SidebarPane(
  * it leaves from beyond the edge.
  *
  * @param presence How far the sidebar has come in, from 0 to 1.
- * @param travel The sidebar's width and its inset, in pixels.
+ * @param travel The sidebar's width, its inset and the start inset it keeps clear of, in pixels.
  * @return The distance towards the start edge, in pixels.
  */
 internal fun sidebarAway(presence: Float, travel: Int): Int = (travel * (1f - presence)).roundToInt()
@@ -173,13 +191,24 @@ internal fun sidebarAway(presence: Float, travel: Int): Int = (travel * (1f - pr
  * which stands [extent] from the start edge in place.
  *
  * @param presence How far the sidebar has come in, from 0 to 1.
- * @param extent The sidebar's inset and width, in pixels.
+ * @param extent The sidebar's start inset, its own inset and its width, in pixels.
  * @return The detail's start, in pixels.
  */
 internal fun detailStart(presence: Float, extent: Int): Int = (extent * presence.coerceIn(0f, 1f)).roundToInt()
+
+/**
+ * Returns the inset at the start edge for [direction], the left one left to right and the right one right to left.
+ *
+ * @param density The density the inset is read in.
+ * @param direction The layout direction.
+ * @return The inset, in pixels.
+ */
+private fun WindowInsets.startOf(density: Density, direction: LayoutDirection): Int =
+    if (direction == LayoutDirection.Ltr) getLeft(density, direction) else getRight(density, direction)
 
 // Measured on the system's split view sidebar on an iPad.
 private val SidebarWidth = 320.dp
 private val SidebarInset = 10.dp
 private val SidebarCorner = 24.dp
 private val SidebarSpring = spring<Float>(dampingRatio = 1f, stiffness = 480f)
+private val NoInsets = WindowInsets(0, 0, 0, 0)

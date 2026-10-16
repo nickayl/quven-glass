@@ -268,11 +268,11 @@ ProvideQuvenGlassTextToolbar(backdrop = screen) {
 
 ## Sidebar
 
-`QuvenGlassSplitView` lays a sidebar of glass beside its detail, the way a split view does on an iPad. The sidebar is
-320 dp wide by default and floats 10 dp inside the parent's edges, and the detail starts at its end edge. Hide it, and
-the sidebar slides out past the start edge while the detail opens up on the same spring, which doesn't overshoot. And
-when you show it again it'll slide back in. Although the sidebar floats, it never covers the detail. What goes inside? Whatever you put there, such as a title, the entries and the button that hides it again, which
-you can draw however you like.
+`QuvenGlassSplitView` lays a sidebar of glass beside its detail, the way a split view does on an iPad. By default the
+sidebar is 320 dp wide and floats 10 dp inside the parent's edges, with the detail starting at its end edge. Hide it.
+The sidebar slides out past the start edge while the detail opens up on the same spring, which doesn't overshoot, and
+when you show it again it'll come back in exactly the way it left. It floats, yet it never covers the detail. What goes
+inside? Whatever you put there, such as a title, the entries and the button that hides it again, drawn however you like.
 
 ```kotlin
 QuvenGlassSplitView(
@@ -282,6 +282,10 @@ QuvenGlassSplitView(
     Library(Modifier.fillMaxSize())
 }
 ```
+
+Drawn edge to edge, the sidebar would reach up under the status bar. Pass `sidebarInsets = WindowInsets.systemBars` and
+it'll float 10 dp inside those bars instead, while the detail keeps running under them all the way to the window's
+edges and only starts a little further along, past the sidebar and past whatever inset the sidebar keeps at the start.
 
 Still, sometimes the sidebar should float over content that stays put, and `QuvenGlassSidebar` is that sidebar alone.
 

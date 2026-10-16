@@ -2,6 +2,7 @@ package tv.quven.glass
 
 import android.app.Application
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.CompositionLocalProvider
@@ -84,6 +85,32 @@ class QuvenGlassSidebarTest {
         assertEquals(165, detailStart(0.5f, 330))
         assertEquals(0, detailStart(0f, 330))
         assertEquals(330, detailStart(1.04f, 330))
+    }
+
+    @Test
+    fun aSplitViewsSidebar_keepsClearOfItsInsets_andTheDetailStartsPastThemButStaysEdgeToEdge() {
+        shown = true
+        compose.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                QuvenGlassSplitView(
+                    shown,
+                    Modifier.fillMaxSize(),
+                    sidebarInsets = WindowInsets(left = 30, top = 24, bottom = 16),
+                    sidebar = { BasicText(Title, Modifier.fillMaxSize()) },
+                    detail = { BasicText(Detail, Modifier.fillMaxSize()) },
+                )
+            }
+        }
+        compose.waitForIdle()
+
+        val sidebar = compose.onNodeWithText(Title).getUnclippedBoundsInRoot()
+        assertEquals(40f, sidebar.left.value, 0.5f)
+        assertEquals(34f, sidebar.top.value, 0.5f)
+        assertEquals(574f, sidebar.bottom.value, 0.5f)
+        val detail = compose.onNodeWithText(Detail).getUnclippedBoundsInRoot()
+        assertEquals(360f, detail.left.value, 0.5f)
+        assertEquals(0f, detail.top.value, 0.5f)
+        assertEquals(600f, detail.bottom.value, 0.5f)
     }
 
     @Test
