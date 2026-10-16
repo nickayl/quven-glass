@@ -299,3 +299,18 @@ private const val HeldGrowth = 1.06f
 
 /** Where a context menu stands: below its lifted card wherever it fits there, as the system's does, and above otherwise. */
 private val ContextMenuPlacement = QuvenGlassMorphPlacement.belowWhereItFits(gap = ContextMenuGap, edge = MenuEdge)
+
+/**
+ * Returns how far a lifted control moves to stand whole inside the room the system bars leave, as the system brings a card
+ * partly scrolled under them back into view before it opens its menu; one taller than the room keeps its top in view.
+ *
+ * @param lifted The lifted control's bounds.
+ * @param top The top edge of the room, in pixels.
+ * @param bottom The bottom edge of the room, in pixels.
+ * @return The distance to move the control down, negative to move it up; nothing where it stands inside already.
+ */
+internal fun liftedInside(lifted: Rect, top: Float, bottom: Float): Float = when {
+    lifted.top < top -> top - lifted.top
+    lifted.bottom > bottom -> (bottom - lifted.bottom).coerceAtLeast(top - lifted.top)
+    else -> 0f
+}

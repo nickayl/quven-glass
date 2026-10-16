@@ -5,6 +5,8 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -148,9 +150,15 @@ public fun QuvenGlassMenuHost(
         val preview = request.preview
         // A lifted control places its menu beside the whole of it, and the glass grows from a capsule on its edge.
         val density = LocalDensity.current
-        val lifted = preview?.lifted(anchor, metrics.previewLift) ?: anchor
-        val shift = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
-        val seed = preview?.seed(lifted.translate(0f, shift), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
+        val bars = WindowInsets.safeDrawing
+        // The host spans the window from its foot, so the bars' room is read from its own edges.
+        val roomTop = (bars.getTop(density) - placed.y).coerceAtLeast(0f)
+        val roomBottom = (constraints.maxHeight - bars.getBottom(density)).toFloat()
+        val held = preview?.lifted(anchor, metrics.previewLift)
+        val inside = held?.let { liftedInside(it, roomTop, roomBottom) } ?: 0f
+        val lifted = held?.translate(0f, inside) ?: anchor
+        val beside = request.morph.openBounds?.let { menu -> preview?.shift(lifted, menu, with(density) { preview.gap.toPx() }) } ?: 0f
+        val seed = preview?.seed(lifted.translate(0f, beside), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
         val point = if (request.popover) popoverPoint(anchor, constraints.maxHeight.toFloat(), density) else null
         val placement = when {
@@ -158,7 +166,7 @@ public fun QuvenGlassMenuHost(
             point != null -> request.placement.around(anchor)
             else -> request.placement
         }
-        if (preview != null) LiftedPreview(preview, anchor, shift, metrics.previewLift) { request.morph.progress.value }
+        if (preview != null) LiftedPreview(preview, anchor, inside + beside, metrics.previewLift) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
