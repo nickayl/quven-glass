@@ -48,6 +48,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.util.lerp
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -155,10 +156,13 @@ public fun QuvenGlassMenuHost(
         // The host spans the window from its foot, so the bars' room is read from its own edges.
         val roomTop = (bars.getTop(density) - placed.y).coerceAtLeast(0f)
         val roomBottom = (constraints.maxHeight - bars.getBottom(density)).toFloat()
-        val held = preview?.lifted(anchor, metrics.previewLift)
+        val gapPx = preview?.let { with(density) { it.gap.toPx() } } ?: 0f
+        // A card too tall to leave its menu room shrinks as it lifts, as the system's preview does, never the menu.
+        val full = preview?.lifted(anchor, metrics.previewLift)
+        val fit = full?.let { liftedFit(it.height, roomBottom - roomTop, gapPx, with(density) { MenuMinimumRoom.toPx() }) } ?: 1f
+        val held = full?.scaledAboutCentre(fit)
         val inside = held?.let { liftedInside(it, roomTop, roomBottom) } ?: 0f
         val lifted = held?.translate(0f, inside) ?: anchor
-        val gapPx = preview?.let { with(density) { it.gap.toPx() } } ?: 0f
         val beside = request.morph.openBounds?.let { menu -> preview?.let { liftedShift(lifted, menu, gapPx, roomTop, roomBottom) } } ?: 0f
         val seed = preview?.seed(lifted.translate(0f, beside), request.morph.openBounds, constraints.maxHeight.toFloat(), with(density) { SeedHeight.toPx() })
         // A popover grows from a drop of glass at its control's edge, which stays joined to it as its point.
@@ -171,7 +175,7 @@ public fun QuvenGlassMenuHost(
         // A lifted card and its menu share the room: the menu scrolls rather than push the card under a bar.
         val menuRoom = (roomBottom - roomTop - if (preview != null) lifted.height + gapPx else 0f).coerceAtLeast(0f)
         val roomHeight = with(density) { menuRoom.toDp() }
-        if (preview != null) LiftedPreview(preview, anchor, inside + beside, metrics.previewLift) { request.morph.progress.value }
+        if (preview != null) LiftedPreview(preview, anchor, inside + beside, metrics.previewLift, fit) { request.morph.progress.value }
         if (request.expanded) {
             BackHandler(onBack = request.onDismissRequest)
             Box(
@@ -527,10 +531,11 @@ internal fun popoverPoint(control: Rect, spaceHeight: Float, density: Density): 
  * @param anchor The control's bounds, in the host's coordinates.
  * @param shift How far the control moves down once lifted, negative to move up, to keep its menu beside it.
  * @param lift The share of its own size a control lifting itself lifts to.
+ * @param fit The share of that size it keeps so its menu has room, 1 where the room holds both.
  * @param progress Reads how far the menu has opened, from 0 to 1, past 1 while its spring overshoots.
  */
 @Composable
-private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float, lift: Float, progress: () -> Float) {
+private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float, lift: Float, fit: Float, progress: () -> Float) {
     Box(
         Modifier
             .fillMaxSize()
@@ -539,7 +544,7 @@ private fun LiftedPreview(preview: GlassMenuPreview, anchor: Rect, shift: Float,
                 drawRect(Color.Black, alpha = ScreenDim * shown)
                 val image = preview.imageSize(anchor)
                 translate(anchor.center.x - image.width / 2f, anchor.center.y - image.height / 2f + shift * shown) {
-                    scale(preview.scaleAt(progress(), preview.lift(lift), anchor), pivot = image.center) { drawLayer(preview.layer) }
+                    scale(preview.scaleAt(progress(), preview.lift(lift), anchor) * lerp(1f, fit, shown), pivot = image.center) { drawLayer(preview.layer) }
                 }
             },
     )
@@ -597,4 +602,30 @@ internal val PopoverGap = 14.dp
 /** The least room between a menu and the host's edges, which also caps a long menu's height. */
 internal val MenuEdge = 16.dp
 
+/** The least height a context menu keeps beside its lifted card: about three rows between its edges. */
+internal val MenuMinimumRoom = 176.dp
+
+/** The smallest share of its size a lifted card shrinks to for its menu. */
+private const val MinimumFit = 0.35f
+
+/**
+ * Returns the share of its size a lifted card keeps so that, with the gap, its menu has at least [minimumMenu] of the
+ * room: all of it where both fit, never less than [MinimumFit].
+ *
+ * @param height The lifted card's height.
+ * @param room The room's height.
+ * @param gap The gap between the card and its menu.
+ * @param minimumMenu The least height the menu keeps.
+ * @return The share, from [MinimumFit] to 1.
+ */
+internal fun liftedFit(height: Float, room: Float, gap: Float, minimumMenu: Float): Float =
+    if (height <= 0f) 1f else ((room - gap - minimumMenu) / height).coerceIn(MinimumFit, 1f)
+
 private val DefaultDropdownPlacement = QuvenGlassMorphPlacement.overAnchor(edge = MenuEdge)
+
+// The rectangle grown or shrunk to a share of its size about its centre.
+private fun Rect.scaledAboutCentre(share: Float): Rect {
+    val halfWidth = width * share / 2f
+    val halfHeight = height * share / 2f
+    return Rect(center.x - halfWidth, center.y - halfHeight, center.x + halfWidth, center.y + halfHeight)
+}
